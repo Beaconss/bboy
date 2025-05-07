@@ -80,7 +80,7 @@ private:
 	bool m_isHalted;
 
 	uint8 readMemory(const uint16 addr) const;
-	void writeMemory(const uint16 addr, const uint8 HL_value) const;
+	void writeMemory(const uint16 addr, const uint8 value) const;
 
 	bool handleInterrupts(); //returns whether an interrupt was serviced or not
 	void interruptRoutine();
