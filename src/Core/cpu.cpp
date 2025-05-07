@@ -2,7 +2,7 @@
 #include "gameboy.h"
 
 CPU::CPU(Gameboy& parent)
-	: cycleCounter{}
+	: m_cycleCounter{}
 	, m_parent{parent}
 	, m_iState{}
 	, m_currentInstr{nullptr}
@@ -37,6 +37,7 @@ void CPU::writeMemory(const uint16 addr, const uint8 value) const
 
 void CPU::cycle()
 {
+	++m_cycleCounter;//since instructions reset m_cycleCounter to 0 increment before the cpu cycle so its 1, then if the instruction is multi-cycle 2, 3...
 	if(handleInterrupts()) return;
 	if(m_isHalted) return; //return if isHalted is still true after handling the interrupts
 
@@ -81,7 +82,7 @@ bool CPU::handleInterrupts()
 					writeMemory(hardwareReg::IF, pendingInterrupts & ~(1 << i));
 					m_ime = false;
 					m_iState.x = i; //save i to be used in interruptRoutine as interrupt index
-					cycleCounter = 1; //set cycles counter to 1 before interrupt routine to be sure to do every cycle
+					m_cycleCounter = 1; //set cycles counter to 1 before interrupt routine to be sure to do every cycle
 					interruptRoutine();
 					return true;
 				}
@@ -93,7 +94,7 @@ bool CPU::handleInterrupts()
 
 void CPU::interruptRoutine()
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::interruptRoutine;
@@ -108,7 +109,7 @@ void CPU::interruptRoutine()
 		break;
 	case 5:
 		m_PC = interruptHandlerAddress[m_iState.x]; //m_iState.x is interrupt index
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
 	}
@@ -479,12 +480,12 @@ void CPU::LD_r_r2()
 	m_iState.y = m_IR & 0b111; //r2
 
 	m_registers[m_iState.x] = m_registers[m_iState.y];
-	cycleCounter = 0; //reset cycles counter at the end of each instruction
+	m_cycleCounter = 0; //reset cycles counter at the end of each instruction
 }
 
 void CPU::LD_r_n()
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::LD_r_n;
@@ -493,7 +494,7 @@ void CPU::LD_r_n()
 	case 2:
 		m_iState.y = readMemory(m_PC++); //n
 		m_registers[m_iState.x] = m_iState.y;
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr; //in multi cycles instructions reset currentInstr too
 		break;
 	}
@@ -501,7 +502,7 @@ void CPU::LD_r_n()
 
 void CPU::LD_r_HL()
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::LD_r_HL;
@@ -509,7 +510,7 @@ void CPU::LD_r_HL()
 		break;
 	case 2:
 		m_registers[m_iState.x] = readMemory(getHL());
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
 	}
@@ -517,7 +518,7 @@ void CPU::LD_r_HL()
 
 void CPU::LD_HL_r()
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::LD_HL_r;
@@ -525,7 +526,7 @@ void CPU::LD_HL_r()
 	case 2:
 		m_iState.x = m_IR & 0b111; //r
 		writeMemory(getHL(), m_registers[m_iState.x]);
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
 	}
@@ -533,7 +534,7 @@ void CPU::LD_HL_r()
 
 void CPU::LD_HL_n()
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::LD_HL_n;
@@ -543,7 +544,7 @@ void CPU::LD_HL_n()
 		break;
 	case 3:
 		writeMemory(getHL(), m_iState.x);
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
 	}
@@ -551,14 +552,14 @@ void CPU::LD_HL_n()
 
 void CPU::LD_A_BC()
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::LD_A_BC;
 		break;
 	case 2:
 		m_registers[A] = readMemory(getBC());
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
 	}
@@ -566,14 +567,14 @@ void CPU::LD_A_BC()
 
 void CPU::LD_A_DE()
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::LD_A_DE;
 		break;
 	case 2:
 		m_registers[A] = readMemory(getDE());
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
 	}
@@ -581,14 +582,14 @@ void CPU::LD_A_DE()
 
 void CPU::LD_BC_A()
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::LD_BC_A;
 		break;
 	case 2:
 		writeMemory(getBC(), m_registers[A]);
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
 	}
@@ -596,14 +597,14 @@ void CPU::LD_BC_A()
 
 void CPU::LD_DE_A()
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::LD_DE_A;
 		break;
 	case 2:
 		writeMemory(getDE(), m_registers[A]);
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
 	}
@@ -611,7 +612,7 @@ void CPU::LD_DE_A()
 
 void CPU::LD_A_nn()
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::LD_A_nn;
@@ -624,7 +625,7 @@ void CPU::LD_A_nn()
 		break;
 	case 4:
 		m_registers[A] = readMemory(m_iState.xx);
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
 	}
@@ -632,7 +633,7 @@ void CPU::LD_A_nn()
 
 void CPU::LD_nn_A()
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::LD_nn_A;
@@ -645,7 +646,7 @@ void CPU::LD_nn_A()
 		break;
 	case 4:
 		writeMemory(m_iState.xx, m_registers[A]);
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
 	}
@@ -653,14 +654,14 @@ void CPU::LD_nn_A()
 
 void CPU::LDH_A_C()
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::LDH_A_C;
 		break;
 	case 2:
 		m_registers[A] = readMemory(0xFF00 | m_registers[C]); //xx is 0xFF00 as the high byte + C as the low byte
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
 	}
@@ -668,14 +669,14 @@ void CPU::LDH_A_C()
 
 void CPU::LDH_C_A()
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::LDH_C_A;
 		break;
 	case 2:
 		writeMemory(0xFF00 | m_registers[C], m_registers[A]);
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
 	}
@@ -683,7 +684,7 @@ void CPU::LDH_C_A()
 
 void CPU::LDH_A_n()
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::LDH_A_n;
@@ -693,7 +694,7 @@ void CPU::LDH_A_n()
 		break;
 	case 3:
 		m_registers[A] = readMemory(0xFF00 | m_iState.x);
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
 	}
@@ -701,7 +702,7 @@ void CPU::LDH_A_n()
 
 void CPU::LDH_n_A()
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::LDH_n_A;
@@ -711,7 +712,7 @@ void CPU::LDH_n_A()
 		break;
 	case 3:
 		writeMemory(0xFF00 | m_iState.x, m_registers[A]);
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
 	}
@@ -719,7 +720,7 @@ void CPU::LDH_n_A()
 
 void CPU::LD_A_HLd()
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::LD_A_HLd;
@@ -727,7 +728,7 @@ void CPU::LD_A_HLd()
 	case 2:
 		m_registers[A] = readMemory(getHL());
 		if(--m_registers[L] == 0xFF) --m_registers[H]; //check for underflow
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
 	}
@@ -735,7 +736,7 @@ void CPU::LD_A_HLd()
 
 void CPU::LD_HLd_A()
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::LD_HLd_A;
@@ -743,7 +744,7 @@ void CPU::LD_HLd_A()
 	case 2:
 		writeMemory(getHL(), m_registers[A]);
 		if(--m_registers[L] == 0xFF) --m_registers[H];
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
 	}
@@ -751,7 +752,7 @@ void CPU::LD_HLd_A()
 
 void CPU::LD_A_HLi()
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::LD_A_HLi;
@@ -759,7 +760,7 @@ void CPU::LD_A_HLi()
 	case 2:
 		m_registers[A] = readMemory(getHL());
 		if(++m_registers[L] == 0x00) ++m_registers[H]; //check for overflow
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
 	}
@@ -767,7 +768,7 @@ void CPU::LD_A_HLi()
 
 void CPU::LD_HLi_A()
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::LD_HLi_A;
@@ -775,7 +776,7 @@ void CPU::LD_HLi_A()
 	case 2:
 		writeMemory(getHL(), m_registers[A]);
 		if(++m_registers[L] == 0x00) ++m_registers[H];
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
 	}
@@ -783,7 +784,7 @@ void CPU::LD_HLi_A()
 
 void CPU::LD_rr_nn()
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::LD_rr_nn;
@@ -801,7 +802,7 @@ void CPU::LD_rr_nn()
 		case HL: setHL(m_iState.xx); break;
 		case SP: m_SP = m_iState.xx; break;
 		}
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
 	}
@@ -809,7 +810,7 @@ void CPU::LD_rr_nn()
 
 void CPU::LD_nn_SP()
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::LD_nn_SP;
@@ -825,7 +826,7 @@ void CPU::LD_nn_SP()
 		break;
 	case 5:
 		writeMemory(m_iState.xx + 1, getMSB(m_SP));
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
 	}
@@ -833,14 +834,14 @@ void CPU::LD_nn_SP()
 
 void CPU::LD_SP_HL()
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::LD_SP_HL;
 		break;
 	case 2:
 		m_SP = getHL();
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
 	}
@@ -848,7 +849,7 @@ void CPU::LD_SP_HL()
 
 void CPU::PUSH_rr()
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::PUSH_rr;
@@ -875,7 +876,7 @@ void CPU::PUSH_rr()
 		case HL: writeMemory(m_SP, m_registers[L]); break;
 		case AF: writeMemory(m_SP, m_F & 0xF0); break;
 		}
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
 	}
@@ -883,7 +884,7 @@ void CPU::PUSH_rr()
 
 void CPU::POP_rr()
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::POP_rr;
@@ -904,7 +905,7 @@ void CPU::POP_rr()
 			m_F = getLSB(m_iState.xx) & 0xF0; 
 			break;
 		}
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
 	}
@@ -912,7 +913,7 @@ void CPU::POP_rr()
 
 void CPU::LD_HL_SP_e()
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::LD_HL_SP_e;
@@ -929,7 +930,7 @@ void CPU::LD_HL_SP_e()
 		setFH(((m_SP & 0xF) + (static_cast<uint8>(m_iState.e) & 0xF)) & 0x10);
 		setFC(m_iState.xx & 0x100);
 
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
 	}
@@ -946,12 +947,12 @@ void CPU::ADD_r()
 	setFC(m_iState.xx & 0x100);
 
 	m_registers[A] = static_cast<uint8>(m_iState.xx);
-	cycleCounter = 0;
+	m_cycleCounter = 0;
 }
 
 void CPU::ADD_HL()
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::ADD_HL;
@@ -966,7 +967,7 @@ void CPU::ADD_HL()
 		setFC(m_iState.xx & 0x100);
 
 		m_registers[A] = static_cast<uint8>(m_iState.xx);
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
 	}
@@ -974,7 +975,7 @@ void CPU::ADD_HL()
 
 void CPU::ADD_n()
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::ADD_n;
@@ -989,7 +990,7 @@ void CPU::ADD_n()
 		setFC(m_iState.xx & 0x100);
 
 		m_registers[A] = static_cast<uint8>(m_iState.xx);
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
 	}
@@ -1006,12 +1007,12 @@ void CPU::ADC_r()
 	setFC(m_iState.xx & 0x100);
 
 	m_registers[A] = static_cast<uint8>(m_iState.xx);
-	cycleCounter = 0;
+	m_cycleCounter = 0;
 }
 
 void CPU::ADC_HL()
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::ADC_HL;
@@ -1026,7 +1027,7 @@ void CPU::ADC_HL()
 		setFC(m_iState.xx & 0x100);
 
 		m_registers[A] = static_cast<uint8>(m_iState.xx);
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
 	}
@@ -1034,7 +1035,7 @@ void CPU::ADC_HL()
 
 void CPU::ADC_n()
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::ADC_n;
@@ -1049,7 +1050,7 @@ void CPU::ADC_n()
 		setFC(m_iState.xx & 0x100);
 
 		m_registers[A] = static_cast<uint8>(m_iState.xx);
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
 	}
@@ -1066,12 +1067,12 @@ void CPU::SUB_r()
 	setFC(m_registers[A] < m_registers[m_iState.x]);
 
 	m_registers[A] = m_iState.y;
-	cycleCounter = 0;
+	m_cycleCounter = 0;
 }
 
 void CPU::SUB_HL()
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::SUB_HL;
@@ -1086,7 +1087,7 @@ void CPU::SUB_HL()
 		setFC(m_registers[A] < m_iState.x);
 
 		m_registers[A] = m_iState.y;
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
 	}
@@ -1094,7 +1095,7 @@ void CPU::SUB_HL()
 
 void CPU::SUB_n()
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::SUB_n;
@@ -1109,7 +1110,7 @@ void CPU::SUB_n()
 		setFC(m_registers[A] < m_iState.x);
 
 		m_registers[A] = m_iState.y;
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
 	}
@@ -1126,12 +1127,12 @@ void CPU::SBC_r()
 	setFC((m_registers[A] - m_registers[m_iState.x] - getFC()) < 0);
 
 	m_registers[A] = m_iState.y;
-	cycleCounter = 0;
+	m_cycleCounter = 0;
 }
 
 void CPU::SBC_HL()
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::SBC_HL;
@@ -1146,7 +1147,7 @@ void CPU::SBC_HL()
 		setFC((m_registers[A] - m_iState.x - getFC()) < 0);
 
 		m_registers[A] = m_iState.y;
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
 	}
@@ -1154,7 +1155,7 @@ void CPU::SBC_HL()
 
 void CPU::SBC_n()
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::SBC_n;
@@ -1169,7 +1170,7 @@ void CPU::SBC_n()
 		setFC((m_registers[A] - m_iState.x - getFC()) < 0);
 
 		m_registers[A] = m_iState.y;
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
 	}
@@ -1183,12 +1184,12 @@ void CPU::CP_r()
 	setFN(true);
 	setFH((m_registers[A] & 0xF) < (m_registers[m_iState.x] & 0xF));
 	setFC(m_registers[A] < m_registers[m_iState.x]);
-	cycleCounter = 0;
+	m_cycleCounter = 0;
 }
 
 void CPU::CP_HL()
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::CP_HL;
@@ -1201,7 +1202,7 @@ void CPU::CP_HL()
 		setFH((m_registers[A] & 0xF) < (m_iState.x & 0xF));
 		setFC(m_registers[A] < m_iState.x);
 
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
 	}
@@ -1209,7 +1210,7 @@ void CPU::CP_HL()
 
 void CPU::CP_n()
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::CP_n;
@@ -1222,7 +1223,7 @@ void CPU::CP_n()
 		setFH((m_registers[A] & 0xF) < (m_iState.x & 0xF));
 		setFC(m_registers[A] < m_iState.x);
 
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
 	}
@@ -1237,12 +1238,12 @@ void CPU::INC_r()
 	setFH((m_registers[m_iState.x] & 0xF) == 0xF);
 
 	++m_registers[m_iState.x];
-	cycleCounter = 0;
+	m_cycleCounter = 0;
 }
 
 void CPU::INC_HL()
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::INC_HL;
@@ -1257,7 +1258,7 @@ void CPU::INC_HL()
 		setFN(false);
 		setFH((m_iState.x & 0xF) == 0xF);
 
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
 	}
@@ -1272,12 +1273,12 @@ void CPU::DEC_r()
 	setFH((m_registers[m_iState.x] & 0xF) == 0xF);
 
 	--m_registers[m_iState.x];
-	cycleCounter = 0;
+	m_cycleCounter = 0;
 }
 
 void CPU::DEC_HL()
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::DEC_HL;
@@ -1292,7 +1293,7 @@ void CPU::DEC_HL()
 		setFN(true);
 		setFH((m_iState.x & 0xF) == 0xF);
 
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
 	}
@@ -1308,12 +1309,12 @@ void CPU::AND_r()
 	setFN(false);
 	setFH(true);
 	setFC(false);
-	cycleCounter = 0;
+	m_cycleCounter = 0;
 }
 
 void CPU::AND_HL()
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::AND_HL;
@@ -1328,7 +1329,7 @@ void CPU::AND_HL()
 		setFH(true);
 		setFC(false);
 
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
 	}
@@ -1336,7 +1337,7 @@ void CPU::AND_HL()
 
 void CPU::AND_n()
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::AND_n;
@@ -1351,7 +1352,7 @@ void CPU::AND_n()
 		setFH(true);
 		setFC(false);
 
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
 	}
@@ -1367,12 +1368,12 @@ void CPU::OR_r()
 	setFN(false);
 	setFH(false);
 	setFC(false);
-	cycleCounter = 0;
+	m_cycleCounter = 0;
 }
 
 void CPU::OR_HL()
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::OR_HL;
@@ -1387,7 +1388,7 @@ void CPU::OR_HL()
 		setFH(false);
 		setFC(false);
 
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
 	}
@@ -1395,7 +1396,7 @@ void CPU::OR_HL()
 
 void CPU::OR_n()
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::OR_n;
@@ -1410,7 +1411,7 @@ void CPU::OR_n()
 		setFH(false);
 		setFC(false);
 
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
 	}
@@ -1426,12 +1427,12 @@ void CPU::XOR_r()
 	setFN(false);
 	setFH(false);
 	setFC(false);
-	cycleCounter = 0;
+	m_cycleCounter = 0;
 }
 
 void CPU::XOR_HL()
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::OR_HL;
@@ -1446,7 +1447,7 @@ void CPU::XOR_HL()
 		setFH(false);
 		setFC(false);
 
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
 	}
@@ -1454,7 +1455,7 @@ void CPU::XOR_HL()
 
 void CPU::XOR_n()
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::OR_n;
@@ -1469,7 +1470,7 @@ void CPU::XOR_n()
 		setFH(false);
 		setFC(false);
 
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
 	}
@@ -1495,7 +1496,7 @@ void CPU::DAA()
 
 	setFZ(m_registers[A] == 0);
 	setFH(false);
-	cycleCounter = 0;
+	m_cycleCounter = 0;
 }
 
 void CPU::CPL()
@@ -1503,7 +1504,7 @@ void CPU::CPL()
 	m_registers[A] = ~m_registers[A];
 	setFN(true);
 	setFH(true);
-	cycleCounter = 0;
+	m_cycleCounter = 0;
 }
 
 void CPU::CCF()
@@ -1511,7 +1512,7 @@ void CPU::CCF()
 	setFN(false);
 	setFH(false);
 	setFC(!getFC());
-	cycleCounter = 0;
+	m_cycleCounter = 0;
 }
 
 void CPU::SCF()
@@ -1519,12 +1520,12 @@ void CPU::SCF()
 	setFN(false);
 	setFH(false);
 	setFC(true);
-	cycleCounter = 0;
+	m_cycleCounter = 0;
 }
 
 void CPU::INC_rr()
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::INC_rr;
@@ -1538,7 +1539,7 @@ void CPU::INC_rr()
 		case HL: setHL(getHL() + 1); break;
 		case SP: if((++m_F & 0xF0) == 0x00) ++m_registers[A]; break;
 		}
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
 	}
@@ -1546,7 +1547,7 @@ void CPU::INC_rr()
 
 void CPU::DEC_rr()
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::DEC_rr;
@@ -1560,7 +1561,7 @@ void CPU::DEC_rr()
 		case HL: setHL(getHL() - 1); break;
 		case SP: if((--m_F & 0xF0) == 0x00) --m_registers[A]; break;
 		}
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
 	}
@@ -1568,7 +1569,7 @@ void CPU::DEC_rr()
 
 void CPU::ADD_HL_rr()
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::ADD_HL_rr;
@@ -1598,7 +1599,7 @@ void CPU::ADD_HL_rr()
 		setFH(((getHL() & 0xFFF) + (m_iState.xx & 0xFFF)) & 0x1000);
 		setFC(m_iState.xxx & 0x10000);
 
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
 	}
@@ -1606,7 +1607,7 @@ void CPU::ADD_HL_rr()
 
 void CPU::ADD_SP_e()
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::ADD_SP_e;
@@ -1625,7 +1626,7 @@ void CPU::ADD_SP_e()
 		setFC(m_iState.xx & 0x100);
 
 		m_SP = m_iState.xx;
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
 	}
@@ -1641,7 +1642,7 @@ void CPU::RLCA()
 	setFN(false);
 	setFH(false);
 	setFC(m_iState.x);
-	cycleCounter = 0;
+	m_cycleCounter = 0;
 }
 
 void CPU::RRCA()
@@ -1654,7 +1655,7 @@ void CPU::RRCA()
 	setFN(false);
 	setFH(false);
 	setFC(m_iState.x);
-	cycleCounter = 0;
+	m_cycleCounter = 0;
 }
 
 void CPU::RLA()
@@ -1667,7 +1668,7 @@ void CPU::RLA()
 	setFN(false);
 	setFH(false);
 	setFC(m_iState.x);
-	cycleCounter = 0;
+	m_cycleCounter = 0;
 }
 
 void CPU::RRA()
@@ -1680,12 +1681,12 @@ void CPU::RRA()
 	setFN(false);
 	setFH(false);
 	setFC(m_iState.x);
-	cycleCounter = 0;
+	m_cycleCounter = 0;
 }
 
 void CPU::RLC_r()
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::RLC_r;
@@ -1701,7 +1702,7 @@ void CPU::RLC_r()
 		setFH(false);
 		setFC(m_iState.y);
 
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
 	}
@@ -1709,7 +1710,7 @@ void CPU::RLC_r()
 
 void CPU::RLC_HL()
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::RLC_HL;
@@ -1730,7 +1731,7 @@ void CPU::RLC_HL()
 		setFH(false);
 		setFC(m_iState.y);
 
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
 	}
@@ -1738,7 +1739,7 @@ void CPU::RLC_HL()
 
 void CPU::RRC_r()
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::RRC_r;
@@ -1754,7 +1755,7 @@ void CPU::RRC_r()
 		setFH(false);
 		setFC(m_iState.y);
 
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
 	}
@@ -1762,7 +1763,7 @@ void CPU::RRC_r()
 
 void CPU::RRC_HL()
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::RRC_HL;
@@ -1783,7 +1784,7 @@ void CPU::RRC_HL()
 		setFH(false);
 		setFC(m_iState.y);
 
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
 	}
@@ -1791,7 +1792,7 @@ void CPU::RRC_HL()
 
 void CPU::RL_r()
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::RL_r;
@@ -1806,7 +1807,7 @@ void CPU::RL_r()
 		setFH(false);
 		setFC(m_iState.y);
 
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
 	}
@@ -1814,7 +1815,7 @@ void CPU::RL_r()
 
 void CPU::RL_HL()
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::RL_HL;
@@ -1835,7 +1836,7 @@ void CPU::RL_HL()
 		setFH(false);
 		setFC(m_iState.y);
 
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
 	}
@@ -1843,7 +1844,7 @@ void CPU::RL_HL()
 
 void CPU::RR_r()
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::RR_r;
@@ -1859,7 +1860,7 @@ void CPU::RR_r()
 		setFH(false);
 		setFC(m_iState.y);
 
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
 	}
@@ -1867,7 +1868,7 @@ void CPU::RR_r()
 
 void CPU::RR_HL()
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::RR_HL;
@@ -1888,7 +1889,7 @@ void CPU::RR_HL()
 		setFH(false);
 		setFC(m_iState.y);
 
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
 	}
@@ -1896,7 +1897,7 @@ void CPU::RR_HL()
 
 void CPU::SLA_r() //for some reason this doesnt actually do an arithmetic shift
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::SLA_r;
@@ -1912,7 +1913,7 @@ void CPU::SLA_r() //for some reason this doesnt actually do an arithmetic shift
 		setFH(false);
 		setFC(m_iState.y);
 
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
 	}
@@ -1920,7 +1921,7 @@ void CPU::SLA_r() //for some reason this doesnt actually do an arithmetic shift
 
 void CPU::SLA_HL()
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::SLA_HL;
@@ -1941,7 +1942,7 @@ void CPU::SLA_HL()
 		setFH(false);
 		setFC(m_iState.y);
 
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
 	}
@@ -1949,7 +1950,7 @@ void CPU::SLA_HL()
 
 void CPU::SRA_r() //this actually does an arithmetic shift
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::SRA_r;
@@ -1965,7 +1966,7 @@ void CPU::SRA_r() //this actually does an arithmetic shift
 		setFH(false);
 		setFC(m_iState.y);
 
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
 	}
@@ -1973,7 +1974,7 @@ void CPU::SRA_r() //this actually does an arithmetic shift
 
 void CPU::SRA_HL()
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::SRA_HL;
@@ -1994,14 +1995,14 @@ void CPU::SRA_HL()
 		setFH(false);
 		setFC(m_iState.y);
 
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 	}
 }
 
 void CPU::SWAP_r()
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::SWAP_r;
@@ -2016,14 +2017,14 @@ void CPU::SWAP_r()
 		setFH(false);
 		setFC(false);
 
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 	}
 }
 
 void CPU::SWAP_HL()
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::SWAP_HL;
@@ -2043,7 +2044,7 @@ void CPU::SWAP_HL()
 		setFH(false);
 		setFC(false);
 
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
 	}
@@ -2051,7 +2052,7 @@ void CPU::SWAP_HL()
 
 void CPU::SRL_r()
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::SRL_r;
@@ -2067,7 +2068,7 @@ void CPU::SRL_r()
 		setFH(false);
 		setFC(m_iState.y);
 
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
 	}
@@ -2075,7 +2076,7 @@ void CPU::SRL_r()
 
 void CPU::SRL_HL()
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::SRL_HL;
@@ -2096,7 +2097,7 @@ void CPU::SRL_HL()
 		setFH(false);
 		setFC(m_iState.y);
 
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
 	}
@@ -2104,7 +2105,7 @@ void CPU::SRL_HL()
 
 void CPU::BIT_b_r()
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::BIT_b_r;
@@ -2117,14 +2118,14 @@ void CPU::BIT_b_r()
 		setFN(false);
 		setFH(true);
 
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 	}
 }
 
 void CPU::BIT_b_HL()
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::BIT_b_HL;
@@ -2139,14 +2140,14 @@ void CPU::BIT_b_HL()
 		setFN(false);
 		setFH(true);
 
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 	}
 }
 
 void CPU::RES_b_r()
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::RES_b_r;
@@ -2156,14 +2157,14 @@ void CPU::RES_b_r()
 		m_iState.y = m_IR & 0b111; //r
 
 		m_registers[m_iState.y] &= ~(1 << m_iState.x);
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 	}
 }
 
 void CPU::RES_b_HL()
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::RES_b_HL;
@@ -2177,14 +2178,14 @@ void CPU::RES_b_HL()
 		m_iState.y = (m_IR >> 3) & 0b111; //b
 
 		writeMemory(getHL(), m_iState.x & ~(1 << m_iState.y));
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 	}
 }
 
 void CPU::SET_b_r()
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::SET_b_r;
@@ -2194,14 +2195,14 @@ void CPU::SET_b_r()
 		m_iState.y = m_IR & 0b111; //r
 
 		m_registers[m_iState.y] |= (1 << m_iState.x);
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 	}
 }
 
 void CPU::SET_b_HL()
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::SET_b_HL;
@@ -2215,14 +2216,14 @@ void CPU::SET_b_HL()
 		m_iState.y = (m_IR >> 3) & 0b111; //b
 
 		writeMemory(getHL(), m_iState.x | (1 << m_iState.y));
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 	}
 }
 
 void CPU::JP_nn()
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::JP_nn;
@@ -2235,7 +2236,7 @@ void CPU::JP_nn()
 		break;
 	case 4:
 		m_PC = m_iState.xx;
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 	}
 }
@@ -2243,12 +2244,12 @@ void CPU::JP_nn()
 void CPU::JP_HL()
 {
 	m_PC = getHL();
-	cycleCounter = 0;
+	m_cycleCounter = 0;
 }
 
 void CPU::JP_cc_nn()
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::JP_cc_nn;
@@ -2271,19 +2272,19 @@ void CPU::JP_cc_nn()
 		if(m_iState.y) m_PC = m_iState.xx;
 		else
 		{
-			cycleCounter = 0;
+			m_cycleCounter = 0;
 			m_currentInstr = nullptr;
 		}
 		break;
 	case 4:
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 	}
 }
 
 void CPU::JR_e()
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::JR_e;
@@ -2293,14 +2294,14 @@ void CPU::JR_e()
 		break;
 	case 3:
 		m_PC += m_iState.e;
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 	}
 }
 
 void CPU::JR_cc_e()
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::JR_cc_e;
@@ -2320,12 +2321,12 @@ void CPU::JR_cc_e()
 		if(m_iState.y) m_PC += m_iState.e;
 		else 
 		{
-			cycleCounter = 0;
+			m_cycleCounter = 0;
 			m_currentInstr = nullptr;
 		}
 		break;
 	case 3:
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
 	}
@@ -2333,7 +2334,7 @@ void CPU::JR_cc_e()
 
 void CPU::CALL_nn()
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::CALL_nn;
@@ -2352,7 +2353,7 @@ void CPU::CALL_nn()
 	case 6:
 		writeMemory(--m_SP, getLSB(m_PC));
 		m_PC = m_iState.xx;
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
 	}
@@ -2360,7 +2361,7 @@ void CPU::CALL_nn()
 
 void CPU::CALL_cc_nn()
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::CALL_cc_nn;
@@ -2382,7 +2383,7 @@ void CPU::CALL_cc_nn()
 
 		if(!m_iState.y)
 		{
-			cycleCounter = 0;
+			m_cycleCounter = 0;
 			m_currentInstr = nullptr;
 		}
 		break;
@@ -2394,7 +2395,7 @@ void CPU::CALL_cc_nn()
 	case 6:
 		writeMemory(--m_SP, getLSB(m_PC));
 		m_PC = m_iState.xx;
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
 	}
@@ -2402,7 +2403,7 @@ void CPU::CALL_cc_nn()
 
 void CPU::RET()
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::RET;
@@ -2415,7 +2416,7 @@ void CPU::RET()
 		break;
 	case 4:
 		m_PC = (m_iState.y << 8) | m_iState.x;
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
 	}
@@ -2423,7 +2424,7 @@ void CPU::RET()
 
 void CPU::RET_cc()
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::RET_cc;
@@ -2441,7 +2442,7 @@ void CPU::RET_cc()
 
 		if(!m_iState.y)
 		{
-			cycleCounter = 0;
+			m_cycleCounter = 0;
 			m_currentInstr = nullptr;
 		}
 		break;
@@ -2453,7 +2454,7 @@ void CPU::RET_cc()
 		break;
 	case 5:
 		m_PC = (m_iState.y << 8) | m_iState.x;
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
 	}
@@ -2461,7 +2462,7 @@ void CPU::RET_cc()
 
 void CPU::RETI()
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::RETI;
@@ -2475,7 +2476,7 @@ void CPU::RETI()
 	case 4:
 		m_PC = (m_iState.y << 8) | m_iState.x;
 		m_ime = true;
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
 	}
@@ -2483,7 +2484,7 @@ void CPU::RETI()
 
 void CPU::RST_n()
 {
-	switch(cycleCounter)
+	switch(m_cycleCounter)
 	{
 	case 1:
 		m_currentInstr = &CPU::RST_n;
@@ -2498,7 +2499,7 @@ void CPU::RST_n()
 		m_iState.x = (m_IR >> 3) & 0b111; //n
 		
 		m_PC = (0x00 << 8) | m_iState.x;
-		cycleCounter = 0;
+		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
 	}
@@ -2509,13 +2510,13 @@ void CPU::HALT()
 	m_isHalted = true;
 	if(!m_ime && (readMemory(hardwareReg::IF) & readMemory(hardwareReg::IE)) != 0) ++m_PC; //HALT bug(dont know if its correct)
 
-	cycleCounter = 0;
+	m_cycleCounter = 0;
 }
 
 void CPU::STOP()
 {
 	//TODO AOI
-	cycleCounter = 0;
+	m_cycleCounter = 0;
 }
 
 void CPU::DI()
@@ -2523,16 +2524,16 @@ void CPU::DI()
 	m_ime = false;
 	m_imeEnableRequested = false;
 	m_imeEnableAfterNextInstruction = false;
-	cycleCounter = 0;
+	m_cycleCounter = 0;
 }
 
 void CPU::EI()
 {
 	m_imeEnableRequested = true;
-	cycleCounter = 0;
+	m_cycleCounter = 0;
 }
 
 void CPU::NOP()
 {
-	cycleCounter = 0; //nop
+	m_cycleCounter = 0; //nop
 }

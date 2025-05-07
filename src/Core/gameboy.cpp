@@ -10,14 +10,12 @@ Gameboy::Gameboy()
 
 void Gameboy::cycle() //1 machine cycle
 {
-	//TODO: the cycle counter right
-	++this->m_cycleCounter; //this is used to update things every x cycles
-	++m_cpu.cycleCounter; //since instructions reset cycleCounter to 0 increment before the cpu cycle so its 1, then if the instruction is multi-cycle 2, 3...
+	++m_cycleCounter; //this is used to update things every x cycles
 	m_cpu.cycle();
 
 	//...
 	m_timers.update(m_cycleCounter);
-	if(m_cycleCounter % 2 == 0) m_cycleCounter = 0;
+	if(m_cycleCounter % 256 == 0) m_cycleCounter = 0;
 }
 
 uint8 Gameboy::readMemory(const uint16 addr) const

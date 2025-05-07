@@ -35,5 +35,7 @@ private:
 	uint8 m_tima; //timer counter
 	uint8 m_tma; //timer modulo
 	uint8 m_tac; //timer control
+
+	bool m_updateTimaNextCycle; 
 };
 

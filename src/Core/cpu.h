@@ -13,9 +13,6 @@ class CPU
 {
 public:
 	CPU(Gameboy& gameboy);
-
-	int cycleCounter;
-
 	void cycle();
 
 private:
@@ -65,6 +62,7 @@ private:
 	Gameboy& m_parent;
 	IState m_iState;
 	void (CPU::*m_currentInstr)();
+	int m_cycleCounter;
 
 	//register file:
 	uint16 m_PC; //program counter
