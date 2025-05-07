@@ -3,40 +3,38 @@
 Gameboy::Gameboy()
 	: m_cpu{*this}
 	, m_memory{}
-	, m_timers{}
+	, m_timers{*this}
+	, m_cycleCounter{}
 {
 }
 
 void Gameboy::cycle() //1 machine cycle
 {
-	++m_cpu.cyclesCounter; //since instructions reset cyclesCounter to 0 increment before the cpu cycle so its 1, then if the instruction is multi-cycle 2, 3...
+	//TODO: the cycle counter right
+	++this->m_cycleCounter; //this is used to update things every x cycles
+	++m_cpu.cycleCounter; //since instructions reset cycleCounter to 0 increment before the cpu cycle so its 1, then if the instruction is multi-cycle 2, 3...
 	m_cpu.cycle();
 
 	//...
+	m_timers.update(m_cycleCounter);
+	if(m_cycleCounter % 2 == 0) m_cycleCounter = 0;
 }
 
-uint8 Gameboy::readMemory(uint16 addr)
+uint8 Gameboy::readMemory(const uint16 addr) const
 {
 	return m_memory[addr];
 }
 
-void Gameboy::writeMemory(uint16 addr, uint8 value)
+void Gameboy::writeMemory(const uint16 addr, const uint8 value)
 {
 	using namespace hardwareReg;
 	switch(addr)
 	{
-	//case 0xFF04: case 0xFF05: case 0xFF06: case 0xFF07:
+	case DIV: m_timers.write(Timers::DIV, value); break;
+	case TIMA: m_timers.write(Timers::TIMA, value); break;
+	case TMA: m_timers.write(Timers::TMA, value); break;
+	case TAC: m_timers.write(Timers::TAC, value); break;
 	case IF: m_memory[addr] = value & 0xF0; break;
 	default: m_memory[addr] = value; break;
 	}
-}
-
-uint8 CPU::readMemory(uint16 addr)
-{
-	return m_gameboy.readMemory(addr);
-}
-
-void CPU::writeMemory(uint16 addr, uint8 value)
-{
-	m_gameboy.writeMemory(addr, value);
 }

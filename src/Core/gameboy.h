@@ -13,11 +13,13 @@ public:
 
 	void cycle();
 
-	uint8 readMemory(uint16 addr);
-	void writeMemory(uint16 addr, uint8 valueHL);
+	uint8 readMemory(const uint16 addr) const;
+	void writeMemory(const uint16 addr, const uint8 value);
 
 private:
 	CPU m_cpu;
 	std::array<uint8, 0xFFFF> m_memory;
 	Timers m_timers;
+
+	int m_cycleCounter;
 };

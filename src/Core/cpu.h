@@ -5,6 +5,8 @@
 #include <iostream>
 #include <array>
 
+//TODO: put const on every function that can have it
+
 class Gameboy;
 
 class CPU
@@ -12,7 +14,7 @@ class CPU
 public:
 	CPU(Gameboy& gameboy);
 
-	int cyclesCounter;
+	int cycleCounter;
 
 	void cycle();
 
@@ -52,17 +54,17 @@ private:
 
 	enum Condition
 	{
-		NotZero = 0, 
-		Zero = 1,  
-		NotCarry = 2,
-		Carry = 3,
+		NOT_ZERO = 0, 
+		ZERO = 1,  
+		NOT_CARRY = 2,
+		CARRY = 3,
 	};
 
 	static constexpr std::array<uint8, 5> interruptHandlerAddress {0x40, 0x48, 0x50, 0x58, 0x60};
 
-	Gameboy& m_gameboy; //parent
+	Gameboy& m_parent;
 	IState m_iState;
-	InstructionHandler m_currentInstr;
+	void (CPU::*m_currentInstr)();
 
 	//register file:
 	uint16 m_PC; //program counter
@@ -77,9 +79,8 @@ private:
 	bool m_imeEnableAfterNextInstruction;
 	bool m_isHalted;
 
-	//definitions of these two is in gameboy.cpp
-	uint8 readMemory(uint16 addr); 
-	void writeMemory(uint16 addr, uint8 HL_value);
+	uint8 readMemory(const uint16 addr) const;
+	void writeMemory(const uint16 addr, const uint8 HL_value) const;
 
 	bool handleInterrupts(); //returns whether an interrupt was serviced or not
 	void interruptRoutine();
@@ -87,21 +88,21 @@ private:
 	void execute();
 
 	//utilities:
-	uint8 getMSB(uint16 in);
-	uint8 getLSB(uint16 in);
+	uint8 getMSB(const uint16 in) const;
+	uint8 getLSB(const uint16 in) const;
 
-	uint16 getBC();
-	uint16 getDE();
-	uint16 getHL();
-	void setBC(uint16 BC);
-	void setDE(uint16 DE);
-	void setHL(uint16 HL);
+	uint16 getBC() const;
+	uint16 getDE() const;
+	uint16 getHL() const;
+	void setBC(const uint16 BC);
+	void setDE(const uint16 DE);
+	void setHL(const uint16 HL);
 
 	//flags functions:
-	bool getFZ();
-	bool getFN();
-	bool getFH();
-	bool getFC();
+	bool getFZ() const;
+	bool getFN() const;
+	bool getFH() const;
+	bool getFC() const;
 	void setFZ(bool z);
 	void setFN(bool n);
 	void setFH(bool h);
