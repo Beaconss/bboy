@@ -8,6 +8,7 @@ Gameboy::Gameboy()
 {
 }
 
+//in the main loop I will batch a number of these and render afterwards
 void Gameboy::cycle() //1 machine cycle
 {
 	++m_cycleCounter; //this is used to update things every x cycles
@@ -20,7 +21,8 @@ void Gameboy::cycle() //1 machine cycle
 
 uint8 Gameboy::readMemory(const uint16 addr) const
 {
-	return m_memory[addr];
+	//TODO: account for memory regions
+	return m_memory[addr]; 
 }
 
 void Gameboy::writeMemory(const uint16 addr, const uint8 value)

@@ -6,7 +6,7 @@ CPU::CPU(Gameboy& parent)
 	, m_parent{parent}
 	, m_iState{}
 	, m_currentInstr{nullptr}
-	, m_PC{}
+	, m_PC{0x00}
 	, m_SP{}
 	, m_registers{}
 	, m_F{0xB0}

@@ -18,7 +18,7 @@ public:
 
 private:
 	CPU m_cpu;
-	std::array<uint8, 0xFFFF> m_memory;
+	std::array<uint8, 0xFFFF + 1> m_memory;
 	Timers m_timers;
 
 	int m_cycleCounter;
