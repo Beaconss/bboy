@@ -1,8 +1,11 @@
 #include "Core/gameboy.h"
 
+#include <SDL3/SDL.h>
+#include <SDL3/SDL_main.h>
+
 #include <iostream>
 
-int main() 
+int main(int argc, char* argv[])
 {
 	/*
 	constexpr int test{1048576 * 60};
@@ -12,4 +15,5 @@ int main()
 		gb.cycle();
 	}
 	*/
+	return 0;
 }

@@ -2,6 +2,7 @@
 #include "../type_alias.h"
 #include "../hardware_registers.h"
 #include "cpu.h"
+#include "ppu.h"
 #include "timers.h"
 
 #include <array>
@@ -18,8 +19,7 @@ public:
 
 private:
 	CPU m_cpu;
+	PPU m_ppu;
 	std::array<uint8, 0xFFFF + 1> m_memory;
 	Timers m_timers;
-
-	int m_cycleCounter;
 };

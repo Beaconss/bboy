@@ -59,17 +59,10 @@ private:
 
 	static constexpr std::array<uint8, 5> interruptHandlerAddress {0x40, 0x48, 0x50, 0x58, 0x60};
 
-	Gameboy& m_parent;
+	Gameboy& m_gameboy;
 	IState m_iState;
-	void (CPU::*m_currentInstr)();
+	void (CPU::*m_currentInstr)(); //pointer to a CPU function that returns void and take no parameters called m_currentInstr
 	int m_cycleCounter;
-
-	//register file:
-	uint16 m_PC; //program counter
-	uint16 m_SP; //stack pointer
-	std::array<uint8, 8> m_registers; //general purpose registers
-	uint8 m_F; //flags register
-	uint8 m_IR; //instruction register
 
 	//interrupt things
 	bool m_ime; //interrupt master enabler
@@ -77,8 +70,12 @@ private:
 	bool m_imeEnableAfterNextInstruction;
 	bool m_isHalted;
 
-	uint8 readMemory(const uint16 addr) const;
-	void writeMemory(const uint16 addr, const uint8 value) const;
+	//register file:
+	uint16 m_PC; //program counter
+	uint16 m_SP; //stack pointer
+	std::array<uint8, 8> m_registers; //general purpose registers
+	uint8 m_F; //flags register
+	uint8 m_IR; //instruction register
 
 	bool handleInterrupts(); //returns whether an interrupt was serviced or not
 	void interruptRoutine();

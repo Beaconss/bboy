@@ -1,20 +1,20 @@
-#include "CPU.h"
+#include "cpu.h"
 #include "gameboy.h"
 
 CPU::CPU(Gameboy& parent)
-	: m_cycleCounter{}
-	, m_parent{parent}
+	: m_gameboy{parent}
 	, m_iState{}
 	, m_currentInstr{nullptr}
+	, m_cycleCounter{}
+	, m_ime{false}
+	, m_imeEnableRequested{false}
+	, m_imeEnableAfterNextInstruction{false}
+	, m_isHalted{false}
 	, m_PC{0x00}
 	, m_SP{}
 	, m_registers{}
 	, m_F{0xB0}
 	, m_IR{}
-	, m_ime{false}
-	, m_imeEnableRequested{false}
-	, m_imeEnableAfterNextInstruction{false}
-	, m_isHalted{false}
 {
 	m_registers[B] = 0;
 	m_registers[C] = 0x13;
@@ -23,16 +23,6 @@ CPU::CPU(Gameboy& parent)
 	m_registers[H] = 1;
 	m_registers[L] = 0x4D;
 	m_registers[A] = 1;
-}
-
-uint8 CPU::readMemory(const uint16 addr) const
-{
-	return m_parent.readMemory(addr);
-}
-
-void CPU::writeMemory(const uint16 addr, const uint8 value) const
-{
-	m_parent.writeMemory(addr, value);
 }
 
 void CPU::cycle()
@@ -69,7 +59,7 @@ bool CPU::handleInterrupts()
 		return true; //dont know if this should return true even if interruptRoutine finished
 	}
 
-	uint8 pendingInterrupts = readMemory(hardwareReg::IF) & readMemory(hardwareReg::IE);
+	uint8 pendingInterrupts = m_gameboy.readMemory(hardwareReg::IF) & m_gameboy.readMemory(hardwareReg::IE);
 	if(pendingInterrupts)
 	{
 		m_isHalted = false; //even if m_ime is false exit halt
@@ -79,7 +69,7 @@ bool CPU::handleInterrupts()
 			{
 				if(pendingInterrupts & (1 << i))
 				{
-					writeMemory(hardwareReg::IF, pendingInterrupts & ~(1 << i));
+					m_gameboy.writeMemory(hardwareReg::IF, pendingInterrupts & ~(1 << i));
 					m_ime = false;
 					m_iState.x = i; //save i to be used in interruptRoutine as interrupt index
 					m_cycleCounter = 1; //set cycles counter to 1 before interrupt routine to be sure to do every cycle
@@ -102,10 +92,10 @@ void CPU::interruptRoutine()
 	case 2:
 		break;
 	case 3:
-		writeMemory(--m_SP, getMSB(m_PC));
+		m_gameboy.writeMemory(--m_SP, getMSB(m_PC));
 		break;
 	case 4:
-		writeMemory(--m_SP, getLSB(m_PC));
+		m_gameboy.writeMemory(--m_SP, getLSB(m_PC));
 		break;
 	case 5:
 		m_PC = interruptHandlerAddress[m_iState.x]; //m_iState.x is interrupt index
@@ -117,7 +107,7 @@ void CPU::interruptRoutine()
 
 void CPU::fetch()
 {
-	m_IR = readMemory(m_PC++);
+	m_IR = m_gameboy.readMemory(m_PC++);
 }
 
 void CPU::execute()
@@ -492,7 +482,7 @@ void CPU::LD_r_n()
 		m_iState.x = (m_IR >> 3) & 0b111; //r
 		break;
 	case 2:
-		m_iState.y = readMemory(m_PC++); //n
+		m_iState.y = m_gameboy.readMemory(m_PC++); //n
 		m_registers[m_iState.x] = m_iState.y;
 		m_cycleCounter = 0;
 		m_currentInstr = nullptr; //in multi cycles instructions reset currentInstr too
@@ -509,7 +499,7 @@ void CPU::LD_r_HL()
 		m_iState.x = (m_IR >> 3) & 0b111; //r
 		break;
 	case 2:
-		m_registers[m_iState.x] = readMemory(getHL());
+		m_registers[m_iState.x] = m_gameboy.readMemory(getHL());
 		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
@@ -525,7 +515,7 @@ void CPU::LD_HL_r()
 		break;
 	case 2:
 		m_iState.x = m_IR & 0b111; //r
-		writeMemory(getHL(), m_registers[m_iState.x]);
+		m_gameboy.writeMemory(getHL(), m_registers[m_iState.x]);
 		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
@@ -540,10 +530,10 @@ void CPU::LD_HL_n()
 		m_currentInstr = &CPU::LD_HL_n;
 		break;
 	case 2:
-		m_iState.x = readMemory(m_PC++); //n
+		m_iState.x = m_gameboy.readMemory(m_PC++); //n
 		break;
 	case 3:
-		writeMemory(getHL(), m_iState.x);
+		m_gameboy.writeMemory(getHL(), m_iState.x);
 		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
@@ -558,7 +548,7 @@ void CPU::LD_A_BC()
 		m_currentInstr = &CPU::LD_A_BC;
 		break;
 	case 2:
-		m_registers[A] = readMemory(getBC());
+		m_registers[A] = m_gameboy.readMemory(getBC());
 		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
@@ -573,7 +563,7 @@ void CPU::LD_A_DE()
 		m_currentInstr = &CPU::LD_A_DE;
 		break;
 	case 2:
-		m_registers[A] = readMemory(getDE());
+		m_registers[A] = m_gameboy.readMemory(getDE());
 		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
@@ -588,7 +578,7 @@ void CPU::LD_BC_A()
 		m_currentInstr = &CPU::LD_BC_A;
 		break;
 	case 2:
-		writeMemory(getBC(), m_registers[A]);
+		m_gameboy.writeMemory(getBC(), m_registers[A]);
 		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
@@ -603,7 +593,7 @@ void CPU::LD_DE_A()
 		m_currentInstr = &CPU::LD_DE_A;
 		break;
 	case 2:
-		writeMemory(getDE(), m_registers[A]);
+		m_gameboy.writeMemory(getDE(), m_registers[A]);
 		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
@@ -618,13 +608,13 @@ void CPU::LD_A_nn()
 		m_currentInstr = &CPU::LD_A_nn;
 		break;
 	case 2:
-		m_iState.xx = readMemory(m_PC++);
+		m_iState.xx = m_gameboy.readMemory(m_PC++);
 		break;
 	case 3:
-		m_iState.xx |= readMemory(m_PC++) << 8; //nn
+		m_iState.xx |= m_gameboy.readMemory(m_PC++) << 8; //nn
 		break;
 	case 4:
-		m_registers[A] = readMemory(m_iState.xx);
+		m_registers[A] = m_gameboy.readMemory(m_iState.xx);
 		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
@@ -639,13 +629,13 @@ void CPU::LD_nn_A()
 		m_currentInstr = &CPU::LD_nn_A;
 		break;
 	case 2:
-		m_iState.xx = readMemory(m_PC++);
+		m_iState.xx = m_gameboy.readMemory(m_PC++);
 		break;
 	case 3:
-		m_iState.xx |= readMemory(m_PC++) << 8; //nn
+		m_iState.xx |= m_gameboy.readMemory(m_PC++) << 8; //nn
 		break;
 	case 4:
-		writeMemory(m_iState.xx, m_registers[A]);
+		m_gameboy.writeMemory(m_iState.xx, m_registers[A]);
 		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
@@ -660,7 +650,7 @@ void CPU::LDH_A_C()
 		m_currentInstr = &CPU::LDH_A_C;
 		break;
 	case 2:
-		m_registers[A] = readMemory(0xFF00 | m_registers[C]); //xx is 0xFF00 as the high byte + C as the low byte
+		m_registers[A] = m_gameboy.readMemory(0xFF00 | m_registers[C]); //xx is 0xFF00 as the high byte + C as the low byte
 		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
@@ -675,7 +665,7 @@ void CPU::LDH_C_A()
 		m_currentInstr = &CPU::LDH_C_A;
 		break;
 	case 2:
-		writeMemory(0xFF00 | m_registers[C], m_registers[A]);
+		m_gameboy.writeMemory(0xFF00 | m_registers[C], m_registers[A]);
 		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
@@ -690,10 +680,10 @@ void CPU::LDH_A_n()
 		m_currentInstr = &CPU::LDH_A_n;
 		break;
 	case 2:
-		m_iState.x = readMemory(m_PC++); //n
+		m_iState.x = m_gameboy.readMemory(m_PC++); //n
 		break;
 	case 3:
-		m_registers[A] = readMemory(0xFF00 | m_iState.x);
+		m_registers[A] = m_gameboy.readMemory(0xFF00 | m_iState.x);
 		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
@@ -708,10 +698,10 @@ void CPU::LDH_n_A()
 		m_currentInstr = &CPU::LDH_n_A;
 		break;
 	case 2:
-		m_iState.x = readMemory(m_PC++); //n
+		m_iState.x = m_gameboy.readMemory(m_PC++); //n
 		break;
 	case 3:
-		writeMemory(0xFF00 | m_iState.x, m_registers[A]);
+		m_gameboy.writeMemory(0xFF00 | m_iState.x, m_registers[A]);
 		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
@@ -726,7 +716,7 @@ void CPU::LD_A_HLd()
 		m_currentInstr = &CPU::LD_A_HLd;
 		break;
 	case 2:
-		m_registers[A] = readMemory(getHL());
+		m_registers[A] = m_gameboy.readMemory(getHL());
 		if(--m_registers[L] == 0xFF) --m_registers[H]; //check for underflow
 		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
@@ -742,7 +732,7 @@ void CPU::LD_HLd_A()
 		m_currentInstr = &CPU::LD_HLd_A;
 		break;
 	case 2:
-		writeMemory(getHL(), m_registers[A]);
+		m_gameboy.writeMemory(getHL(), m_registers[A]);
 		if(--m_registers[L] == 0xFF) --m_registers[H];
 		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
@@ -758,7 +748,7 @@ void CPU::LD_A_HLi()
 		m_currentInstr = &CPU::LD_A_HLi;
 		break;
 	case 2:
-		m_registers[A] = readMemory(getHL());
+		m_registers[A] = m_gameboy.readMemory(getHL());
 		if(++m_registers[L] == 0x00) ++m_registers[H]; //check for overflow
 		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
@@ -774,7 +764,7 @@ void CPU::LD_HLi_A()
 		m_currentInstr = &CPU::LD_HLi_A;
 		break;
 	case 2:
-		writeMemory(getHL(), m_registers[A]);
+		m_gameboy.writeMemory(getHL(), m_registers[A]);
 		if(++m_registers[L] == 0x00) ++m_registers[H];
 		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
@@ -791,10 +781,10 @@ void CPU::LD_rr_nn()
 		m_iState.x = (m_IR >> 4) & 0b11; //rr
 		break;
 	case 2:
-		m_iState.xx = readMemory(m_PC++);
+		m_iState.xx = m_gameboy.readMemory(m_PC++);
 		break;
 	case 3:
-		m_iState.xx |= readMemory(m_PC++) << 8; //nn
+		m_iState.xx |= m_gameboy.readMemory(m_PC++) << 8; //nn
 		switch(m_iState.x)
 		{
 		case BC: setBC(m_iState.xx); break;
@@ -816,16 +806,16 @@ void CPU::LD_nn_SP()
 		m_currentInstr = &CPU::LD_nn_SP;
 		break;
 	case 2:
-		m_iState.xx = readMemory(m_PC++);
+		m_iState.xx = m_gameboy.readMemory(m_PC++);
 		break;
 	case 3:
-		m_iState.xx |= readMemory(m_PC++) << 8; //nn
+		m_iState.xx |= m_gameboy.readMemory(m_PC++) << 8; //nn
 		break;
 	case 4:
-		writeMemory(m_iState.xx, getLSB(m_SP));
+		m_gameboy.writeMemory(m_iState.xx, getLSB(m_SP));
 		break;
 	case 5:
-		writeMemory(m_iState.xx + 1, getMSB(m_SP));
+		m_gameboy.writeMemory(m_iState.xx + 1, getMSB(m_SP));
 		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
@@ -861,20 +851,20 @@ void CPU::PUSH_rr()
 	case 3:
 		switch(m_iState.x)
 		{
-		case BC: writeMemory(m_SP, m_registers[B]); break;
-		case DE: writeMemory(m_SP, m_registers[D]); break;
-		case HL: writeMemory(m_SP, m_registers[H]); break;
-		case AF: writeMemory(m_SP, m_registers[A]); break;
+		case BC: m_gameboy.writeMemory(m_SP, m_registers[B]); break;
+		case DE: m_gameboy.writeMemory(m_SP, m_registers[D]); break;
+		case HL: m_gameboy.writeMemory(m_SP, m_registers[H]); break;
+		case AF: m_gameboy.writeMemory(m_SP, m_registers[A]); break;
 		}
 		--m_SP;
 		break;
 	case 4:
 		switch(m_iState.x)
 		{
-		case BC: writeMemory(m_SP, m_registers[C]); break;
-		case DE: writeMemory(m_SP, m_registers[E]); break;
-		case HL: writeMemory(m_SP, m_registers[L]); break;
-		case AF: writeMemory(m_SP, m_F & 0xF0); break;
+		case BC: m_gameboy.writeMemory(m_SP, m_registers[C]); break;
+		case DE: m_gameboy.writeMemory(m_SP, m_registers[E]); break;
+		case HL: m_gameboy.writeMemory(m_SP, m_registers[L]); break;
+		case AF: m_gameboy.writeMemory(m_SP, m_F & 0xF0); break;
 		}
 		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
@@ -891,10 +881,10 @@ void CPU::POP_rr()
 		m_iState.x = (m_IR >> 4) & 0b11; //rr
 		break;
 	case 2:
-		m_iState.xx = readMemory(m_SP++);
+		m_iState.xx = m_gameboy.readMemory(m_SP++);
 		break;
 	case 3:
-		m_iState.xx |= readMemory(m_SP++) << 8;
+		m_iState.xx |= m_gameboy.readMemory(m_SP++) << 8;
 		switch(m_iState.x)
 		{
 		case BC: setBC(m_iState.xx); break;
@@ -919,7 +909,7 @@ void CPU::LD_HL_SP_e()
 		m_currentInstr = &CPU::LD_HL_SP_e;
 		break;
 	case 2:
-		m_iState.e = static_cast<int8>(readMemory(m_PC++)); //e
+		m_iState.e = static_cast<int8>(m_gameboy.readMemory(m_PC++)); //e
 		m_iState.xx = m_SP + static_cast<uint8>(m_iState.e);
 		break;
 	case 3:
@@ -958,7 +948,7 @@ void CPU::ADD_HL()
 		m_currentInstr = &CPU::ADD_HL;
 		break;
 	case 2:
-		m_iState.x = readMemory(getHL()); //HL mem
+		m_iState.x = m_gameboy.readMemory(getHL()); //HL mem
 		m_iState.xx = m_registers[A] + m_iState.x; //result
 
 		setFZ(m_iState.xx == 0);
@@ -981,7 +971,7 @@ void CPU::ADD_n()
 		m_currentInstr = &CPU::ADD_n;
 		break;
 	case 2:
-		m_iState.x = readMemory(m_PC++); //n
+		m_iState.x = m_gameboy.readMemory(m_PC++); //n
 		m_iState.xx = m_registers[A] + m_iState.x; //result
 
 		setFZ(m_iState.xx == 0);
@@ -1018,7 +1008,7 @@ void CPU::ADC_HL()
 		m_currentInstr = &CPU::ADC_HL;
 		break;
 	case 2:
-		m_iState.x = readMemory(getHL()); //HL mem
+		m_iState.x = m_gameboy.readMemory(getHL()); //HL mem
 		m_iState.xx = m_registers[A] + m_iState.x + getFC(); //result
 
 		setFZ(m_iState.xx == 0);
@@ -1041,7 +1031,7 @@ void CPU::ADC_n()
 		m_currentInstr = &CPU::ADC_n;
 		break;
 	case 2:
-		m_iState.x = readMemory(m_PC++); //n
+		m_iState.x = m_gameboy.readMemory(m_PC++); //n
 		m_iState.xx = m_registers[A] + m_iState.x + getFC(); //result
 
 		setFZ(m_iState.xx == 0);
@@ -1078,7 +1068,7 @@ void CPU::SUB_HL()
 		m_currentInstr = &CPU::SUB_HL;
 		break;
 	case 2:
-		m_iState.x = readMemory(getHL()); //HL mem
+		m_iState.x = m_gameboy.readMemory(getHL()); //HL mem
 		m_iState.y = m_registers[A] - m_iState.x; //result
 
 		setFZ(m_iState.y == 0);
@@ -1101,7 +1091,7 @@ void CPU::SUB_n()
 		m_currentInstr = &CPU::SUB_n;
 		break;
 	case 2:
-		m_iState.x = readMemory(m_PC++); //n
+		m_iState.x = m_gameboy.readMemory(m_PC++); //n
 		m_iState.y = m_registers[A] - m_iState.x; //result
 
 		setFZ(m_iState.y == 0);
@@ -1138,7 +1128,7 @@ void CPU::SBC_HL()
 		m_currentInstr = &CPU::SBC_HL;
 		break;
 	case 2:
-		m_iState.x = readMemory(getHL()); //HL mem
+		m_iState.x = m_gameboy.readMemory(getHL()); //HL mem
 		m_iState.y = m_registers[A] - m_iState.x - getFC(); //result
 
 		setFZ(m_iState.y == 0);
@@ -1161,7 +1151,7 @@ void CPU::SBC_n()
 		m_currentInstr = &CPU::SBC_n;
 		break;
 	case 2:
-		m_iState.x = readMemory(m_PC++); //n
+		m_iState.x = m_gameboy.readMemory(m_PC++); //n
 		m_iState.y = m_registers[A] - m_iState.x - getFC(); //result
 
 		setFZ(m_iState.y == 0);
@@ -1195,7 +1185,7 @@ void CPU::CP_HL()
 		m_currentInstr = &CPU::CP_HL;
 		break;
 	case 2:
-		m_iState.x = readMemory(getHL()); //HL mem
+		m_iState.x = m_gameboy.readMemory(getHL()); //HL mem
 
 		setFZ((m_registers[A] - m_iState.x) == 0);
 		setFN(true);
@@ -1216,7 +1206,7 @@ void CPU::CP_n()
 		m_currentInstr = &CPU::CP_n;
 		break;
 	case 2:
-		m_iState.x = readMemory(m_PC++); //n
+		m_iState.x = m_gameboy.readMemory(m_PC++); //n
 
 		setFZ((m_registers[A] - m_iState.x) == 0);
 		setFN(true);
@@ -1249,10 +1239,10 @@ void CPU::INC_HL()
 		m_currentInstr = &CPU::INC_HL;
 		break;
 	case 2:
-		m_iState.x = readMemory(getHL()); //HL mem
+		m_iState.x = m_gameboy.readMemory(getHL()); //HL mem
 		break;
 	case 3:
-		writeMemory(getHL(), m_iState.x + 1);
+		m_gameboy.writeMemory(getHL(), m_iState.x + 1);
 
 		setFZ((m_iState.x + 1) == 0);
 		setFN(false);
@@ -1284,10 +1274,10 @@ void CPU::DEC_HL()
 		m_currentInstr = &CPU::DEC_HL;
 		break;
 	case 2:
-		m_iState.x = readMemory(getHL()); //HL mem
+		m_iState.x = m_gameboy.readMemory(getHL()); //HL mem
 		break;
 	case 3:
-		writeMemory(getHL(), m_iState.x - 1);
+		m_gameboy.writeMemory(getHL(), m_iState.x - 1);
 
 		setFZ((m_iState.x - 1) == 0);
 		setFN(true);
@@ -1320,7 +1310,7 @@ void CPU::AND_HL()
 		m_currentInstr = &CPU::AND_HL;
 		break;
 	case 2:
-		m_iState.x = readMemory(getHL()); //HL mem
+		m_iState.x = m_gameboy.readMemory(getHL()); //HL mem
 
 		m_registers[A] &= m_iState.x;
 
@@ -1343,7 +1333,7 @@ void CPU::AND_n()
 		m_currentInstr = &CPU::AND_n;
 		break;
 	case 2:
-		m_iState.x = readMemory(m_PC++); //n
+		m_iState.x = m_gameboy.readMemory(m_PC++); //n
 
 		m_registers[A] &= m_iState.x;
 
@@ -1379,7 +1369,7 @@ void CPU::OR_HL()
 		m_currentInstr = &CPU::OR_HL;
 		break;
 	case 2:
-		m_iState.x = readMemory(getHL()); //HL mem
+		m_iState.x = m_gameboy.readMemory(getHL()); //HL mem
 
 		m_registers[A] |= m_iState.x;
 
@@ -1402,7 +1392,7 @@ void CPU::OR_n()
 		m_currentInstr = &CPU::OR_n;
 		break;
 	case 2:
-		m_iState.x = readMemory(m_PC++); //n
+		m_iState.x = m_gameboy.readMemory(m_PC++); //n
 
 		m_registers[A] |= m_iState.x;
 
@@ -1438,7 +1428,7 @@ void CPU::XOR_HL()
 		m_currentInstr = &CPU::OR_HL;
 		break;
 	case 2:
-		m_iState.x = readMemory(getHL()); //HL mem
+		m_iState.x = m_gameboy.readMemory(getHL()); //HL mem
 
 		m_registers[A] ^= m_iState.x;
 
@@ -1461,7 +1451,7 @@ void CPU::XOR_n()
 		m_currentInstr = &CPU::OR_n;
 		break;
 	case 2:
-		m_iState.x = readMemory(m_PC++); //n
+		m_iState.x = m_gameboy.readMemory(m_PC++); //n
 
 		m_registers[A] ^= m_iState.x;
 
@@ -1613,7 +1603,7 @@ void CPU::ADD_SP_e()
 		m_currentInstr = &CPU::ADD_SP_e;
 		break;
 	case 2:
-		m_iState.e = static_cast<uint8>(readMemory(m_PC++)); //e
+		m_iState.e = static_cast<uint8>(m_gameboy.readMemory(m_PC++)); //e
 		break;
 	case 3:
 		break;
@@ -1718,13 +1708,13 @@ void CPU::RLC_HL()
 	case 2:
 		break;
 	case 3:
-		m_iState.x = readMemory(getHL()); //HL mem
+		m_iState.x = m_gameboy.readMemory(getHL()); //HL mem
 		break;
 	case 4:
 		m_iState.y = m_iState.x >> 7; //bit out
 		m_iState.z = (m_iState.x << 1) | m_iState.y; //result
 
-		writeMemory(getHL(), m_iState.z);
+		m_gameboy.writeMemory(getHL(), m_iState.z);
 
 		setFZ(m_iState.z == 0);
 		setFN(false);
@@ -1771,13 +1761,13 @@ void CPU::RRC_HL()
 	case 2:
 		break;
 	case 3:
-		m_iState.x = readMemory(getHL()); //HL mem
+		m_iState.x = m_gameboy.readMemory(getHL()); //HL mem
 		break;
 	case 4:
 		m_iState.y = (m_iState.x & 1) << 7; //bit out
 		m_iState.z = (m_iState.x >> 1) | (m_iState.y << 7); //result
 
-		writeMemory(getHL(), m_iState.z);
+		m_gameboy.writeMemory(getHL(), m_iState.z);
 
 		setFZ(m_iState.z == 0);
 		setFN(false);
@@ -1823,13 +1813,13 @@ void CPU::RL_HL()
 	case 2:
 		break;
 	case 3:
-		m_iState.x = readMemory(getHL()); //HL mem
+		m_iState.x = m_gameboy.readMemory(getHL()); //HL mem
 		break;
 	case 4:
 		m_iState.y = m_iState.x >> 7; //bit out
 		m_iState.z = (m_iState.x << 1) | static_cast<uint8>(getFC()); //result
 
-		writeMemory(getHL(), m_iState.z);
+		m_gameboy.writeMemory(getHL(), m_iState.z);
 
 		setFZ(m_iState.z == 0);
 		setFN(false);
@@ -1876,13 +1866,13 @@ void CPU::RR_HL()
 	case 2:
 		break;
 	case 3:
-		m_iState.x = readMemory(getHL()); //HL mem
+		m_iState.x = m_gameboy.readMemory(getHL()); //HL mem
 		break;
 	case 4:
 		m_iState.y = m_iState.x & 1; //bit out
 		m_iState.z = (m_iState.x >> 1) | (static_cast<uint8>(getFC()) << 7); //result
 
-		writeMemory(getHL(), m_iState.z);
+		m_gameboy.writeMemory(getHL(), m_iState.z);
 
 		setFZ(m_iState.z == 0);
 		setFN(false);
@@ -1929,13 +1919,13 @@ void CPU::SLA_HL()
 	case 2:
 		break;
 	case 3:
-		m_iState.x = readMemory(getHL()); //HL mem
+		m_iState.x = m_gameboy.readMemory(getHL()); //HL mem
 		break;
 	case 4:
 		m_iState.y = m_iState.x >> 7; //bit out
 		m_iState.z = m_iState.x << 1; //result
 
-		writeMemory(getHL(), m_iState.z);
+		m_gameboy.writeMemory(getHL(), m_iState.z);
 
 		setFZ(m_iState.z == 0);
 		setFN(false);
@@ -1982,13 +1972,13 @@ void CPU::SRA_HL()
 	case 2:
 		break;
 	case 3:
-		m_iState.x = readMemory(getHL());
+		m_iState.x = m_gameboy.readMemory(getHL());
 		break;
 	case 4:
 		m_iState.y = m_iState.x & 1; // bit out
 		m_iState.z = (m_iState.x >> 1) | (m_iState.x & 0x80); //z = result, x & 0x80 = sign bit
 
-		writeMemory(getHL(), m_iState.z);
+		m_gameboy.writeMemory(getHL(), m_iState.z);
 
 		setFZ(m_iState.z == 0);
 		setFN(false);
@@ -2032,12 +2022,12 @@ void CPU::SWAP_HL()
 	case 2:
 		break;
 	case 3:
-		m_iState.x = readMemory(getHL()); //HL mem
+		m_iState.x = m_gameboy.readMemory(getHL()); //HL mem
 		break;
 	case 4:
 		m_iState.y = ((m_iState.x & 0xF0) >> 4) | ((m_iState.x & 0xF) << 4); //result
 
-		writeMemory(getHL(), m_iState.y);
+		m_gameboy.writeMemory(getHL(), m_iState.y);
 
 		setFZ(m_iState.y == 0);
 		setFN(false);
@@ -2084,13 +2074,13 @@ void CPU::SRL_HL()
 	case 2:
 		break;
 	case 3:
-		m_iState.x = readMemory(getHL()); //HL mem
+		m_iState.x = m_gameboy.readMemory(getHL()); //HL mem
 		break;
 	case 4:
 		m_iState.y = m_iState.x & 1; //bit out
 		m_iState.z = m_iState.x >> 1; //result
 
-		writeMemory(getHL(), m_iState.z);
+		m_gameboy.writeMemory(getHL(), m_iState.z);
 
 		setFZ(m_iState.z == 0);
 		setFN(false);
@@ -2134,7 +2124,7 @@ void CPU::BIT_b_HL()
 		break;
 	case 3:
 		m_iState.x = (m_IR >> 3) & 0b111; //b
-		m_iState.y = readMemory(getHL()); //HL mem
+		m_iState.y = m_gameboy.readMemory(getHL()); //HL mem
 
 		setFZ((m_iState.y & (1 << m_iState.x)) == 0);
 		setFN(false);
@@ -2172,12 +2162,12 @@ void CPU::RES_b_HL()
 	case 2:
 		break;
 	case 3:
-		m_iState.x = readMemory(getHL()); //HL mem
+		m_iState.x = m_gameboy.readMemory(getHL()); //HL mem
 		break;
 	case 4:
 		m_iState.y = (m_IR >> 3) & 0b111; //b
 
-		writeMemory(getHL(), m_iState.x & ~(1 << m_iState.y));
+		m_gameboy.writeMemory(getHL(), m_iState.x & ~(1 << m_iState.y));
 		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 	}
@@ -2210,12 +2200,12 @@ void CPU::SET_b_HL()
 	case 2:
 		break;
 	case 3:
-		m_iState.x = readMemory(getHL()); //HL mem
+		m_iState.x = m_gameboy.readMemory(getHL()); //HL mem
 		break;
 	case 4:
 		m_iState.y = (m_IR >> 3) & 0b111; //b
 
-		writeMemory(getHL(), m_iState.x | (1 << m_iState.y));
+		m_gameboy.writeMemory(getHL(), m_iState.x | (1 << m_iState.y));
 		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 	}
@@ -2229,10 +2219,10 @@ void CPU::JP_nn()
 		m_currentInstr = &CPU::JP_nn;
 		break;
 	case 2:
-		m_iState.xx = readMemory(m_PC++);
+		m_iState.xx = m_gameboy.readMemory(m_PC++);
 		break;
 	case 3:
-		m_iState.xx |= readMemory(m_PC++) << 8; //nn
+		m_iState.xx |= m_gameboy.readMemory(m_PC++) << 8; //nn
 		break;
 	case 4:
 		m_PC = m_iState.xx;
@@ -2255,10 +2245,10 @@ void CPU::JP_cc_nn()
 		m_currentInstr = &CPU::JP_cc_nn;
 		break;
 	case 2:
-		m_iState.xx = readMemory(m_PC++);
+		m_iState.xx = m_gameboy.readMemory(m_PC++);
 		break;
 	case 3:
-		m_iState.xx |= readMemory(m_PC++) << 8; //nn
+		m_iState.xx |= m_gameboy.readMemory(m_PC++) << 8; //nn
 		m_iState.x = (m_IR >> 3) & 0b11; //cc
 
 		switch(m_iState.x) //m_iState.y is used as a bool to check later if condition is met
@@ -2290,7 +2280,7 @@ void CPU::JR_e()
 		m_currentInstr = &CPU::JR_e;
 		break;
 	case 2:
-		m_iState.e = static_cast<int8>(readMemory(m_PC++)); //e
+		m_iState.e = static_cast<int8>(m_gameboy.readMemory(m_PC++)); //e
 		break;
 	case 3:
 		m_PC += m_iState.e;
@@ -2308,7 +2298,7 @@ void CPU::JR_cc_e()
 		break;
 	case 2:
 		m_iState.x = (m_IR >> 3) & 0b11; //cc
-		m_iState.e = static_cast<int8>(readMemory(m_PC++)); //e
+		m_iState.e = static_cast<int8>(m_gameboy.readMemory(m_PC++)); //e
 
 		switch(m_iState.x) //m_iState.y is used as a bool to check later if condition is met
 		{
@@ -2340,18 +2330,18 @@ void CPU::CALL_nn()
 		m_currentInstr = &CPU::CALL_nn;
 		break;
 	case 2:
-		m_iState.xx = readMemory(m_PC++);
+		m_iState.xx = m_gameboy.readMemory(m_PC++);
 		break;
 	case 3:
-		m_iState.xx = readMemory(m_PC++); //nn
+		m_iState.xx = m_gameboy.readMemory(m_PC++); //nn
 		break;
 	case 4:
 		break;
 	case 5:
-		writeMemory(--m_SP, getMSB(m_PC));
+		m_gameboy.writeMemory(--m_SP, getMSB(m_PC));
 		break;
 	case 6:
-		writeMemory(--m_SP, getLSB(m_PC));
+		m_gameboy.writeMemory(--m_SP, getLSB(m_PC));
 		m_PC = m_iState.xx;
 		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
@@ -2367,11 +2357,11 @@ void CPU::CALL_cc_nn()
 		m_currentInstr = &CPU::CALL_cc_nn;
 		break;
 	case 2:
-		m_iState.xx = readMemory(m_PC++);
+		m_iState.xx = m_gameboy.readMemory(m_PC++);
 		break;
 	case 3:
 		m_iState.x = (m_IR >> 3) & 0b11; //cc
-		m_iState.xx = readMemory(m_PC++); //nn
+		m_iState.xx = m_gameboy.readMemory(m_PC++); //nn
 
 		switch(m_iState.x) //m_iState.y is used as a bool to check later if condition is met
 		{
@@ -2390,10 +2380,10 @@ void CPU::CALL_cc_nn()
 	case 4:
 		break;
 	case 5:
-		writeMemory(--m_SP, getMSB(m_PC));
+		m_gameboy.writeMemory(--m_SP, getMSB(m_PC));
 		break;
 	case 6:
-		writeMemory(--m_SP, getLSB(m_PC));
+		m_gameboy.writeMemory(--m_SP, getLSB(m_PC));
 		m_PC = m_iState.xx;
 		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
@@ -2409,10 +2399,10 @@ void CPU::RET()
 		m_currentInstr = &CPU::RET;
 		break;
 	case 2:
-		m_iState.x = readMemory(m_SP++); 
+		m_iState.x = m_gameboy.readMemory(m_SP++); 
 		break;
 	case 3:
-		m_iState.y = readMemory(m_SP++);
+		m_iState.y = m_gameboy.readMemory(m_SP++);
 		break;
 	case 4:
 		m_PC = (m_iState.y << 8) | m_iState.x;
@@ -2447,10 +2437,10 @@ void CPU::RET_cc()
 		}
 		break;
 	case 3:
-		m_iState.x = readMemory(m_SP++);
+		m_iState.x = m_gameboy.readMemory(m_SP++);
 		break;
 	case 4:
-		m_iState.y = readMemory(m_SP++);
+		m_iState.y = m_gameboy.readMemory(m_SP++);
 		break;
 	case 5:
 		m_PC = (m_iState.y << 8) | m_iState.x;
@@ -2468,10 +2458,10 @@ void CPU::RETI()
 		m_currentInstr = &CPU::RETI;
 		break;
 	case 2:
-		m_iState.x = readMemory(m_SP++);
+		m_iState.x = m_gameboy.readMemory(m_SP++);
 		break;
 	case 3:
-		m_iState.y = readMemory(m_SP++);
+		m_iState.y = m_gameboy.readMemory(m_SP++);
 		break;
 	case 4:
 		m_PC = (m_iState.y << 8) | m_iState.x;
@@ -2492,10 +2482,10 @@ void CPU::RST_n()
 	case 2:
 		break;
 	case 3:
-		writeMemory(--m_SP, getMSB(m_PC));
+		m_gameboy.writeMemory(--m_SP, getMSB(m_PC));
 		break;
 	case 4:
-		writeMemory(--m_SP, getLSB(m_PC));
+		m_gameboy.writeMemory(--m_SP, getLSB(m_PC));
 		m_iState.x = (m_IR >> 3) & 0b111; //n
 		
 		m_PC = (0x00 << 8) | m_iState.x;
@@ -2508,7 +2498,7 @@ void CPU::RST_n()
 void CPU::HALT()
 {
 	m_isHalted = true;
-	if(!m_ime && (readMemory(hardwareReg::IF) & readMemory(hardwareReg::IE)) != 0) ++m_PC; //HALT bug(dont know if its correct)
+	if(!m_ime && (m_gameboy.readMemory(hardwareReg::IF) & m_gameboy.readMemory(hardwareReg::IE)) != 0) ++m_PC; //HALT bug(dont know if its correct)
 
 	m_cycleCounter = 0;
 }

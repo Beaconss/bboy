@@ -2,13 +2,26 @@
 #include "gameboy.h"
 
 Timers::Timers(Gameboy& parent)
-	: m_parent{parent}
+	: m_gameboy{parent}
+	, m_cycleCounter{}
 	, m_div{}
 	, m_tima{}
 	, m_tma{}
 	, m_tac{}
 	, m_updateTimaNextCycle{false}
 {
+}
+
+uint8 Timers::read(const Index index) const
+{
+	switch(index)
+	{
+	case DIV: return m_div;
+	case TIMA: return m_tima;
+	case TMA: return m_tma;
+	case TAC: return m_tac;
+	default: return 0;
+	}
 }
 
 void Timers::write(Index index, uint8 value)
@@ -24,8 +37,9 @@ void Timers::write(Index index, uint8 value)
 	}
 }
 
-void Timers::update(const int cycleCounter)
+void Timers::update()
 {
+	++m_cycleCounter; //after resetting to 0 go to 1
 	if(m_updateTimaNextCycle)
 	{
 		m_tima = m_tma;
@@ -33,41 +47,42 @@ void Timers::update(const int cycleCounter)
 		m_updateTimaNextCycle = false;
 	}
 
-	if(cycleCounter % 64 == 0) ++m_div; //update div every 64 cycles
+	if(m_cycleCounter % 64 == 0) ++m_div; //update div every 64 cycles
 	
 	if(m_tac & 0b100) //if bit 2(enable bit)
 	{
 		switch(m_tac & 0b11)
 		{
 		case FREQUENCY_256: 
-			if(cycleCounter % 256 == 0) 
+			if(m_cycleCounter % 256 == 0)
 			{
 				if(++m_tima == 0x00) m_updateTimaNextCycle = true; //tima gets updated the cycle after it overflows
 				break;
 			}
 		case FREQUENCY_4: 
-			if(cycleCounter % 4 == 0) 
+			if(m_cycleCounter % 4 == 0)
 			{
 				if(++m_tima == 0x00) m_updateTimaNextCycle = true;
 				break;
 			}
 		case FREQUENCY_16: 
-			if(cycleCounter % 16 == 0)
+			if(m_cycleCounter % 16 == 0)
 			{
 				if(++m_tima == 0x00) m_updateTimaNextCycle = true;
 				break;
 			}
 		case FREQUENCY_64: 
-			if(cycleCounter % 64 == 0) 
+			if(m_cycleCounter % 64 == 0)
 			{
 				if(++m_tima == 0x00) m_updateTimaNextCycle = true; 
 				break;
 			}
 		} 
 	}
+	if(m_cycleCounter % 256 == 0) m_cycleCounter = 0; //reset to 0 at 256 as its the highest frequency
 }
 
 void Timers::requestInterrupt() const
 {
-	m_parent.writeMemory(hardwareReg::IF, m_parent.readMemory(hardwareReg::IF) | 0b100); //enable bit 2(timer interrupt)
+	m_gameboy.write(hardwareReg::IF, m_gameboy.read(hardwareReg::IF) | 0b100); //enable bit 2(timer interrupt)
 }

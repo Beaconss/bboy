@@ -17,6 +17,12 @@ public:
 		TAC,
 	};
 
+	uint8 read(const Index index) const;
+	void write(const Index index, const uint8 value);
+	void update();
+	void requestInterrupt() const;
+
+private:
 	enum TimaFrequency
 	{
 		FREQUENCY_256,
@@ -25,12 +31,8 @@ public:
 		FREQUENCY_64,
 	};
 
-	void write(const Index index, const uint8 value);
-	void update(const int cycleCounter);
-	void requestInterrupt() const;
-
-private:
-	Gameboy& m_parent;
+	Gameboy& m_gameboy;
+	int m_cycleCounter;
 	uint8 m_div; //divider register
 	uint8 m_tima; //timer counter
 	uint8 m_tma; //timer modulo
