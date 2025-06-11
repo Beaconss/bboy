@@ -5,8 +5,6 @@
 #include <iostream>
 #include <array>
 
-//TODO: put const on every function that can have it
-
 class Gameboy;
 
 class CPU
@@ -66,8 +64,8 @@ private:
 
 	//interrupt things
 	bool m_ime; //interrupt master enabler
-	bool m_imeEnableRequested;
-	bool m_imeEnableAfterNextInstruction;
+	bool m_imeEnableInTwoCycles;
+	bool m_imeEnableNextCycle;
 	bool m_isHalted;
 
 	//register file:

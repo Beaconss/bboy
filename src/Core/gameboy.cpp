@@ -5,21 +5,47 @@ Gameboy::Gameboy()
 	, m_ppu{*this}
 	, m_memory{}
 	, m_timers{*this}
+	, m_dmaTransferInProcess{false}
+	, m_dmaTransferEnableNextCycle{false}
+	, m_dmaTransferCurrentAddress{}
 {
 }
 
 //in the main loop I will batch a number of these and render afterwards
 void Gameboy::cycle() //1 machine cycle
 {
-	m_cpu.cycle();
+	m_timers.cycle();
+
+	if(m_dmaTransferInProcess)
+	{
+		uint16 destinationAddr{static_cast<uint16>((0xFE << 8) | m_dmaTransferCurrentAddress & 0xFF)};
+		m_memory[destinationAddr] = m_memory[m_dmaTransferCurrentAddress++];
+		if((m_dmaTransferCurrentAddress & 0xFF) == 0xA0) m_dmaTransferInProcess = false;
+	}
+
+	if(m_dmaTransferEnableNextCycle)
+	{
+		m_dmaTransferInProcess = true;
+		m_dmaTransferEnableNextCycle = false;
+	}
+
 	m_ppu.cycle();
-	m_timers.update();
+	m_cpu.cycle();
 }
 
 //memo to handle reads and writes to video related memory while the ppu is accessing it
 uint8 Gameboy::readMemory(const uint16 addr) const
 {
 	using namespace hardwareReg;
+
+	if(m_dmaTransferInProcess) //while dma is in process only hram can be accessed
+	{
+		constexpr uint16 HRAM_START{0xFF80};
+		constexpr uint16 HRAM_END{0xFFFE};
+		if(addr >= HRAM_START && addr <= HRAM_END) return m_memory[addr];
+		else return 0xFF;
+	}
+
 	switch(addr)
 	{ //handle virtual registers
 	case DIV: return m_timers.read(Timers::DIV); 
@@ -44,6 +70,15 @@ uint8 Gameboy::readMemory(const uint16 addr) const
 void Gameboy::writeMemory(const uint16 addr, const uint8 value)
 {
 	using namespace hardwareReg;
+
+	if(m_dmaTransferInProcess) //while dma is in process only hram can be accessed
+	{
+		constexpr uint16 HRAM_START{0xFF80};
+		constexpr uint16 HRAM_END{0xFFFE};
+		if(addr >= HRAM_START && addr <= HRAM_END) m_memory[addr] = value;
+		return;
+	}
+
 	switch(addr)
 	{
 	case DIV: m_timers.write(Timers::DIV, value); break;
@@ -56,7 +91,10 @@ void Gameboy::writeMemory(const uint16 addr, const uint8 value)
 	case SCX: m_ppu.write(PPU::SCX, value); break;
 	case LY: m_ppu.write(PPU::LY, value); break;
 	case LYC: m_ppu.write(PPU::LYC, value); break;
-	case DMA: //start dma transfer; break;
+	case DMA: 
+		m_dmaTransferCurrentAddress = (value << 8); 
+		m_dmaTransferEnableNextCycle = true; 
+		break;
 	case BGP: m_ppu.write(PPU::BGP, value); break;
 	case OBP0: m_ppu.write(PPU::OBP0, value); break;
 	case OBP1: m_ppu.write(PPU::OBP1, value); break;

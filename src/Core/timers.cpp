@@ -30,59 +30,55 @@ void Timers::write(Index index, uint8 value)
 	{
 	case DIV: m_div = 0; break; //when div is written to it gets reset
 	case TIMA: 
-		if(!m_updateTimaNextCycle) m_tima = value; //if this is the cycle where tima will be updated ignore write 
+		if(!m_updateTimaNextCycle) m_tima = value; //if this is the cycle where tima will be updated ignore writeMemory 
 		break;
 	case TMA: m_tma = value; break;
 	case TAC: m_tac = value & 0x0F; break; //only lower 4 bits are used
 	}
 }
 
-void Timers::update()
-{
-	++m_cycleCounter; //after resetting to 0 go to 1
-	if(m_updateTimaNextCycle)
-	{
-		m_tima = m_tma;
-		requestInterrupt();
-		m_updateTimaNextCycle = false;
-	}
+void Timers::cycle()
+{  
+	++m_cycleCounter; //after resetting to 0 go to 1  
+	if(m_updateTimaNextCycle)  
+	{  
+		m_tima = m_tma;  
+		timerInterrupt();  
+		m_updateTimaNextCycle = false;  
+	}  
 
-	if(m_cycleCounter % 64 == 0) ++m_div; //update div every 64 cycles
-	
-	if(m_tac & 0b100) //if bit 2(enable bit)
-	{
-		switch(m_tac & 0b11)
-		{
-		case FREQUENCY_256: 
-			if(m_cycleCounter % 256 == 0)
-			{
-				if(++m_tima == 0x00) m_updateTimaNextCycle = true; //tima gets updated the cycle after it overflows
-				break;
-			}
-		case FREQUENCY_4: 
-			if(m_cycleCounter % 4 == 0)
-			{
-				if(++m_tima == 0x00) m_updateTimaNextCycle = true;
-				break;
-			}
-		case FREQUENCY_16: 
-			if(m_cycleCounter % 16 == 0)
-			{
-				if(++m_tima == 0x00) m_updateTimaNextCycle = true;
-				break;
-			}
-		case FREQUENCY_64: 
-			if(m_cycleCounter % 64 == 0)
-			{
-				if(++m_tima == 0x00) m_updateTimaNextCycle = true; 
-				break;
-			}
-		} 
-	}
-	if(m_cycleCounter % 256 == 0) m_cycleCounter = 0; //reset to 0 at 256 as its the highest frequency
+	if(m_cycleCounter % 64 == 0) ++m_div; //update div every 64 cycles  
+
+	if(m_tac & 0b100) //if bit 2(enable bit)  
+	{  
+		switch(m_tac & 0b11)  
+		{  
+		case FREQUENCY_256:  
+			if(m_cycleCounter % 256 == 0)  
+			{  
+				if(++m_tima == 0x00) m_updateTimaNextCycle = true; //tima gets updated the cycle after it overflows  
+			} break;  
+		case FREQUENCY_4:  
+			if(m_cycleCounter % 4 == 0)  
+			{  
+				if(++m_tima == 0x00) m_updateTimaNextCycle = true;  
+			} break;  
+		case FREQUENCY_16:  
+			if(m_cycleCounter % 16 == 0)  
+			{  
+				if(++m_tima == 0x00) m_updateTimaNextCycle = true;  
+			} break;  
+		case FREQUENCY_64:  
+			if(m_cycleCounter % 64 == 0)  
+			{  
+				if(++m_tima == 0x00) m_updateTimaNextCycle = true;   
+			} break;  
+		}   
+	}  
+	if(m_cycleCounter % 256 == 0) m_cycleCounter = 0; //reset to 0 at 256 as its the highest frequency  
 }
 
-void Timers::requestInterrupt() const
+void Timers::timerInterrupt() const
 {
-	m_gameboy.write(hardwareReg::IF, m_gameboy.read(hardwareReg::IF) | 0b100); //enable bit 2(timer interrupt)
+	m_gameboy.writeMemory(hardwareReg::IF, m_gameboy.readMemory(hardwareReg::IF) | 0b100); //bit 2 is timer interrupt
 }

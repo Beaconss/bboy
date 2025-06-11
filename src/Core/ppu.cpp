@@ -3,8 +3,8 @@
 
 PPU::PPU(Gameboy& gameboy)
 	: m_gameboy{gameboy}
-	, m_currentMode{OAM_SCAN} //even though OAM_SCAN is mode 2 the pipeline starts from it
-	, m_spriteBuffer{}
+	, m_currentMode{OAM_SCAN} //even though OAM_SCAN is mode 2 the ppu starts from it
+	, m_spriteBuffer{10}
 	, m_currentSpriteAddress{OAM_MEMORY_START}
 	, m_cycleCounter{}
 	, m_lcdc{}
@@ -19,6 +19,74 @@ PPU::PPU(Gameboy& gameboy)
 	, m_wy{}
 	, m_wx{}
 {
+	m_spriteBuffer.reserve(10); //sprite buffer max size is 10
+}
+
+void PPU::cycle()
+{
+	constexpr int SCANLINE_DURATION{114};
+	switch(m_currentMode)
+	{
+	case OAM_SCAN:
+	{
+		++m_cycleCounter;
+		Sprite sprite1{fetchSprite()};
+		Sprite sprite2{fetchSprite()};
+		tryAddSpriteToBuffer(sprite1);
+		tryAddSpriteToBuffer(sprite2); //each cycle it checks two sprites
+
+		constexpr int OAM_SCAN_DURATION{20};
+		if(m_cycleCounter == OAM_SCAN_DURATION)
+		{
+			m_currentMode = DRAWING; //go to next mode
+			m_currentSpriteAddress = OAM_MEMORY_START; //reset to first sprite
+		}
+		break;
+	}
+	case DRAWING:
+	{
+		++m_cycleCounter;
+
+		constexpr int MINIMUM_DRAWING_DURATION{43};
+		//if(m_cycleCounter == MINIMUM_DRAWING_DURATION + extraCycles) //the amount of cycles changes depending on some factors so I will need to calculate them 
+		{
+			m_currentMode = H_BLANK;
+			m_spriteBuffer.clear(); //reset sprite buffer for next scanline
+		}
+		break;
+	}
+	case H_BLANK:
+	{
+		++m_cycleCounter;
+
+		if(m_cycleCounter == SCANLINE_DURATION) //when scanline finishes
+		{
+			++m_ly; //update current scanline number
+			m_cycleCounter = 0;
+			m_currentMode = OAM_SCAN; //start the next one
+		}
+		if(m_ly == 144)
+		{
+			m_currentMode = V_BLANK; //except if its scanline 144, in that case V_BLANK for another 10 scanlines
+			vBlankInterrupt();
+		}
+		break;
+	}
+	case V_BLANK:
+	{
+		++m_cycleCounter;
+
+		if(m_cycleCounter == SCANLINE_DURATION) ++m_ly;
+		if(m_ly == 154)
+		{
+			m_ly = 0;
+			m_cycleCounter = 0;
+			m_currentMode = OAM_SCAN;
+			//renderflag = true //setup a render flag for the renderer
+		}
+		break;
+	}
+	}
 }
 
 uint8 PPU::read(const Index index) const
@@ -69,49 +137,21 @@ PPU::Sprite PPU::fetchSprite()
 	return sprite;
 }
 
-void PPU::cycle()
+void PPU::tryAddSpriteToBuffer(const Sprite& sprite)
 {
-	switch(m_currentMode)
+	constexpr int SPRITE_BUFFER_MAX_SIZE{10};
+	constexpr uint8 TALL_SPRITE_MODE{0b100};
+
+	if(m_spriteBuffer.size() < SPRITE_BUFFER_MAX_SIZE &&
+		sprite.xPosition > 0 &&
+		m_ly + 16 >= sprite.yPosition &&
+		m_ly + 16 < sprite.yPosition + ((m_lcdc & TALL_SPRITE_MODE) ? 16 : 8)) //16 or 8 depending if tall sprite mode is enabled
 	{
-	case OAM_SCAN:
-		++m_cycleCounter;
-		Sprite sprite1{fetchSprite()};
-		Sprite sprite2{fetchSprite()}; //each cycle it checks two sprites
-
-		//todo add sprites to buffer
-
-		if(m_cycleCounter == OAM_SCAN_DURATION) 
-		{
-			m_currentMode = DRAWING;
-			m_currentSpriteAddress = OAM_MEMORY_START; //reset to first sprite
-		}
-		break;
-	case DRAWING:
-		++m_cycleCounter;
-
-		//if(m_cycleCounter == MINIMUM_DRAWING_DURATION + extraCycles) m_currentMode = H_BLANK; //the amount of cycles changes depending on some factors so I will need to calculate them
-		break;
-	case H_BLANK:
-		++m_cycleCounter;
-
-		if(m_cycleCounter == SCANLINE_DURATION) //when scanline finishes
-		{
-			++m_ly; //update current scanline number
-			m_cycleCounter = 0;
-			m_currentMode = OAM_SCAN; //start the next one
-		}
-		if(m_ly == 144) m_currentMode = V_BLANK; //except if its scanline 144, in that case V_BLANK for another 10 scanlines
-		break;
-	case V_BLANK:
-		++m_cycleCounter;
-		if(m_cycleCounter == SCANLINE_DURATION) ++m_ly;
-		if(m_ly == 154)
-		{
-			m_ly = 0;
-			m_cycleCounter = 0;
-			m_currentMode = OAM_SCAN;
-			//renderflag = true //setup a render flag for the renderer
-		}
-		break;
+		m_spriteBuffer.emplace_back(sprite);
 	}
+}
+
+void PPU::vBlankInterrupt() const
+{
+	m_gameboy.writeMemory(hardwareReg::IF, m_gameboy.readMemory(hardwareReg::IF) | 1); //bit 0 is vBlank interrupt
 }

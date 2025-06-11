@@ -19,8 +19,8 @@ public:
 
 	uint8 read(const Index index) const;
 	void write(const Index index, const uint8 value);
-	void update();
-	void requestInterrupt() const;
+	void cycle();
+	void timerInterrupt() const;
 
 private:
 	enum TimaFrequency

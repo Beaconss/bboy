@@ -7,8 +7,8 @@ CPU::CPU(Gameboy& parent)
 	, m_currentInstr{nullptr}
 	, m_cycleCounter{}
 	, m_ime{false}
-	, m_imeEnableRequested{false}
-	, m_imeEnableAfterNextInstruction{false}
+	, m_imeEnableInTwoCycles{false}
+	, m_imeEnableNextCycle{false}
 	, m_isHalted{false}
 	, m_PC{0x00}
 	, m_SP{}
@@ -31,16 +31,16 @@ void CPU::cycle()
 	if(handleInterrupts()) return;
 	if(m_isHalted) return; //return if isHalted is still true after handling the interrupts
 
-	if(m_imeEnableAfterNextInstruction)
+	if(m_imeEnableNextCycle)
 	{
 		m_ime = true;
-		m_imeEnableAfterNextInstruction = false;
+		m_imeEnableNextCycle = false;
 	}
 
-	if(m_imeEnableRequested) 
+	if(m_imeEnableInTwoCycles) 
 	{
-		m_imeEnableAfterNextInstruction = true;
-		m_imeEnableRequested = false;
+		m_imeEnableNextCycle = true;
+		m_imeEnableInTwoCycles = false;
 	}
 
 	if(m_currentInstr) (this->*m_currentInstr)(); //call cached instruction if not nullptr
@@ -1626,7 +1626,7 @@ void CPU::RLCA()
 {
 	m_iState.x = m_registers[A] >> 7; //bit out
 
-	m_registers[A] = (m_registers[A] << 1) | m_iState.x;
+	m_registers[A] = (m_registers[A] << 1) | m_iState.x; //shift then add the carried bit to rotate circularly
 
 	setFZ(false);
 	setFN(false);
@@ -2512,14 +2512,14 @@ void CPU::STOP()
 void CPU::DI()
 {
 	m_ime = false;
-	m_imeEnableRequested = false;
-	m_imeEnableAfterNextInstruction = false;
+	m_imeEnableInTwoCycles = false;
+	m_imeEnableNextCycle = false;
 	m_cycleCounter = 0;
 }
 
 void CPU::EI()
 {
-	m_imeEnableRequested = true;
+	m_imeEnableInTwoCycles = true;
 	m_cycleCounter = 0;
 }
 

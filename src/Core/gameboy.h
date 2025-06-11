@@ -22,4 +22,8 @@ private:
 	PPU m_ppu;
 	std::array<uint8, 0xFFFF + 1> m_memory;
 	Timers m_timers;
+
+	bool m_dmaTransferInProcess;
+	bool m_dmaTransferEnableNextCycle;
+	uint16 m_dmaTransferCurrentAddress;
 };

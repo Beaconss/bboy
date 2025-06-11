@@ -2,6 +2,8 @@
 #include "../type_alias.h"
 #include "../hardware_registers.h"
 
+#include <vector>
+
 class Gameboy;
 
 class PPU
@@ -46,16 +48,15 @@ private:
 	};
 
 	Sprite fetchSprite();
+	void tryAddSpriteToBuffer(const Sprite& sprite);
+	void vBlankInterrupt() const;
 
-	static constexpr int OAM_SCAN_DURATION{20};
-	static constexpr int MINIMUM_DRAWING_DURATION{43};
-	static constexpr int SCANLINE_DURATION{114};
 	static constexpr unsigned int OAM_MEMORY_START{0xFE00};
 
 	Gameboy& m_gameboy;
 	Mode m_currentMode;
 
-	std::array<Sprite, 10> m_spriteBuffer;
+	std::vector<Sprite> m_spriteBuffer;
 	uint16 m_currentSpriteAddress;
 	int m_cycleCounter;
 
