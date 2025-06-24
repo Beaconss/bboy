@@ -21,7 +21,7 @@ Platform::Platform()
 
 void Platform::mainLoop()
 {
-    int buffer[160 * 144];
+    uint8 buffer[160 * 144];
     std::fill(buffer, buffer + 160 * 144, 0b11111);
     SDL_UpdateTexture(m_displayTexture, nullptr, buffer, 160 * sizeof(uint8));
 
