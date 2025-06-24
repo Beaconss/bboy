@@ -24,7 +24,7 @@ PPU::PPU(Gameboy& gameboy)
 
 void PPU::cycle()
 {
-	constexpr int SCANLINE_DURATION{114};
+	constexpr int SCANLINE_END_CYCLE{114};
 	switch(m_currentMode)
 	{
 	case OAM_SCAN:
@@ -35,8 +35,8 @@ void PPU::cycle()
 		tryAddSpriteToBuffer(sprite1);
 		tryAddSpriteToBuffer(sprite2); //each cycle it checks two sprites
 
-		constexpr int OAM_SCAN_DURATION{20};
-		if(m_cycleCounter == OAM_SCAN_DURATION)
+		constexpr int OAM_SCAN_END_CYCLE{20};
+		if(m_cycleCounter == OAM_SCAN_END_CYCLE)
 		{
 			m_currentMode = DRAWING; //go to next mode
 			m_currentSpriteAddress = OAM_MEMORY_START; //reset to first sprite
@@ -47,8 +47,13 @@ void PPU::cycle()
 	{
 		++m_cycleCounter;
 
-		constexpr int MINIMUM_DRAWING_DURATION{43};
-		//if(m_cycleCounter == MINIMUM_DRAWING_DURATION + extraCycles) //the amount of cycles changes depending on some factors so I will need to calculate them 
+		constexpr int MIN_DRAWING_END_CYCLE{43};
+		int extraCycles{};
+
+		//fetch tile no.
+
+
+		if(m_cycleCounter == MIN_DRAWING_END_CYCLE + extraCycles) //the amount of cycles changes depending on some factors so I will need to calculate them 
 		{
 			m_currentMode = H_BLANK;
 			m_spriteBuffer.clear(); //reset sprite buffer for next scanline
@@ -59,15 +64,17 @@ void PPU::cycle()
 	{
 		++m_cycleCounter;
 
-		if(m_cycleCounter == SCANLINE_DURATION) //when scanline finishes
+		constexpr int LAST_SCANLINE_BEFORE_V_BLANK{144};
+		if(m_cycleCounter == SCANLINE_END_CYCLE) //when scanline finishes
 		{
+			//std::cout << "Scanline " << (int)m_ly << " finished";
 			++m_ly; //update current scanline number
 			m_cycleCounter = 0;
 			m_currentMode = OAM_SCAN; //start the next one
 		}
-		if(m_ly == 144)
+		if(m_ly == LAST_SCANLINE_BEFORE_V_BLANK)
 		{
-			m_currentMode = V_BLANK; //except if its scanline 144, in that case V_BLANK for another 10 scanlines
+			m_currentMode = V_BLANK; //if its the last, V_BLANK for another 10 scanlines
 			vBlankInterrupt();
 		}
 		break;
@@ -76,7 +83,12 @@ void PPU::cycle()
 	{
 		++m_cycleCounter;
 
-		if(m_cycleCounter == SCANLINE_DURATION) ++m_ly;
+		if(m_cycleCounter == SCANLINE_END_CYCLE) 
+		{
+			//std::cout << "Scanline " << (int)m_ly << " finished\n";
+			++m_ly;
+			m_cycleCounter = 0;
+		}
 		if(m_ly == 154)
 		{
 			m_ly = 0;
@@ -87,6 +99,36 @@ void PPU::cycle()
 		break;
 	}
 	}
+}
+
+PPU::Sprite PPU::fetchSprite()
+{
+	Sprite sprite;
+	sprite.yPosition = m_gameboy.readMemory(m_currentSpriteAddress);
+	sprite.xPosition = m_gameboy.readMemory(m_currentSpriteAddress + 1);
+	sprite.tileIndex = m_gameboy.readMemory(m_currentSpriteAddress + 2);
+	sprite.flags = m_gameboy.readMemory(m_currentSpriteAddress + 3);
+	m_currentSpriteAddress += 4; //go to next sprite
+	return sprite;
+}
+
+void PPU::tryAddSpriteToBuffer(const Sprite& sprite)
+{
+	constexpr int SPRITE_BUFFER_MAX_SIZE{10};
+	constexpr uint8 TALL_SPRITE_MODE{0b100};
+
+	if(m_spriteBuffer.size() < SPRITE_BUFFER_MAX_SIZE &&
+		sprite.xPosition > 0 &&
+		m_ly + 16 >= sprite.yPosition &&
+		m_ly + 16 < sprite.yPosition + ((m_lcdc & TALL_SPRITE_MODE) ? 16 : 8)) //16 or 8 depending if tall sprite mode is enabled
+	{
+		m_spriteBuffer.emplace_back(sprite);
+	}
+}
+
+void PPU::vBlankInterrupt() const
+{
+	m_gameboy.writeMemory(hardwareReg::IF, m_gameboy.readMemory(hardwareReg::IF) | 1); //bit 0 is vBlank interrupt
 }
 
 uint8 PPU::read(const Index index) const
@@ -124,34 +166,4 @@ void PPU::write(const Index index, const uint8 value)
 	case WY: m_wy = value; break;
 	case WX: m_wx = value; break;
 	}
-}
-
-PPU::Sprite PPU::fetchSprite()
-{
-	Sprite sprite;
-	sprite.yPosition = m_gameboy.readMemory(m_currentSpriteAddress);
-	sprite.xPosition = m_gameboy.readMemory(m_currentSpriteAddress + 1);
-	sprite.tileIndex = m_gameboy.readMemory(m_currentSpriteAddress + 2);
-	sprite.flags = m_gameboy.readMemory(m_currentSpriteAddress + 3);
-	m_currentSpriteAddress += 4; //go to next sprite
-	return sprite;
-}
-
-void PPU::tryAddSpriteToBuffer(const Sprite& sprite)
-{
-	constexpr int SPRITE_BUFFER_MAX_SIZE{10};
-	constexpr uint8 TALL_SPRITE_MODE{0b100};
-
-	if(m_spriteBuffer.size() < SPRITE_BUFFER_MAX_SIZE &&
-		sprite.xPosition > 0 &&
-		m_ly + 16 >= sprite.yPosition &&
-		m_ly + 16 < sprite.yPosition + ((m_lcdc & TALL_SPRITE_MODE) ? 16 : 8)) //16 or 8 depending if tall sprite mode is enabled
-	{
-		m_spriteBuffer.emplace_back(sprite);
-	}
-}
-
-void PPU::vBlankInterrupt() const
-{
-	m_gameboy.writeMemory(hardwareReg::IF, m_gameboy.readMemory(hardwareReg::IF) | 1); //bit 0 is vBlank interrupt
 }
