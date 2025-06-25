@@ -76,7 +76,7 @@ void Gameboy::writeMemory(const uint16 addr, const uint8 value)
 		constexpr uint16 HRAM_START{0xFF80};
 		constexpr uint16 HRAM_END{0xFFFE};
 		if(addr >= HRAM_START && addr <= HRAM_END) m_memory[addr] = value;
-		return;
+		else return;
 	}
 
 	switch(addr)

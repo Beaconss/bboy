@@ -10,12 +10,11 @@
 class Gameboy
 {
 public:
-	Gameboy();
-
 	void cycle();
 
 	uint8 readMemory(const uint16 addr) const;
 	void writeMemory(const uint16 addr, const uint8 value);
+	Gameboy();
 
 private:
 	CPU m_cpu;

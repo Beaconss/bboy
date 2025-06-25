@@ -8,17 +8,8 @@
 
 int main()
 {
-	Platform& platform = Platform::getInstance(); //this is a singleton
+	Platform& platform = Platform::getInstance();
+	Gameboy gameboy;
 	platform.mainLoop();
 	return 0;
 }
-
-/*
-constexpr int test{114 * 154};
-Gameboy gb;
-for(int i{}; i <= test; ++i)
-{
-	gb.cycle();
-}
-std::cout << '\n' << timer.elapsedMilliseconds();
-*/

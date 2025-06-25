@@ -1,6 +1,7 @@
 #pragma once 
 #include "../type_alias.h"
 #include "../hardware_registers.h"
+#include "../platform.h"
 
 #include <vector>
 
@@ -31,6 +32,12 @@ public:
 	void write(const Index index, const uint8 value);
 
 private:
+	class PixelFifo
+	{
+	private:
+
+	};
+
 	enum Mode
 	{
 		H_BLANK,
@@ -45,6 +52,18 @@ private:
 		uint8 xPosition{}; //byte 1
 		uint8 tileIndex{}; //byte 2
 		uint8 flags{}; //byte 3
+		//todo: add each flag
+	};
+
+	struct PixelFetcher
+	{
+		bool doFirstTwoSteps{true};
+		uint8 xPosCounter{};
+		uint8 windowLineCounter{};
+
+		uint16 tileNumber{};
+		uint8 tileDataLow{};
+		uint8 tileDataHigh{};
 	};
 
 	Sprite fetchSprite();
@@ -54,10 +73,13 @@ private:
 	static constexpr unsigned int OAM_MEMORY_START{0xFE00};
 
 	Gameboy& m_gameboy;
+	Platform& m_platform;
 	Mode m_currentMode;
+	std::array<uint8, SCREEN_WIDTH* SCREEN_HEIGHT> m_lcdBuffer;
 
 	std::vector<Sprite> m_spriteBuffer;
 	uint16 m_currentSpriteAddress;
+	PixelFetcher fetcher;
 	int m_cycleCounter;
 
 	uint8 m_lcdc; //LCD control

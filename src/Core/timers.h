@@ -7,7 +7,7 @@ class Gameboy;
 class Timers
 {
 public:
-	Timers(Gameboy& parent);
+	Timers(Gameboy& gameboy);
 
 	enum Index
 	{

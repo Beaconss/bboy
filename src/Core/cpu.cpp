@@ -1,8 +1,8 @@
 #include "cpu.h"
 #include "gameboy.h"
 
-CPU::CPU(Gameboy& parent)
-	: m_gameboy{parent}
+CPU::CPU(Gameboy& gameboy)
+	: m_gameboy{gameboy}
 	, m_iState{}
 	, m_currentInstr{nullptr}
 	, m_cycleCounter{}

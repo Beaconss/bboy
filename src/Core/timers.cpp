@@ -1,8 +1,8 @@
 #include "timers.h"
 #include "gameboy.h"
 
-Timers::Timers(Gameboy& parent)
-	: m_gameboy{parent}
+Timers::Timers(Gameboy& gameboy)
+	: m_gameboy{gameboy}
 	, m_cycleCounter{}
 	, m_div{}
 	, m_tima{}

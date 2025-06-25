@@ -3,11 +3,14 @@
 
 PPU::PPU(Gameboy& gameboy)
 	: m_gameboy{gameboy}
+	, m_platform{Platform::getInstance()}
 	, m_currentMode{OAM_SCAN} //even though OAM_SCAN is mode 2 the ppu starts from it
+	, m_lcdBuffer{}
 	, m_spriteBuffer{10}
 	, m_currentSpriteAddress{OAM_MEMORY_START}
+	, fetcher{}
 	, m_cycleCounter{}
-	, m_lcdc{}
+	, m_lcdc{0b10000000} //start with ppu active
 	, m_stat{}
 	, m_scy{}
 	, m_scx{}
@@ -17,13 +20,21 @@ PPU::PPU(Gameboy& gameboy)
 	, m_obp0{}
 	, m_obp1{}
 	, m_wy{}
-	, m_wx{}
+	, m_wx{7}
 {
 	m_spriteBuffer.reserve(10); //sprite buffer max size is 10
+	m_platform.updateScreen(m_lcdBuffer.data());
 }
 
 void PPU::cycle()
 {
+	if(!(m_lcdc & 0b10000000)) //if bit 7 is disabled clear screen and return because the ppu is not active
+	{
+		//std::fill(std::begin(m_lcdBuffer), std::end(m_lcdBuffer), 0); 
+		//m_platform.updateScreen(m_lcdBuffer.data()); //this seems pretty useless
+		return;
+	}
+
 	constexpr int SCANLINE_END_CYCLE{114};
 	switch(m_currentMode)
 	{
@@ -50,8 +61,47 @@ void PPU::cycle()
 		constexpr int MIN_DRAWING_END_CYCLE{43};
 		int extraCycles{};
 
-		//fetch tile no.
+		if(fetcher.doFirstTwoSteps)
+		{
+			//fetch tile no.
+			constexpr uint8 TILE_MAP_SIZE{0x3FF};
 
+			const bool backgroundEnabled{m_lcdc & 0b1};
+			const bool windowEnabled{backgroundEnabled && m_lcdc & 0b100000};
+			const bool spriteEnabled{m_lcdc & 0b10};
+
+			const uint16 backgroundTilemap{m_lcdc & 0b1000 ? 0x9C00 : 0x9800};
+			const uint16 windowTileMap{m_lcdc & 0b1000000 ? 0x9C00 : 0x9800};
+
+			//to know if im fetching background or window I need to use:
+			//scx and scy which is the screen position
+			//wx - 7 and wy which is window position
+			//fetcher.xPosCounter and ly which is the current fetching position
+			//(I hope at least)
+
+			const bool isFetchingWindow{windowEnabled && m_ly >= m_wy && fetcher.xPosCounter >= m_wx - 7}; //dont knwo if m_ly >= m_wy will work
+
+			if(isFetchingWindow)
+			{
+
+			}
+			else //background fetching
+			{
+
+			}
+
+			//fetch tile data(low)
+
+			fetcher.doFirstTwoSteps = false;
+		}
+		else
+		{
+			//fetch tile data(high)
+
+			//push to FIFO
+
+			fetcher.doFirstTwoSteps = true;
+		}
 
 		if(m_cycleCounter == MIN_DRAWING_END_CYCLE + extraCycles) //the amount of cycles changes depending on some factors so I will need to calculate them 
 		{
@@ -103,6 +153,7 @@ void PPU::cycle()
 
 PPU::Sprite PPU::fetchSprite()
 {
+	//TODO: fix for tall sprite mode
 	Sprite sprite;
 	sprite.yPosition = m_gameboy.readMemory(m_currentSpriteAddress);
 	sprite.xPosition = m_gameboy.readMemory(m_currentSpriteAddress + 1);
@@ -122,7 +173,7 @@ void PPU::tryAddSpriteToBuffer(const Sprite& sprite)
 		m_ly + 16 >= sprite.yPosition &&
 		m_ly + 16 < sprite.yPosition + ((m_lcdc & TALL_SPRITE_MODE) ? 16 : 8)) //16 or 8 depending if tall sprite mode is enabled
 	{
-		m_spriteBuffer.emplace_back(sprite);
+		m_spriteBuffer.push_back(sprite);
 	}
 }
 
