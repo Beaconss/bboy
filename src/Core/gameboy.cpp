@@ -9,6 +9,36 @@ Gameboy::Gameboy()
 	, m_dmaTransferEnableNextCycle{false}
 	, m_dmaTransferCurrentAddress{}
 {
+	loadRom("dmg_boot.bin");
+}
+
+void Gameboy::loadRom(char const* filePath)
+{
+	std::ifstream file(filePath, std::ios::binary | std::ios::ate);
+
+	if(file.is_open())
+	{
+		std::streamsize size{file.tellg()};
+		if(size > 0xFFFF)
+		{
+			std::cerr << "File too large\n";
+			return;
+		}
+
+		char* buffer{new char[size]};
+
+		file.seekg(0, std::ios::beg);
+		file.read(buffer, size);
+		file.close();
+
+		for(int i{0}; i < size; ++i)
+		{
+			m_memory[i] = buffer[i];
+		}
+
+		delete[] buffer;
+	}
+	else std::cerr << "Failed to open file";
 }
 
 //in the main loop I will batch a number of these and render afterwards
@@ -29,11 +59,11 @@ void Gameboy::cycle() //1 machine cycle
 		m_dmaTransferEnableNextCycle = false;
 	}
 
-	m_ppu.cycle();
 	m_cpu.cycle();
+	for(int i{0}; i < 4; ++i) m_ppu.cycle(); //each cycle is treated as a t-cycle, so 4 per m-cycle
+
 }
 
-//memo to handle reads and writes to video related memory while the ppu is accessing it
 uint8 Gameboy::readMemory(const uint16 addr) const
 {
 	using namespace hardwareReg;
@@ -76,8 +106,13 @@ void Gameboy::writeMemory(const uint16 addr, const uint8 value)
 		constexpr uint16 HRAM_START{0xFF80};
 		constexpr uint16 HRAM_END{0xFFFE};
 		if(addr >= HRAM_START && addr <= HRAM_END) m_memory[addr] = value;
-		else return;
+		return;
 	}
+
+	constexpr uint16 VRAM_START{0x8000};
+	constexpr uint16 VRAM_END{0x9FFF};
+	constexpr uint16 OAM_START{0xFE00};
+	constexpr uint16 OAM_END{0xFE9F};
 
 	switch(addr)
 	{

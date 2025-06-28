@@ -1,6 +1,5 @@
 #pragma once
 #include "type_alias.h"
-
 #include <SDL3/SDL.h>
 
 #include <iostream>
@@ -8,6 +7,8 @@
 
 constexpr int SCREEN_WIDTH{160};
 constexpr int SCREEN_HEIGHT{144};
+
+class Gameboy;
 
 class Platform //this is a singleton
 {
@@ -18,7 +19,7 @@ public:
 		return platform;
 	}
 
-	void mainLoop();
+	void mainLoop(Gameboy& gb);
 	void updateScreen(uint8* data);
 
 private:

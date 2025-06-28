@@ -1,4 +1,5 @@
 #include "platform.h"
+#include "Core/gameboy.h"
 
 Platform::Platform()
 	: m_running{true}
@@ -13,19 +14,39 @@ Platform::Platform()
     if(!m_window) std::cerr << "SDL window failed to initialize " << SDL_GetError() << '\n';
     m_renderer = SDL_CreateRenderer(m_window, SDL_GetRenderDriver(0));
     if(!m_renderer) std::cerr << "SDL renderer failed to initialize " << SDL_GetError() << '\n';
-    m_screenTexture = SDL_CreateTexture(m_renderer, SDL_PixelFormat::SDL_PIXELFORMAT_RGB332 , SDL_TextureAccess::SDL_TEXTUREACCESS_STREAMING, 160, 144);
+    m_screenTexture = SDL_CreateTexture(m_renderer, SDL_PixelFormat::SDL_PIXELFORMAT_RGB332 , SDL_TextureAccess::SDL_TEXTUREACCESS_STREAMING, SCREEN_WIDTH, SCREEN_HEIGHT);
     if(!m_screenTexture) std::cerr << "SDL texture failed to initialize " << SDL_GetError() << '\n';
 
     SDL_SetTextureScaleMode(m_screenTexture, SDL_SCALEMODE_NEAREST);
 }
 
-void Platform::mainLoop()
+void Platform::mainLoop(Gameboy& gb)
 {
+    constexpr int CYCLES_PER_FRAME{17556};
     while(m_running)
     {
         while(SDL_PollEvent(&m_event))
         {
-            if(m_event.type == SDL_EventType::SDL_EVENT_QUIT) m_running = false;
+            if(m_event.type == SDL_EVENT_QUIT) m_running = false;
+            if(m_event.type == SDL_EVENT_KEY_DOWN) 
+            {
+                if(m_event.key.key == SDLK_W)
+                {
+                    for(int i{}; i < CYCLES_PER_FRAME * 40; ++i)
+                    {
+                        gb.cycle();
+                    }
+                }
+                if(m_event.key.key == SDLK_A)
+                {
+                
+                }
+            }
+        }
+
+        for(int i{}; i < CYCLES_PER_FRAME; ++i)
+        {
+            gb.cycle();
         }
 
         render();
@@ -46,5 +67,5 @@ void Platform::render() const
 
 void Platform::updateScreen(uint8* data)
 {
-    SDL_UpdateTexture(m_screenTexture, nullptr, data, SCREEN_HEIGHT * sizeof(uint8));
+    SDL_UpdateTexture(m_screenTexture, nullptr, data, SCREEN_WIDTH * sizeof(uint8));
 }

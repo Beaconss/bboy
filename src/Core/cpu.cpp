@@ -29,7 +29,7 @@ void CPU::cycle()
 {
 	++m_cycleCounter;//since instructions reset m_cycleCounter to 0 increment before the cpu cycle so its 1, then if the instruction is multi-cycle 2, 3...
 	if(handleInterrupts()) return;
-	if(m_isHalted) return; //return if isHalted is still true after handling the interrupts
+	if(m_isHalted) return; //return if isHalted is still true after handling the interruptse
 
 	if(m_imeEnableNextCycle)
 	{
@@ -372,7 +372,7 @@ void CPU::execute()
 	case 0x00: NOP(); break;
 
 	default:
-		std::cerr << "Invalid opcode";
+		std::cerr << "Invalid opcode" << '\n';
 		break;
 	}
 }
@@ -2333,7 +2333,7 @@ void CPU::CALL_nn()
 		m_iState.xx = m_gameboy.readMemory(m_PC++);
 		break;
 	case 3:
-		m_iState.xx = m_gameboy.readMemory(m_PC++); //nn
+		m_iState.xx |= m_gameboy.readMemory(m_PC++) << 8; //nn
 		break;
 	case 4:
 		break;
@@ -2361,7 +2361,7 @@ void CPU::CALL_cc_nn()
 		break;
 	case 3:
 		m_iState.x = (m_IR >> 3) & 0b11; //cc
-		m_iState.xx = m_gameboy.readMemory(m_PC++); //nn
+		m_iState.xx |= m_gameboy.readMemory(m_PC++) << 8; //nn
 
 		switch(m_iState.x) //m_iState.y is used as a bool to check later if condition is met
 		{
@@ -2487,7 +2487,7 @@ void CPU::RST_n()
 	case 4:
 		m_gameboy.writeMemory(--m_SP, getLSB(m_PC));
 		m_iState.x = (m_IR >> 3) & 0b111; //n
-		
+
 		m_PC = (0x00 << 8) | m_iState.x;
 		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
@@ -2505,7 +2505,7 @@ void CPU::HALT()
 
 void CPU::STOP()
 {
-	//TODO AOI
+	//TODO
 	m_cycleCounter = 0;
 }
 

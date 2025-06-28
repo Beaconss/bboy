@@ -32,7 +32,7 @@ private:
 	};
 
 	Gameboy& m_gameboy;
-	int m_cycleCounter;
+	uint16 m_cycleCounter; //max value is 256
 	uint8 m_div; //divider register
 	uint8 m_tima; //timer counter
 	uint8 m_tma; //timer modulo

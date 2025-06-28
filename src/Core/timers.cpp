@@ -12,6 +12,7 @@ Timers::Timers(Gameboy& gameboy)
 {
 }
 
+//maybe I will nead to refactor this to use t-cycles instead of m-cycles
 uint8 Timers::read(const Index index) const
 {
 	switch(index)
