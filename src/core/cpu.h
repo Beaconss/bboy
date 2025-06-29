@@ -12,7 +12,6 @@ class CPU
 public:
 	CPU(Gameboy& gameboy);
 	void cycle();
-	void interruptRequestedOrEnabled();
 
 private:
 	struct IState //these values are used in instructions
@@ -215,7 +214,6 @@ private:
 	bool m_imeEnableInTwoCycles;
 	bool m_imeEnableNextCycle;
 	bool m_isHalted;
-	bool m_interruptRequestedOrEnabled;
 
 	//register file:
 	uint16 m_PC; //program counter

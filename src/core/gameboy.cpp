@@ -10,7 +10,7 @@ Gameboy::Gameboy()
 	, m_dmaTransferCurrentAddress{}
 {
 	loadBootRom();
-	loadRom("test/11-op a,(hl).gb");
+	loadRom("test/02-interrupts.gb");
 }
 
 void Gameboy::loadRom(char const* filePath)
@@ -164,11 +164,7 @@ void Gameboy::writeMemory(const uint16 addr, const uint8 value)
 	case OBP0: m_ppu.write(PPU::OBP0, value); break;
 	case OBP1: m_ppu.write(PPU::OBP1, value); break;
 	case WY: m_ppu.write(PPU::WY, value); break;
-	case WX: m_ppu.write(PPU::WX, value); break;
-	case IF:
-	case IE: 
-		m_cpu.interruptRequestedOrEnabled();
-		[[fallthrough]];
+	case WX: m_ppu.write(PPU::WX, value); break; 
 	default: m_memory[addr] = value; break;
 	}
 }

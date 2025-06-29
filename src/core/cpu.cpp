@@ -10,7 +10,6 @@ CPU::CPU(Gameboy& gameboy)
 	, m_imeEnableInTwoCycles{false}
 	, m_imeEnableNextCycle{false}
 	, m_isHalted{false}
-	, m_interruptRequestedOrEnabled{false}
 	, m_PC{0x00}
 	, m_SP{}
 	, m_registers{0x0, 0x13, 0x0, 0xD8, 0x1, 0x4D, 0x1}
@@ -22,7 +21,7 @@ CPU::CPU(Gameboy& gameboy)
 void CPU::cycle()
 {
 	++m_cycleCounter;//since instructions reset m_cycleCounter to 0 increment before the cpu cycle so its 1, then if the instruction is multi-cycle 2, 3...
-	if(m_interruptRequestedOrEnabled) handleInterrupts();
+	handleInterrupts();
 	if(m_isHalted) return;
 
 	if(m_imeEnableNextCycle)
@@ -45,15 +44,8 @@ void CPU::cycle()
 	}
 }
 
-void CPU::interruptRequestedOrEnabled()
-{
-	m_interruptRequestedOrEnabled = true;
-}
-
 void CPU::handleInterrupts()
 {
-	m_interruptRequestedOrEnabled = false;
-
 	uint8 pendingInterrupts = m_gameboy.readMemory(hardwareReg::IF) & m_gameboy.readMemory(hardwareReg::IE);
 	if(pendingInterrupts)
 	{
