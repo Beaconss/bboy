@@ -18,6 +18,7 @@ Platform::Platform()
     if(!m_screenTexture) std::cerr << "SDL texture failed to initialize " << SDL_GetError() << '\n';
 
     SDL_SetTextureScaleMode(m_screenTexture, SDL_SCALEMODE_NEAREST);
+    SDL_SetRenderLogicalPresentation(m_renderer, 160, 144, SDL_RendererLogicalPresentation::SDL_LOGICAL_PRESENTATION_INTEGER_SCALE);
 }
 
 void Platform::mainLoop(Gameboy& gb)
@@ -39,7 +40,7 @@ void Platform::mainLoop(Gameboy& gb)
                 }
                 if(m_event.key.key == SDLK_A)
                 {
-                
+
                 }
             }
         }
@@ -48,8 +49,6 @@ void Platform::mainLoop(Gameboy& gb)
         {
             gb.cycle();
         }
-
-        render();
     }
     
     SDL_DestroyTexture(m_screenTexture);

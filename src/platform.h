@@ -21,14 +21,13 @@ public:
 
 	void mainLoop(Gameboy& gb);
 	void updateScreen(uint8* data);
+	void render() const;
 
 private:
 	Platform();
 
 	Platform(const Platform&) = delete;
 	Platform& operator=(const Platform&) = delete;
-
-	void render() const;
 
 	bool m_running;
 	SDL_Window* m_window;

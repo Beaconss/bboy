@@ -42,8 +42,7 @@ void PixelFetcher::cycle()
 			++m_stepCycle;
 			if(m_stepCycle == 2)
 			{
-				const uint16 tileMapAddress{static_cast<uint16>(m_ppu.m_lcdc & 0b1000 ? 0x9C00 : 0x9800)}; //bit 3 sets tilemap for background
-
+				uint16 tileMapAddress{static_cast<uint16>(m_ppu.m_lcdc & 0b1000 ? 0x9C00 : 0x9800)}; //bit 3 sets tilemap for background
 				const uint16 offset{static_cast<uint16>((((m_xPosCounter + m_ppu.m_scx) / PIXELS_PER_TILE) & 0x1F) +
 														(TILES_PER_ROW * (((m_ppu.m_ly + m_ppu.m_scy) & 0xFF) / PIXELS_PER_TILE))
 														& TILEMAP_SIZE)};
@@ -70,8 +69,7 @@ void PixelFetcher::cycle()
 				else
 				{
 					//8800 method
-					__debugbreak();
-					m_tileAddress = 0x9000 + (static_cast<int8>(m_tileNumber * 16))
+					m_tileAddress = 0x9000 + (static_cast<int8>(m_tileNumber) * 16)
 									+ (2 * ((m_ppu.m_ly + m_ppu.m_scy) % 8));
 					m_tileDataLow = m_ppu.m_gameboy.readMemory(m_tileAddress);
 				}

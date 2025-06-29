@@ -122,6 +122,7 @@ void PPU::cycle()
 		if(m_ly == 154)
 		{
 			m_platform.updateScreen(m_lcdBuffer.data());
+			m_platform.render();
 			m_ly = 0;
 			m_tCycleCounter = 0;
 			m_currentMode = OAM_SCAN;

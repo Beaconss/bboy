@@ -12,6 +12,7 @@ class CPU
 public:
 	CPU(Gameboy& gameboy);
 	void cycle();
+	void interruptRequestedOrEnabled();
 
 private:
 	struct IState //these values are used in instructions
@@ -57,25 +58,7 @@ private:
 
 	static constexpr std::array<uint8, 5> interruptHandlerAddress {0x40, 0x48, 0x50, 0x58, 0x60};
 
-	Gameboy& m_gameboy;
-	IState m_iState;
-	void (CPU::*m_currentInstr)(); //pointer to a CPU function that returns void and take no parameters called m_currentInstr
-	uint8 m_cycleCounter; //max value is like 8
-
-	//interrupt things
-	bool m_ime; //interrupt master enabler
-	bool m_imeEnableInTwoCycles;
-	bool m_imeEnableNextCycle;
-	bool m_isHalted;
-
-	//register file:
-	uint16 m_PC; //program counter
-	uint16 m_SP; //stack pointer
-	std::array<uint8, 8> m_registers; //general purpose registers
-	uint8 m_F; //flags register
-	uint8 m_IR; //instruction register
-
-	bool handleInterrupts(); //returns whether an interrupt was serviced or not
+	void handleInterrupts();
 	void interruptRoutine();
 	void fetch();
 	void execute();
@@ -220,4 +203,24 @@ private:
 	void DI();
 	void EI();
 	void NOP();
+
+	//variables
+	Gameboy& m_gameboy;
+	IState m_iState;
+	void (CPU::* m_currentInstr)(); //pointer to a CPU function that returns void and take no parameters called m_currentInstr
+	uint8 m_cycleCounter; //max value is like 8
+
+	//interrupt things
+	bool m_ime; //interrupt master enabler
+	bool m_imeEnableInTwoCycles;
+	bool m_imeEnableNextCycle;
+	bool m_isHalted;
+	bool m_interruptRequestedOrEnabled;
+
+	//register file:
+	uint16 m_PC; //program counter
+	uint16 m_SP; //stack pointer
+	std::array<uint8, 8> m_registers; //general purpose registers
+	uint8 m_F; //flags register
+	uint8 m_IR; //instruction register
 };

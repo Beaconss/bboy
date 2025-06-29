@@ -22,6 +22,7 @@ public:
 	std::array<uint8, 0xFFFF + 1> m_memory;
 
 private:
+	void loadBootRom();
 
 	CPU m_cpu;
 	PPU m_ppu;

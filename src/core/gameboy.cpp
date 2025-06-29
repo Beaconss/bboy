@@ -9,7 +9,8 @@ Gameboy::Gameboy()
 	, m_dmaTransferEnableNextCycle{false}
 	, m_dmaTransferCurrentAddress{}
 {
-	loadRom("dmg_boot.bin");
+	loadBootRom();
+	loadRom("test/11-op a,(hl).gb");
 }
 
 void Gameboy::loadRom(char const* filePath)
@@ -25,13 +26,13 @@ void Gameboy::loadRom(char const* filePath)
 			return;
 		}
 
-		char* buffer{new char[size]};
+		uint8* buffer{new uint8[size]};
 
 		file.seekg(0, std::ios::beg);
-		file.read(buffer, size);
+		file.read((char*)buffer, size);
 		file.close();
 
-		for(int i{0}; i < size; ++i)
+		for(int i{0x100}; i < size; ++i)
 		{
 			m_memory[i] = buffer[i];
 		}
@@ -41,7 +42,30 @@ void Gameboy::loadRom(char const* filePath)
 	else std::cerr << "Failed to open file";
 }
 
-//in the main loop I will batch a number of these and render afterwards
+void Gameboy::loadBootRom()
+{
+	std::ifstream file("custom_boot.bin", std::ios::binary | std::ios::ate);
+
+	if(file.is_open())
+	{
+		std::streamsize size{file.tellg()};
+
+		uint8* buffer{new uint8[size]};
+
+		file.seekg(0, std::ios::beg);
+		file.read((char*)buffer, size);
+		file.close();
+
+		for(int i{0x0}; i < 0x100; ++i)
+		{
+			m_memory[i] = buffer[i];
+		}
+
+		delete[] buffer;
+	}
+	else std::cerr << "Failed to open file";
+}
+
 void Gameboy::cycle() //1 machine cycle
 {
 	m_timers.cycle();
@@ -75,6 +99,9 @@ uint8 Gameboy::readMemory(const uint16 addr) const
 		if(addr >= HRAM_START && addr <= HRAM_END) return m_memory[addr];
 		else return 0xFF;
 	}
+
+	constexpr uint16 VRAM_START{0x8000};
+	constexpr uint16 VRAM_END{0x9FFF};
 
 	switch(addr)
 	{ //handle virtual registers
@@ -111,8 +138,11 @@ void Gameboy::writeMemory(const uint16 addr, const uint8 value)
 
 	constexpr uint16 VRAM_START{0x8000};
 	constexpr uint16 VRAM_END{0x9FFF};
-	constexpr uint16 OAM_START{0xFE00};
-	constexpr uint16 OAM_END{0xFE9F};
+
+	if(addr >= VRAM_START && addr <= VRAM_END)
+	{
+	//	std::cout << std::hex << "addr: " << (int)addr << ' ' << "value: " << (int)value << '\n';
+	}
 
 	switch(addr)
 	{
@@ -135,6 +165,10 @@ void Gameboy::writeMemory(const uint16 addr, const uint8 value)
 	case OBP1: m_ppu.write(PPU::OBP1, value); break;
 	case WY: m_ppu.write(PPU::WY, value); break;
 	case WX: m_ppu.write(PPU::WX, value); break;
+	case IF:
+	case IE: 
+		m_cpu.interruptRequestedOrEnabled();
+		[[fallthrough]];
 	default: m_memory[addr] = value; break;
 	}
 }

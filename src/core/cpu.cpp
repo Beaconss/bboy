@@ -10,26 +10,20 @@ CPU::CPU(Gameboy& gameboy)
 	, m_imeEnableInTwoCycles{false}
 	, m_imeEnableNextCycle{false}
 	, m_isHalted{false}
+	, m_interruptRequestedOrEnabled{false}
 	, m_PC{0x00}
 	, m_SP{}
-	, m_registers{}
+	, m_registers{0x0, 0x13, 0x0, 0xD8, 0x1, 0x4D, 0x1}
 	, m_F{0xB0}
 	, m_IR{}
 {
-	m_registers[B] = 0;
-	m_registers[C] = 0x13;
-	m_registers[D] = 0;
-	m_registers[E] = 0xD8;
-	m_registers[H] = 1;
-	m_registers[L] = 0x4D;
-	m_registers[A] = 1;
 }
 
 void CPU::cycle()
 {
 	++m_cycleCounter;//since instructions reset m_cycleCounter to 0 increment before the cpu cycle so its 1, then if the instruction is multi-cycle 2, 3...
-	if(handleInterrupts()) return;
-	if(m_isHalted) return; //return if isHalted is still true after handling the interruptse
+	if(m_interruptRequestedOrEnabled) handleInterrupts();
+	if(m_isHalted) return;
 
 	if(m_imeEnableNextCycle)
 	{
@@ -42,7 +36,7 @@ void CPU::cycle()
 		m_imeEnableNextCycle = true;
 		m_imeEnableInTwoCycles = false;
 	}
-
+	
 	if(m_currentInstr) (this->*m_currentInstr)(); //call cached instruction if not nullptr
 	else
 	{
@@ -51,13 +45,14 @@ void CPU::cycle()
 	}
 }
 
-bool CPU::handleInterrupts()
+void CPU::interruptRequestedOrEnabled()
 {
-	if(m_currentInstr == &CPU::interruptRoutine) 
-	{
-		interruptRoutine();
-		return true; //dont know if this should return true even if interruptRoutine finished
-	}
+	m_interruptRequestedOrEnabled = true;
+}
+
+void CPU::handleInterrupts()
+{
+	m_interruptRequestedOrEnabled = false;
 
 	uint8 pendingInterrupts = m_gameboy.readMemory(hardwareReg::IF) & m_gameboy.readMemory(hardwareReg::IE);
 	if(pendingInterrupts)
@@ -73,13 +68,11 @@ bool CPU::handleInterrupts()
 					m_ime = false;
 					m_iState.x = i; //save i to be used in interruptRoutine as interrupt index
 					m_cycleCounter = 1; //set cycles counter to 1 before interrupt routine to be sure to do every cycle
-					interruptRoutine();
-					return true;
+					m_currentInstr = &CPU::interruptRoutine;
 				}
 			}
 		}
 	}
-	return false;
 }
 
 void CPU::interruptRoutine()
@@ -114,7 +107,7 @@ void CPU::execute()
 {
 	switch(m_IR) 
 	{
-		// ============ 8-bit load instructions ============
+		//8-bit load instructions
 	case 0x40: case 0x41: case 0x42: case 0x43: case 0x44: case 0x45: case 0x47:
 	case 0x48: case 0x49: case 0x4A: case 0x4B: case 0x4C: case 0x4D: case 0x4F:
 	case 0x50: case 0x51: case 0x52: case 0x53: case 0x54: case 0x55: case 0x57:
@@ -125,7 +118,6 @@ void CPU::execute()
 		LD_r_r2(); break;
 
 	case 0x06: case 0x0E: case 0x16: case 0x1E: case 0x26: case 0x2E: case 0x3E:
-		LD_r_n(); break;
 		LD_r_n(); break;
 
 	case 0x46: case 0x4E: case 0x56: case 0x5E: case 0x66: case 0x6E: case 0x7E:
@@ -150,7 +142,7 @@ void CPU::execute()
 	case 0x2A: LD_A_HLi(); break;
 	case 0x22: LD_HLi_A(); break;
 
-		// ============ 16-bit load instructions ============
+		//16-bit load instructions
 	case 0x01: case 0x11: case 0x21: case 0x31:
 		LD_rr_nn(); break;
 
@@ -165,7 +157,7 @@ void CPU::execute()
 
 	case 0xF8: LD_HL_SP_e(); break;
 
-		// ============ 8-bit arithmetic and logical instructions ============
+		//8-bit arithmetic and logical instructions
 	case 0x80: case 0x81: case 0x82: case 0x83: case 0x84: case 0x85: case 0x87:
 		ADD_r(); break;
 
@@ -229,7 +221,7 @@ void CPU::execute()
 	case 0x3F: CCF(); break;
 	case 0x37: SCF(); break;
 
-		// ============ 16-bit arithmetic instructions ============
+		//16-bit arithmetic instructions
 	case 0x03: case 0x13: case 0x23: case 0x33:
 		INC_rr(); break;
 
@@ -241,7 +233,7 @@ void CPU::execute()
 
 	case 0xE8: ADD_SP_e(); break;
 
-		// ============ rotate, shift and bit operations instructions ============
+		//rotate, shift and bit operations instructions
 	case 0x07: RLCA(); break;
 	case 0x0F: RRCA(); break;
 	case 0x17: RLA(); break;
@@ -372,7 +364,7 @@ void CPU::execute()
 	case 0x00: NOP(); break;
 
 	default:
-		std::cerr << "Invalid opcode" << '\n';
+		std::cerr << "Invalid opcode " << std::hex << (int)m_IR << " at PC: " << (int)m_PC << '\n';
 		break;
 	}
 }
@@ -732,6 +724,7 @@ void CPU::LD_HLd_A()
 		m_currentInstr = &CPU::LD_HLd_A;
 		break;
 	case 2:
+		
 		m_gameboy.writeMemory(getHL(), m_registers[A]);
 		if(--m_registers[L] == 0xFF) --m_registers[H];
 		m_cycleCounter = 0;
@@ -1223,7 +1216,7 @@ void CPU::INC_r()
 {
 	m_iState.x = (m_IR >> 3) & 0b111; //r
 
-	setFZ((m_registers[m_iState.x] + 1) == 0);
+	setFZ(m_registers[m_iState.x] == 0xFF);
 	setFN(false);
 	setFH((m_registers[m_iState.x] & 0xF) == 0xF);
 
@@ -1244,7 +1237,7 @@ void CPU::INC_HL()
 	case 3:
 		m_gameboy.writeMemory(getHL(), m_iState.x + 1);
 
-		setFZ((m_iState.x + 1) == 0);
+		setFZ(m_iState.x == 0xFF);
 		setFN(false);
 		setFH((m_iState.x & 0xF) == 0xF);
 
