@@ -19,11 +19,11 @@ public:
 	uint8 readMemory(const uint16 addr) const;
 	void writeMemory(const uint16 addr, const uint8 value);
 
-	std::array<uint8, 0xFFFF + 1> m_memory;
 
 private:
 	void loadBootRom();
 
+	std::array<uint8, 0xFFFF + 1> m_memory;
 	CPU m_cpu;
 	PPU m_ppu;
 	Timers m_timers;

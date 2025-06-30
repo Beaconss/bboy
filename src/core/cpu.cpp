@@ -11,12 +11,28 @@ CPU::CPU(Gameboy& gameboy)
 	, m_imeEnableNextCycle{false}
 	, m_isHalted{false}
 	, m_PC{0x00}
-	, m_SP{}
-	, m_registers{0x0, 0x13, 0x0, 0xD8, 0x1, 0x4D, 0x1}
-	, m_F{0xB0}
+	, m_SP{0xFFFE}
+	, m_registers{0x0, 0x0, 0xFF, 0x56, 0x0, 0xD, 0x0, 0x11}
+	, m_F{0x80}
 	, m_IR{}
 {
 }
+
+/*
+INSTRUCTIONS to check for 03-op sp, hl rom:
+*/
+
+/*
+FIXED INSTRUCTIONS:
+INC_SP
+DEC_SP
+ADD_HL_SP
+LD_SP_HL
+ADD_SP +1
+ADD_SP -1
+LD_HL_SP +1
+LD_HL_SP -1
+*/
 
 void CPU::cycle()
 {
@@ -320,7 +336,7 @@ void CPU::execute()
 		} 
 		break;
 	}
-			 // ============ control flow instructions ============
+			 //control flow instructions
 	case 0xC3: JP_nn(); break;
 	case 0xE9: JP_HL(); break;
 
@@ -348,7 +364,7 @@ void CPU::execute()
 	case 0xCF: case 0xDF: case 0xEF: case 0xFF:
 		RST_n(); break;
 
-		// ============ other ============
+		//other
 	case 0x76: HALT(); break;
 	case 0x10: STOP(); break;
 	case 0xF3: DI(); break;
@@ -406,46 +422,46 @@ void CPU::setHL(const uint16 HL)
 
 bool CPU::getFZ() const
 {
-	return m_F & 0b10000000;
+	return static_cast<bool>(m_F & 0b10000000);
 }
 
 bool CPU::getFN() const
 {
-	return m_F & 0b01000000;
+	return static_cast<bool>(m_F & 0b01000000);
 }
 
 bool CPU::getFH() const
 {
-	return m_F & 0b00100000;
+	return static_cast<bool>(m_F & 0b00100000);
 }
 
 bool CPU::getFC() const
 {
-	return m_F & 0b00010000;
+	return static_cast<bool>(m_F & 0b00010000);
 }
 
 void CPU::setFZ(bool z)
 {
 	if(z) m_F = m_F | 0b10000000;
-	else  m_F = m_F & 0b01111111;
+	else  m_F = m_F & 0b01110000;
 }
 
 void CPU::setFN(bool n)
 {
 	if(n) m_F = m_F | 0b01000000;
-	else  m_F = m_F & 0b10111111;
+	else  m_F = m_F & 0b10110000;
 }
 
 void CPU::setFH(bool h)
 {
 	if(h) m_F = m_F | 0b00100000;
-	else  m_F = m_F & 0b11011111;
+	else  m_F = m_F & 0b11010000;
 } 
 
 void CPU::setFC(bool c)
 {
 	if(c) m_F = m_F | 0b00010000;
-	else  m_F = m_F & 0b11101111;
+	else  m_F = m_F & 0b11100000;
 }
 
 void CPU::LD_r_r2()
@@ -895,7 +911,7 @@ void CPU::LD_HL_SP_e()
 		break;
 	case 2:
 		m_iState.e = static_cast<int8>(m_gameboy.readMemory(m_PC++)); //e
-		m_iState.xx = m_SP + static_cast<uint8>(m_iState.e);
+		m_iState.xx = static_cast<uint16>(m_SP + m_iState.e);
 		break;
 	case 3:
 		setHL(m_iState.xx);
@@ -1034,14 +1050,14 @@ void CPU::ADC_n()
 void CPU::SUB_r()
 {
 	m_iState.x = m_IR & 0b111; //r
-	m_iState.y = m_registers[A] - m_registers[m_iState.x]; //result
+	m_iState.xx = m_registers[A] - m_registers[m_iState.x]; //result
 
 	setFZ(m_iState.y == 0);
 	setFN(true);
-	setFH((m_registers[A] & 0xF) < (m_registers[m_iState.x] & 0xF));
-	setFC(m_registers[A] < m_registers[m_iState.x]);
+	setFH(((m_registers[A] & 0xF) - (m_registers[m_iState.x] & 0xF)) & 0x10);
+	setFC(m_iState.xx & 0x100);
 
-	m_registers[A] = m_iState.y;
+	m_registers[A] = static_cast<uint8>(m_iState.xx);
 	m_cycleCounter = 0;
 }
 
@@ -1054,14 +1070,14 @@ void CPU::SUB_HL()
 		break;
 	case 2:
 		m_iState.x = m_gameboy.readMemory(getHL()); //HL mem
-		m_iState.y = m_registers[A] - m_iState.x; //result
+		m_iState.xx = m_registers[A] - m_iState.x; //result
 
 		setFZ(m_iState.y == 0);
 		setFN(true);
-		setFH((m_registers[A] & 0xF) < (m_iState.x & 0xF));
-		setFC(m_registers[A] < m_iState.x);
+		setFH(((m_registers[A] & 0xF) - (m_iState.x & 0xF)) & 0x10);
+		setFC(m_iState.xx & 0x100);
 
-		m_registers[A] = m_iState.y;
+		m_registers[A] = static_cast<uint8>(m_iState.xx);
 		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
@@ -1077,14 +1093,14 @@ void CPU::SUB_n()
 		break;
 	case 2:
 		m_iState.x = m_gameboy.readMemory(m_PC++); //n
-		m_iState.y = m_registers[A] - m_iState.x; //result
+		m_iState.xx = m_registers[A] - m_iState.x; //result
 
 		setFZ(m_iState.y == 0);
 		setFN(true);
-		setFH((m_registers[A] & 0xF) < (m_iState.x & 0xF));
-		setFC(m_registers[A] < m_iState.x);
+		setFH(((m_registers[A] & 0xF) - (m_iState.x & 0xF)) & 0x10);
+		setFC(m_iState.xx & 0x100);
 
-		m_registers[A] = m_iState.y;
+		m_registers[A] = static_cast<uint8>(m_iState.xx);
 		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
@@ -1094,14 +1110,14 @@ void CPU::SUB_n()
 void CPU::SBC_r()
 {
 	m_iState.x = m_IR & 0b111; //r
-	m_iState.y = m_registers[A] - m_registers[m_iState.x] - getFC(); //result
+	m_iState.xx = m_registers[A] - m_registers[m_iState.x] - getFC(); //result
 
 	setFZ(m_iState.y == 0);
 	setFN(true);
-	setFH(((m_registers[A] & 0xF) - (m_registers[m_iState.x] & 0xF) - getFC()) < 0);
-	setFC((m_registers[A] - m_registers[m_iState.x] - getFC()) < 0);
+	setFH(((m_registers[A] & 0xF) - (m_registers[m_iState.x] & 0xF) - getFC()) & 0x10);
+	setFC(m_iState.xx & 0x100);
 
-	m_registers[A] = m_iState.y;
+	m_registers[A] = static_cast<uint8>(m_iState.xx);
 	m_cycleCounter = 0;
 }
 
@@ -1114,14 +1130,14 @@ void CPU::SBC_HL()
 		break;
 	case 2:
 		m_iState.x = m_gameboy.readMemory(getHL()); //HL mem
-		m_iState.y = m_registers[A] - m_iState.x - getFC(); //result
+		m_iState.xx = m_registers[A] - m_iState.x - getFC(); //result
 
 		setFZ(m_iState.y == 0);
 		setFN(true);
-		setFH(((m_registers[A] & 0xF) - (m_iState.x & 0xF) - getFC()) < 0);
-		setFC((m_registers[A] - m_iState.x - getFC()) < 0);
+		setFH(((m_registers[A] & 0xF) - (m_iState.x & 0xF) - getFC()) & 0x10);
+		setFC(m_iState.xx & 0x100);
 
-		m_registers[A] = m_iState.y;
+		m_registers[A] = static_cast<uint8>(m_iState.xx);
 		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
@@ -1137,14 +1153,14 @@ void CPU::SBC_n()
 		break;
 	case 2:
 		m_iState.x = m_gameboy.readMemory(m_PC++); //n
-		m_iState.y = m_registers[A] - m_iState.x - getFC(); //result
+		m_iState.xx = m_registers[A] - m_iState.x - getFC(); //result
 
 		setFZ(m_iState.y == 0);
 		setFN(true);
-		setFH(((m_registers[A] & 0xF) - (m_iState.x & 0xF) - getFC()) < 0);
-		setFC((m_registers[A] - m_iState.x - getFC()) < 0);
+		setFH(((m_registers[A] & 0xF) - (m_iState.x & 0xF) - getFC()) & 0x10);
+		setFC(m_iState.xx & 0x100);
 
-		m_registers[A] = m_iState.y;
+		m_registers[A] = static_cast<uint8>(m_iState.xx);
 		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
@@ -1154,11 +1170,12 @@ void CPU::SBC_n()
 void CPU::CP_r()
 {
 	m_iState.x = m_IR & 0b111; //r
+	m_iState.xx = m_registers[A] - m_registers[m_iState.x];
 
-	setFZ((m_registers[A] - m_registers[m_iState.x]) == 0);
+	setFZ(m_iState.xx == 0);
 	setFN(true);
-	setFH((m_registers[A] & 0xF) < (m_registers[m_iState.x] & 0xF));
-	setFC(m_registers[A] < m_registers[m_iState.x]);
+	setFH((m_registers[A] & 0xF) - (m_registers[m_iState.x] & 0x10));
+	setFC(m_iState.xx & 0x100);
 	m_cycleCounter = 0;
 }
 
@@ -1171,11 +1188,12 @@ void CPU::CP_HL()
 		break;
 	case 2:
 		m_iState.x = m_gameboy.readMemory(getHL()); //HL mem
+		m_iState.xx = m_registers[A] - m_iState.x;
 
-		setFZ((m_registers[A] - m_iState.x) == 0);
+		setFZ(m_iState.xx == 0);
 		setFN(true);
-		setFH((m_registers[A] & 0xF) < (m_iState.x & 0xF));
-		setFC(m_registers[A] < m_iState.x);
+		setFH((m_registers[A] & 0xF) - (m_iState.x & 0xF) & 0x10);
+		setFC(m_iState.xx & 0x100);
 
 		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
@@ -1192,11 +1210,12 @@ void CPU::CP_n()
 		break;
 	case 2:
 		m_iState.x = m_gameboy.readMemory(m_PC++); //n
+		m_iState.xx = m_registers[A] - m_iState.x;
 
-		setFZ((m_registers[A] - m_iState.x) == 0);
+		setFZ(m_iState.xx == 0);
 		setFN(true);
-		setFH((m_registers[A] & 0xF) < (m_iState.x & 0xF));
-		setFC(m_registers[A] < m_iState.x);
+		setFH((m_registers[A] & 0xF) - (m_iState.x & 0xF) & 0x10);
+		setFC(m_iState.xx & 0x100);
 
 		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
@@ -1245,7 +1264,7 @@ void CPU::DEC_r()
 
 	setFZ((m_registers[m_iState.x] - 1) == 0);
 	setFN(true);
-	setFH((m_registers[m_iState.x] & 0xF) == 0xF);
+	setFH(((m_registers[m_iState.x] & 0xF) - 1) & 0x10);
 
 	--m_registers[m_iState.x];
 	m_cycleCounter = 0;
@@ -1266,7 +1285,7 @@ void CPU::DEC_HL()
 
 		setFZ((m_iState.x - 1) == 0);
 		setFN(true);
-		setFH((m_iState.x & 0xF) == 0xF);
+		setFH(((m_iState.x & 0xF) - 1) & 0x10);
 
 		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
@@ -1396,7 +1415,7 @@ void CPU::XOR_r()
 {
 	m_iState.x = m_IR & 0b111; //r
 
-	m_registers[A] ^= m_registers[m_iState.x];
+	m_registers[A] = static_cast<uint8>(m_registers[A] ^ m_registers[m_iState.x]);
 
 	setFZ(m_registers[A] == 0);
 	setFN(false);
@@ -1415,7 +1434,7 @@ void CPU::XOR_HL()
 	case 2:
 		m_iState.x = m_gameboy.readMemory(getHL()); //HL mem
 
-		m_registers[A] ^= m_iState.x;
+		m_registers[A] = static_cast<uint8>(m_registers[A] ^ m_iState.x);
 
 		setFZ(m_registers[A] == 0);
 		setFN(false);
@@ -1438,7 +1457,7 @@ void CPU::XOR_n()
 	case 2:
 		m_iState.x = m_gameboy.readMemory(m_PC++); //n
 
-		m_registers[A] ^= m_iState.x;
+		m_registers[A] = static_cast<uint8>(m_registers[A] ^ m_iState.x);
 
 		setFZ(m_registers[A] == 0);
 		setFN(false);
@@ -1453,22 +1472,24 @@ void CPU::XOR_n()
 
 void CPU::DAA()
 {
-	m_iState.x = 0; //adj
+	m_iState.x = m_registers[A];
 
-	if(!getFN() && (m_registers[A] & 0xF) > 0x9 || getFH())
+	if(!getFN())
 	{
-		m_iState.x += 0x6;
+		if(getFC() || m_iState.x > 0x99) 
+		{
+			m_iState.x += 0x60;
+			setFC(true);
+		}
+		if(getFH() || (m_iState.x & 0xF) > 0x09) m_iState.x += 0x06;
+	}
+	else
+	{
+		if(getFC()) m_iState.x -= 0x60;
+		if(getFH()) m_iState.x -= 0x06;
 	}
 
-	if(!getFN() && m_registers[A] > 0x99 || getFC())
-	{
-		m_iState.x += 0x60;
-		setFC(true);
-	}
-
-	if(!getFN()) m_registers[A] += m_iState.x;
-	else m_registers[A] -= m_iState.x;
-
+	m_registers[A] = m_iState.x;
 	setFZ(m_registers[A] == 0);
 	setFH(false);
 	m_cycleCounter = 0;
@@ -1509,10 +1530,10 @@ void CPU::INC_rr()
 	case 2:
 		switch(m_iState.x) 
 		{
-		case BC: setBC(getBC() + 1); break;
-		case DE: setDE(getDE() + 1); break;
-		case HL: setHL(getHL() + 1); break;
-		case SP: if((++m_F & 0xF0) == 0x00) ++m_registers[A]; break;
+		case BC: setBC(static_cast<uint16>(getBC() + 1)); break;
+		case DE: setDE(static_cast<uint16>(getDE() + 1)); break;
+		case HL: setHL(static_cast<uint16>(getHL() + 1)); break;
+		case SP: ++m_SP; break;
 		}
 		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
@@ -1531,10 +1552,10 @@ void CPU::DEC_rr()
 	case 2:
 		switch(m_iState.x)
 		{
-		case BC: setBC(getBC() - 1); break;
-		case DE: setDE(getDE() - 1); break;
-		case HL: setHL(getHL() - 1); break;
-		case SP: if((--m_F & 0xF0) == 0x00) --m_registers[A]; break;
+		case BC: setBC(static_cast<uint16>(getBC() - 1)); break;
+		case DE: setDE(static_cast<uint16>(getDE() - 1)); break;
+		case HL: setHL(static_cast<uint16>(getHL() - 1)); break;
+		case SP: --m_SP; break;
 		}
 		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
@@ -1551,28 +1572,20 @@ void CPU::ADD_HL_rr()
 		m_iState.x = (m_IR >> 4) & 0b11; //rr
 		break;
 	case 2:
-		switch(m_iState.x) //m_iState.xx is rr value in this switch
+		switch(m_iState.x) //m_iState.xx is register rr value in this switch
 		{
-		case Register16bit::BC:
-			m_iState.xx = getBC();
-			break;
-		case Register16bit::DE:
-			m_iState.xx = getDE();
-			break;
-		case Register16bit::HL:
-			m_iState.xx = getHL();
-			break;
-		case Register16bit::SP:
-			m_iState.xx = m_SP;
-			break;
+		case BC: m_iState.xx = getBC(); break;
+		case DE: m_iState.xx = getDE(); break;
+		case HL: m_iState.xx = getHL(); break;
+		case SP: m_iState.xx = m_SP; break;
 		}
-		m_iState.xxx = getHL() + m_iState.xx; //result
-
-		setHL(static_cast<uint16>(m_iState.xxx));
+	
+		uint32 result{static_cast<uint32>(getHL() + m_iState.xx)}; //result
+		setHL(static_cast<uint16>(result));
 
 		setFN(false);
 		setFH(((getHL() & 0xFFF) + (m_iState.xx & 0xFFF)) & 0x1000);
-		setFC(m_iState.xxx & 0x10000);
+		setFC(result & 0x10000);
 
 		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
@@ -1588,13 +1601,12 @@ void CPU::ADD_SP_e()
 		m_currentInstr = &CPU::ADD_SP_e;
 		break;
 	case 2:
-		m_iState.e = static_cast<uint8>(m_gameboy.readMemory(m_PC++)); //e
+		m_iState.e = static_cast<int8>(m_gameboy.readMemory(m_PC++)); //e
 		break;
 	case 3:
 		break;
 	case 4:
-		m_iState.xx = m_SP + m_iState.e;
-
+		m_iState.xx = static_cast<uint16>(m_SP + m_iState.e);
 		setFZ(false);
 		setFN(false);
 		setFH(((m_SP & 0xF) + (m_iState.e & 0xF)) & 0x10);
@@ -2294,7 +2306,7 @@ void CPU::JR_cc_e()
 		}
 
 		if(m_iState.y) m_PC += m_iState.e;
-		else 
+		else
 		{
 			m_cycleCounter = 0;
 			m_currentInstr = nullptr;

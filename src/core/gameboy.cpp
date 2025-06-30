@@ -9,8 +9,8 @@ Gameboy::Gameboy()
 	, m_dmaTransferEnableNextCycle{false}
 	, m_dmaTransferCurrentAddress{}
 {
-	loadBootRom();
-	loadRom("test/02-interrupts.gb");
+	//loadBootRom();
+	loadRom("test/03-op sp,hl.gb");
 }
 
 void Gameboy::loadRom(char const* filePath)
@@ -32,7 +32,7 @@ void Gameboy::loadRom(char const* filePath)
 		file.read((char*)buffer, size);
 		file.close();
 
-		for(int i{0x100}; i < size; ++i)
+		for(int i{0x0}; i < size; ++i)
 		{
 			m_memory[i] = buffer[i];
 		}
@@ -92,12 +92,19 @@ uint8 Gameboy::readMemory(const uint16 addr) const
 {
 	using namespace hardwareReg;
 
+	/*
 	if(m_dmaTransferInProcess) //while dma is in process only hram can be accessed
 	{
 		constexpr uint16 HRAM_START{0xFF80};
 		constexpr uint16 HRAM_END{0xFFFE};
 		if(addr >= HRAM_START && addr <= HRAM_END) return m_memory[addr];
 		else return 0xFF;
+	}
+	*/
+
+	if(m_dmaTransferInProcess)
+	{
+		return m_memory[m_dmaTransferCurrentAddress];
 	}
 
 	constexpr uint16 VRAM_START{0x8000};
@@ -128,6 +135,7 @@ void Gameboy::writeMemory(const uint16 addr, const uint8 value)
 {
 	using namespace hardwareReg;
 
+	/*
 	if(m_dmaTransferInProcess) //while dma is in process only hram can be accessed
 	{
 		constexpr uint16 HRAM_START{0xFF80};
@@ -135,6 +143,9 @@ void Gameboy::writeMemory(const uint16 addr, const uint8 value)
 		if(addr >= HRAM_START && addr <= HRAM_END) m_memory[addr] = value;
 		return;
 	}
+	*/
+
+	if(m_dmaTransferInProcess) return;
 
 	constexpr uint16 VRAM_START{0x8000};
 	constexpr uint16 VRAM_END{0x9FFF};

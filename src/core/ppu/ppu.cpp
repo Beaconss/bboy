@@ -13,8 +13,8 @@ PPU::PPU(Gameboy& gameboy)
 	, m_fetcher{*this}
 	, m_tCycleCounter{}
 	, m_drawingDelay{}
-	, m_lcdc{}
-	, m_stat{}
+	, m_lcdc{0x91}
+	, m_stat{0x81}
 	, m_scy{}
 	, m_scx{}
 	, m_ly{}

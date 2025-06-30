@@ -20,7 +20,6 @@ private:
 		uint8 y{};
 		uint8 z{};
 		uint16 xx{};
-		uint32 xxx{};
 		int8 e{};
 	};
 
