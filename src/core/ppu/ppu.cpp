@@ -1,8 +1,8 @@
 #include "ppu.h"
-#include "../gameboy.h"
+#include "../memory_bus.h"
 
-PPU::PPU(Gameboy& gameboy)
-	: m_gameboy{gameboy}
+PPU::PPU(MemoryBus& bus)
+	: m_bus{bus}
 	, m_platform{Platform::getInstance()}
 	, m_currentMode{OAM_SCAN} //even though OAM_SCAN is mode 2 the ppu starts from it
 	, m_lcdBuffer{}
@@ -14,7 +14,7 @@ PPU::PPU(Gameboy& gameboy)
 	, m_tCycleCounter{}
 	, m_drawingDelay{}
 	, m_lcdc{0x91}
-	, m_stat{0x81}
+	, m_stat{0x85}
 	, m_scy{}
 	, m_scx{}
 	, m_ly{}
@@ -141,10 +141,10 @@ PPU::Sprite PPU::fetchSprite()
 {
 	//TODO: fix for tall sprite mode
 	Sprite sprite;
-	sprite.yPosition = m_gameboy.readMemory(m_currentSpriteAddress);
-	sprite.xPosition = m_gameboy.readMemory(m_currentSpriteAddress + 1);
-	sprite.tileIndex = m_gameboy.readMemory(m_currentSpriteAddress + 2);
-	sprite.flags = m_gameboy.readMemory(m_currentSpriteAddress + 3);
+	sprite.yPosition = m_bus.read(m_currentSpriteAddress);
+	sprite.xPosition = m_bus.read(m_currentSpriteAddress + 1);
+	sprite.tileIndex = m_bus.read(m_currentSpriteAddress + 2);
+	sprite.flags = m_bus.read(m_currentSpriteAddress + 3);
 	m_currentSpriteAddress += 4; //go to next sprite
 	return sprite;
 }
@@ -165,7 +165,7 @@ void PPU::tryAddSpriteToBuffer(const Sprite& sprite)
 
 void PPU::vBlankInterrupt() const
 {
-	m_gameboy.writeMemory(hardwareReg::IF, m_gameboy.readMemory(hardwareReg::IF) | 1); //bit 0 is vBlank interrupt
+	m_bus.write(hardwareReg::IF, m_bus.read(hardwareReg::IF) | 1); //bit 0 is vBlank interrupt
 }
 
 uint8 PPU::read(const Index index) const

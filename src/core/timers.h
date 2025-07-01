@@ -2,12 +2,12 @@
 #include "../type_alias.h"
 #include "../hardware_registers.h"
 
-class Gameboy;
+class MemoryBus;
 
 class Timers
 {
 public:
-	Timers(Gameboy& gameboy);
+	Timers(MemoryBus& bus);
 
 	enum Index
 	{
@@ -31,7 +31,7 @@ private:
 		FREQUENCY_64,
 	};
 
-	Gameboy& m_gameboy;
+	MemoryBus& m_bus;
 	uint16 m_cycleCounter; //max value is 256
 	uint8 m_div; //divider register
 	uint8 m_tima; //timer counter

@@ -8,18 +8,12 @@
 #include <array>
 #include <queue>
 
-/*
-from my understanding since every pixel has a color ID, which maps to 2 specific bits in the corresponding palette,
-I can make a function that takes the id and extract the 2 specific bits which are then used as an index for
-the colors array, probably in the ppu
-*/
-
-class Gameboy;
+class MemoryBus;
 
 class PPU
 {
 public:
-	PPU(Gameboy& gameboy);
+	PPU(MemoryBus& bus);
 
 	enum Index
 	{
@@ -64,15 +58,6 @@ private:
 		uint8 data{}; //color index at bit 0 and 1. background priority at bit 7 for sprite pixels
 		uint8 xPosition{};
 	};
-	/* for now I keep this here, if I realize i dont need it I will delete this
-	enum Color
-	{
-		WHITE,
-		LIGHT_GRAY,
-		DARK_GRAY,
-		BLACK
-	};
-	*/
 
 	friend PixelFetcher;
 	Sprite fetchSprite();
@@ -89,7 +74,7 @@ private:
 
 	static constexpr uint16 OAM_MEMORY_START{0xFE00};
 
-	Gameboy& m_gameboy;
+	MemoryBus& m_bus;
 	Platform& m_platform;
 	Mode m_currentMode;
 	

@@ -5,12 +5,12 @@
 #include <iostream>
 #include <array>
 
-class Gameboy;
+class MemoryBus;
 
 class CPU
 {
 public:
-	CPU(Gameboy& gameboy);
+	CPU(MemoryBus& bus);
 	void cycle();
 
 private:
@@ -202,8 +202,8 @@ private:
 	void EI();
 	void NOP();
 
-	//variables
-	Gameboy& m_gameboy;
+	
+	MemoryBus& m_bus;
 	IState m_iState;
 	void (CPU::* m_currentInstr)(); //pointer to a CPU function that returns void and take no parameters called m_currentInstr
 	uint8 m_cycleCounter; //max value is like 8

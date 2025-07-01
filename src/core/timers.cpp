@@ -1,8 +1,8 @@
 #include "timers.h"
-#include "gameboy.h"
+#include "memory_bus.h"
 
-Timers::Timers(Gameboy& gameboy)
-	: m_gameboy{gameboy}
+Timers::Timers(MemoryBus& bus)
+	: m_bus{bus}
 	, m_cycleCounter{}
 	, m_div{}
 	, m_tima{}
@@ -81,5 +81,5 @@ void Timers::cycle()
 
 void Timers::timerInterrupt() const
 {
-	m_gameboy.writeMemory(hardwareReg::IF, m_gameboy.readMemory(hardwareReg::IF) | 0b100); //bit 2 is timer interrupt
+	m_bus.write(hardwareReg::IF, m_bus.read(hardwareReg::IF) | 0b100); //bit 2 is timer interrupt
 }

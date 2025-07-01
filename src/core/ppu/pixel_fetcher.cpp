@@ -47,7 +47,7 @@ void PixelFetcher::cycle()
 														(TILES_PER_ROW * (((m_ppu.m_ly + m_ppu.m_scy) & 0xFF) / PIXELS_PER_TILE))
 														& TILEMAP_SIZE)};
 
-				m_tileNumber = m_ppu.m_gameboy.readMemory(tileMapAddress + offset);
+				m_tileNumber = m_ppu.m_bus.read(tileMapAddress + offset);
 
 				m_stepCycle = 0;
 				m_currentStep = FETCH_TILE_DATA_LOW;
@@ -64,14 +64,14 @@ void PixelFetcher::cycle()
 					//8000 method
 					m_tileAddress = 0x8000 + (m_tileNumber * 16)
 									+ (2 * ((m_ppu.m_ly + m_ppu.m_scy) % 8));
-					m_tileDataLow = m_ppu.m_gameboy.readMemory(m_tileAddress);
+					m_tileDataLow = m_ppu.m_bus.read(m_tileAddress);
 				}
 				else
 				{
 					//8800 method
 					m_tileAddress = 0x9000 + (static_cast<int8>(m_tileNumber) * 16)
 									+ (2 * ((m_ppu.m_ly + m_ppu.m_scy) % 8));
-					m_tileDataLow = m_ppu.m_gameboy.readMemory(m_tileAddress);
+					m_tileDataLow = m_ppu.m_bus.read(m_tileAddress);
 				}
 
 				m_stepCycle = 0;
@@ -84,7 +84,7 @@ void PixelFetcher::cycle()
 			++m_stepCycle;
 			if(m_stepCycle == 2)
 			{
-				m_tileDataHigh = m_ppu.m_gameboy.readMemory(m_tileAddress + 1);
+				m_tileDataHigh = m_ppu.m_bus.read(m_tileAddress + 1);
 				m_stepCycle = 0;
 
 				if(m_firstFetchOnScanline)	
