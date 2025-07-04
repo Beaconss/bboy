@@ -5,23 +5,23 @@ MemoryBus::MemoryBus(Gameboy& gb)
 	: m_gameboy{gb}
 	, m_memory{}
 	, m_dmaTransferCurrentAddress{}
-	, m_dmaTransferInProcess{}
-	, m_dmaTransferEnableNextCycle{}
+	, m_dmaTransferInProcess{false}
+	, m_dmaTransferEnableNextCycle{false}
 {
 	//loadBootRom();
-	loadRom("test/01-special.gb");
+	loadRom("test/acceptance/di_timing-GS.gb");
+	m_memory[hardwareReg::IF] = 0xE1;
 }
 
 void MemoryBus::cycle()
 {
 	if(m_dmaTransferInProcess)
 	{
-		uint16 destinationAddr{static_cast<uint16>((0xFE << 8) | m_dmaTransferCurrentAddress & 0xFF)};
+		uint16 destinationAddr{static_cast<uint16>(0xFE00 | m_dmaTransferCurrentAddress & 0xFF)};
 		m_memory[destinationAddr] = m_memory[m_dmaTransferCurrentAddress++];
 		if((m_dmaTransferCurrentAddress & 0xFF) == 0xA0) m_dmaTransferInProcess = false;
 	}
-
-	if(m_dmaTransferEnableNextCycle)
+	else if(m_dmaTransferEnableNextCycle)
 	{
 		m_dmaTransferInProcess = true;
 		m_dmaTransferEnableNextCycle = false;
@@ -59,7 +59,7 @@ void MemoryBus::loadRom(char const* filePath)
 	if(file.is_open())
 	{
 		std::streamsize size{file.tellg()};
-		if(size > 0xFFFF + 1)
+		if(size > 0xFFFF)
 		{
 			std::cerr << "File too large\n";
 			return;
@@ -85,11 +85,16 @@ uint8 MemoryBus::read(const uint16 addr) const
 {
 	using namespace hardwareReg;
 
-	//TODO: block cpu's access to vram during drawing
+	//TODO: block cpu's access to vram during drawing and oam scan
 
 	if(m_dmaTransferInProcess)
 	{
-		return m_memory[m_dmaTransferCurrentAddress];
+		constexpr uint16 HIGH_RAM_START{0xFF80};
+		constexpr uint16 HIGH_RAM_END{0xFFFE};
+		constexpr uint16 OAM_MEMORY_START{0xFE00};
+		constexpr uint16 OAM_MEMORY_END{0xFE9F};
+		if(addr >= OAM_MEMORY_START && addr <= OAM_MEMORY_END) return 0xFF;
+		//else if(!(addr >= HIGH_RAM_START && addr <= HIGH_RAM_END)) return m_memory[m_dmaTransferCurrentAddress];
 	}
 
 	switch(addr)
@@ -118,7 +123,15 @@ void MemoryBus::write(const uint16 addr, const uint8 value)
 {
 	using namespace hardwareReg;
 
-	if(m_dmaTransferInProcess) return;
+	if(m_dmaTransferInProcess)
+	{
+		constexpr uint16 HIGH_RAM_START{0xFF80};
+		constexpr uint16 HIGH_RAM_END{0xFFFE};
+		constexpr uint16 OAM_MEMORY_START{0xFE00};
+		constexpr uint16 OAM_MEMORY_END{0xFE9F};
+		if((addr >= OAM_MEMORY_START && addr <= OAM_MEMORY_END)
+			&& !(addr >= HIGH_RAM_START && addr <= HIGH_RAM_END)) return;
+	}
 
 	switch(addr)
 	{
@@ -134,7 +147,7 @@ void MemoryBus::write(const uint16 addr, const uint8 value)
 	case LY: m_gameboy.m_ppu.write(PPU::LY, value); break;
 	case LYC: m_gameboy.m_ppu.write(PPU::LYC, value); break;
 	case DMA:
-		m_dmaTransferCurrentAddress = (value << 8);
+		m_dmaTransferCurrentAddress = ((value & 0xDF) << 8);
 		m_dmaTransferEnableNextCycle = true;
 		break;
 	case BGP: m_gameboy.m_ppu.write(PPU::BGP, value); break;

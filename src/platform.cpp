@@ -40,7 +40,7 @@ void Platform::mainLoop(Gameboy& gb)
                 }
                 if(m_event.key.key == SDLK_A)
                 {
-
+                    
                 }
             }
         }

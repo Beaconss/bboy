@@ -10,18 +10,25 @@ CPU::CPU(MemoryBus& bus)
 	, m_imeEnableInTwoCycles{false}
 	, m_imeEnableNextCycle{false}
 	, m_isHalted{false}
-	, m_PC{0x00}
+	, m_PC{0x100}
 	, m_SP{0xFFFE}
-	, m_registers{0x0, 0x0, 0xFF, 0x56, 0x0, 0xD, 0x0, 0x11}
-	, m_F{0x80}
+	, m_registers{}
+	, m_F{0xB0}
 	, m_IR{}
 {
+	m_registers[B] = 0x00;
+	m_registers[C] = 0x13;
+	m_registers[D] = 0x00;
+	m_registers[E] = 0xD8;
+	m_registers[H] = 0x01;
+	m_registers[L] = 0x4D;
+	m_registers[A] = 0x01;
 }
 
 void CPU::cycle()
 {
 	++m_cycleCounter;//since instructions reset m_cycleCounter to 0 increment before the cpu cycle so its 1, then if the instruction is multi-cycle 2, 3...
-	handleInterrupts();
+	if(!m_currentInstr) handleInterrupts();
 	if(m_isHalted) return;
 
 	if(m_imeEnableNextCycle)
@@ -29,13 +36,12 @@ void CPU::cycle()
 		m_ime = true;
 		m_imeEnableNextCycle = false;
 	}
-
-	if(m_imeEnableInTwoCycles) 
+	else if(m_imeEnableInTwoCycles) 
 	{
 		m_imeEnableNextCycle = true;
 		m_imeEnableInTwoCycles = false;
 	}
-	
+
 	if(m_currentInstr) (this->*m_currentInstr)(); //call cached instruction if not nullptr
 	else
 	{
@@ -469,7 +475,7 @@ void CPU::LD_r_n()
 		m_iState.y = m_bus.read(m_PC++); //n
 		m_registers[m_iState.x] = m_iState.y;
 		m_cycleCounter = 0;
-		m_currentInstr = nullptr; //in multi cycles instructions reset currentInstr too
+		m_currentInstr = nullptr;
 		break;
 	}
 }
@@ -909,33 +915,6 @@ void CPU::LD_HL_SP_e()
 		break;
 	}
 }
-
-/*
-void CPU::ADD_SP_e()
-{
-	switch(m_cycleCounter)
-	{
-	case 1:
-		m_currentInstr = &CPU::ADD_SP_e;
-		break;
-	case 2:
-		m_iState.e = static_cast<int8>(m_bus.read(m_PC++)); //e
-		break;
-	case 3:
-		break;
-	case 4:
-		setFZ(false);
-		setFN(false);
-		setFH((m_SP & 0xF) + (static_cast<uint8>(m_iState.e) & 0xF) & 0x10);
-		setFC(((m_SP & 0xFF) + static_cast<uint8>(m_iState.e)) & 0x100);
-
-		m_SP = static_cast<uint16>(m_SP + m_iState.e);
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
-		break;
-	}
-}
-*/
 
 void CPU::ADD_r()
 {
@@ -1610,9 +1589,9 @@ void CPU::ADD_SP_e()
 	{
 	case 1:
 		m_currentInstr = &CPU::ADD_SP_e;
+		m_iState.e = static_cast<int8>(m_bus.read(m_PC++)); //e
 		break;
 	case 2:
-		m_iState.e = static_cast<int8>(m_bus.read(m_PC++)); //e
 		break;
 	case 3:
 		break;
@@ -2302,9 +2281,9 @@ void CPU::JR_cc_e()
 	{
 	case 1:
 		m_currentInstr = &CPU::JR_cc_e;
+		m_iState.x = (m_IR >> 3) & 0b11; //cc
 		break;
 	case 2:
-		m_iState.x = (m_IR >> 3) & 0b11; //cc
 		m_iState.e = static_cast<int8>(m_bus.read(m_PC++)); //e
 
 		switch(m_iState.x) //m_iState.y is used as a bool to check later if condition is met
@@ -2335,20 +2314,20 @@ void CPU::CALL_nn()
 	{
 	case 1:
 		m_currentInstr = &CPU::CALL_nn;
-		break;
-	case 2:
 		m_iState.xx = m_bus.read(m_PC++);
 		break;
-	case 3:
+	case 2:
 		m_iState.xx |= m_bus.read(m_PC++) << 8; //nn
 		break;
-	case 4:
+	case 3:
 		break;
-	case 5:
+	case 4:
 		m_bus.write(--m_SP, getMSB(m_PC));
 		break;
-	case 6:
+	case 5:
 		m_bus.write(--m_SP, getLSB(m_PC));
+		break;
+	case 6:
 		m_PC = m_iState.xx;
 		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
@@ -2362,13 +2341,13 @@ void CPU::CALL_cc_nn()
 	{
 	case 1:
 		m_currentInstr = &CPU::CALL_cc_nn;
+		m_iState.xx = m_bus.read(m_PC++);
 		break;
 	case 2:
-		m_iState.xx = m_bus.read(m_PC++);
+		m_iState.xx |= m_bus.read(m_PC++) << 8; //nn
 		break;
 	case 3:
 		m_iState.x = (m_IR >> 3) & 0b11; //cc
-		m_iState.xx |= m_bus.read(m_PC++) << 8; //nn
 
 		switch(m_iState.x) //m_iState.y is used as a bool to check later if condition is met
 		{
@@ -2385,12 +2364,12 @@ void CPU::CALL_cc_nn()
 		}
 		break;
 	case 4:
-		break;
-	case 5:
 		m_bus.write(--m_SP, getMSB(m_PC));
 		break;
-	case 6:
+	case 5:
 		m_bus.write(--m_SP, getLSB(m_PC));
+		break;
+	case 6:
 		m_PC = m_iState.xx;
 		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
@@ -2493,7 +2472,6 @@ void CPU::RST_n()
 		m_bus.write(--m_SP, getLSB(m_PC));
 		break;
 	case 4:
-
 		m_PC = m_IR & 0b111000;
 		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
@@ -2504,7 +2482,7 @@ void CPU::RST_n()
 void CPU::HALT()
 {
 	m_isHalted = true;
-	if(!m_ime && (m_bus.read(hardwareReg::IF) & m_bus.read(hardwareReg::IE)) != 0) ++m_PC; //HALT bug(its correct)
+	if(!m_ime && (m_bus.read(hardwareReg::IF) & m_bus.read(hardwareReg::IE)) != 0) ++m_PC; //HALT bug(its not correct)
 
 	m_cycleCounter = 0;
 }

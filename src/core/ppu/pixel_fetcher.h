@@ -13,6 +13,7 @@ public:
 
 	void cycle();
 	uint8 getXPosCounter() const;
+	void clearWindowLineCounter(); //this needs to be reset separately
 	void clear();
 
 private:
@@ -31,7 +32,7 @@ private:
 		PUSH_TO_FIFO,
 	};
 
-	void pushPixelsToFifo(Mode mode);
+	void pushPixelsToFifo();
 
 	PPU& m_ppu;
 	bool m_firstFetchOnScanline;

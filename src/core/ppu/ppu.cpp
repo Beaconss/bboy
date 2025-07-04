@@ -4,7 +4,7 @@
 PPU::PPU(MemoryBus& bus)
 	: m_bus{bus}
 	, m_platform{Platform::getInstance()}
-	, m_currentMode{OAM_SCAN} //even though OAM_SCAN is mode 2 the ppu starts from it
+	, m_currentMode{V_BLANK}
 	, m_lcdBuffer{}
 	, m_spriteBuffer{}
 	, m_pixelFifoBackground{}
@@ -12,14 +12,13 @@ PPU::PPU(MemoryBus& bus)
 	, m_currentSpriteAddress{OAM_MEMORY_START}
 	, m_fetcher{*this}
 	, m_tCycleCounter{}
-	, m_drawingDelay{}
-	, m_lcdc{0x91}
-	, m_stat{0x85}
+	, m_lcdc{0x90}
+	, m_stat{0x81}
 	, m_scy{}
 	, m_scx{}
-	, m_ly{}
+	, m_ly{0x91}
 	, m_lyc{}
-	, m_bgp{}
+	, m_bgp{0xFC}
 	, m_obp0{}
 	, m_obp1{}
 	, m_wy{}
@@ -61,21 +60,10 @@ void PPU::cycle()
 	}
 	case DRAWING:
 	{
-		if(m_fetcher.getXPosCounter() == 0) //at the start of drawing set scrolling delay
-		{
-			m_drawingDelay = m_scx % 8;
-		}
+		//TODO: STAT interrupt, background scrolling
 
 		m_fetcher.cycle();
 
-		if(m_drawingDelay > 0)
-		{
-			--m_drawingDelay;
-			m_pixelFifoBackground.pop();
-			break;
-		}
-
-		//for now background only
 		if(!m_pixelFifoBackground.empty()) //if fetcher has pixels push them to the screen
 		{
 			//this gets the right bits of the palette based on the color index of the pixel and 
@@ -90,8 +78,10 @@ void PPU::cycle()
 		if(m_fetcher.getXPosCounter() >= SCREEN_WIDTH) //when the end of the screen is reached, clear all and go to next mode
 		{
 			m_currentMode = H_BLANK;
-			m_fetcher.clear();
 			m_spriteBuffer.clear();
+			m_fetcher.clear();
+			clearBackgroundFifo();
+			clearSpriteFifo();
 		}
 		break;
 	}
@@ -108,6 +98,7 @@ void PPU::cycle()
 		{
 			m_currentMode = V_BLANK;
 			vBlankInterrupt();
+			m_fetcher.clearWindowLineCounter();
 		}
 		break;
 	}
@@ -115,7 +106,6 @@ void PPU::cycle()
 	{
 		if(m_tCycleCounter == SCANLINE_END_CYCLE) 
 		{
-			//std::cout << "Scanline " << (int)m_ly << " finished\n";
 			++m_ly;
 			m_tCycleCounter = 0;
 		}
@@ -161,6 +151,18 @@ void PPU::tryAddSpriteToBuffer(const Sprite& sprite)
 	{
 		m_spriteBuffer.push_back(sprite);
 	}
+}
+
+void PPU::clearBackgroundFifo()
+{
+	std::queue<Pixel> emptyBackgroundFifo{};
+	m_pixelFifoBackground.swap(emptyBackgroundFifo);
+}
+
+void PPU::clearSpriteFifo()
+{
+	std::queue<Pixel> emptySpriteFifo{};
+	m_pixelFifoSprite.swap(emptySpriteFifo);
 }
 
 void PPU::vBlankInterrupt() const

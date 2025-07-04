@@ -62,6 +62,8 @@ private:
 	friend PixelFetcher;
 	Sprite fetchSprite();
 	void tryAddSpriteToBuffer(const Sprite& sprite);
+	void clearBackgroundFifo();
+	void clearSpriteFifo();
 	void vBlankInterrupt() const;
 
 	static constexpr std::array<uint8, 4> colors //in rgb332, use color id as index
@@ -85,7 +87,6 @@ private:
 	uint16 m_currentSpriteAddress;
 	PixelFetcher m_fetcher;
 	uint16 m_tCycleCounter; //max value is 456 so uint16 is fine
-	uint8 m_drawingDelay;
 
 	uint8 m_lcdc; //LCD control
 	uint8 m_stat; //LDC status

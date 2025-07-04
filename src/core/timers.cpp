@@ -4,15 +4,16 @@
 Timers::Timers(MemoryBus& bus)
 	: m_bus{bus}
 	, m_cycleCounter{}
-	, m_div{}
+	, m_div{0x18}
 	, m_tima{}
 	, m_tma{}
-	, m_tac{}
+	, m_tac{0xF8}
 	, m_updateTimaNextCycle{false}
 {
 }
 
-//maybe I will nead to refactor this to use t-cycles instead of m-cycles
+//will need to remake this
+
 uint8 Timers::read(const Index index) const
 {
 	switch(index)
