@@ -1,4 +1,6 @@
-# std-boy
+# std-boy: The standard gameboy emulator
 
-### Credits for the custom boot rom: https://github.com/alloncm/MagenBoot
-### Credits for the test roms: https://github.com/retrio/gb-test-roms
+### Credits 
+* Blargg's test roms: https://github.com/retrio/gb-test-roms
+* Mooneye test roms: https://github.com/Gekkio/mooneye-test-suite
+* Custom boot rom: https://github.com/alloncm/MagenBoot
