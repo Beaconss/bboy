@@ -41,7 +41,6 @@ public:
 	void cycle();
 	uint8 read(const Index index) const;
 	void write(const Index index, const uint8 value);
-	Mode getCurrentMode() const;
 
 private:
 	struct Sprite
@@ -60,10 +59,12 @@ private:
 	};
 
 	friend PixelFetcher;
+	void switchMode(const Mode mode);
 	Sprite fetchSprite();
 	void tryAddSpriteToBuffer(const Sprite& sprite);
 	void clearBackgroundFifo();
 	void clearSpriteFifo();
+	void statInterrupt() const;
 	void vBlankInterrupt() const;
 
 	static constexpr std::array<uint8, 4> colors //in rgb332, use color id as index

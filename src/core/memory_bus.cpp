@@ -8,8 +8,7 @@ MemoryBus::MemoryBus(Gameboy& gb)
 	, m_dmaTransferInProcess{false}
 	, m_dmaTransferEnableNextCycle{false}
 {
-	//loadBootRom();
-	loadRom("test/acceptance/di_timing-GS.gb");
+	loadRom("test/02-interrupts.gb");
 	m_memory[hardwareReg::IF] = 0xE1;
 }
 
@@ -17,7 +16,7 @@ void MemoryBus::cycle()
 {
 	if(m_dmaTransferInProcess)
 	{
-		uint16 destinationAddr{static_cast<uint16>(0xFE00 | m_dmaTransferCurrentAddress & 0xFF)};
+		const uint16 destinationAddr{static_cast<uint16>(0xFE00 | m_dmaTransferCurrentAddress & 0xFF)};
 		m_memory[destinationAddr] = m_memory[m_dmaTransferCurrentAddress++];
 		if((m_dmaTransferCurrentAddress & 0xFF) == 0xA0) m_dmaTransferInProcess = false;
 	}
@@ -26,30 +25,6 @@ void MemoryBus::cycle()
 		m_dmaTransferInProcess = true;
 		m_dmaTransferEnableNextCycle = false;
 	}
-}
-
-void MemoryBus::loadBootRom()
-{
-	std::ifstream file("dmg_boot.bin", std::ios::binary | std::ios::ate);
-
-	if(file.is_open())
-	{
-		std::streamsize size{file.tellg()};
-
-		uint8* buffer{new uint8[size]};
-
-		file.seekg(0, std::ios::beg);
-		file.read((char*)buffer, size);
-		file.close();
-
-		for(int i{0x0}; i < 0x100; ++i)
-		{
-			write(i, buffer[i]);
-		}
-
-		delete[] buffer;
-	}
-	else std::cerr << "Failed to open file";
 }
 
 void MemoryBus::loadRom(char const* filePath)
@@ -87,14 +62,10 @@ uint8 MemoryBus::read(const uint16 addr) const
 
 	//TODO: block cpu's access to vram during drawing and oam scan
 
-	if(m_dmaTransferInProcess)
 	{
-		constexpr uint16 HIGH_RAM_START{0xFF80};
-		constexpr uint16 HIGH_RAM_END{0xFFFE};
 		constexpr uint16 OAM_MEMORY_START{0xFE00};
 		constexpr uint16 OAM_MEMORY_END{0xFE9F};
-		if(addr >= OAM_MEMORY_START && addr <= OAM_MEMORY_END) return 0xFF;
-		//else if(!(addr >= HIGH_RAM_START && addr <= HIGH_RAM_END)) return m_memory[m_dmaTransferCurrentAddress];
+		if(m_dmaTransferInProcess && (addr >= OAM_MEMORY_START && addr <= OAM_MEMORY_END)) return 0xFF;
 	}
 
 	switch(addr)

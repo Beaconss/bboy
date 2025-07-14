@@ -54,7 +54,14 @@ private:
 		CARRY = 3,
 	};
 
-	static constexpr std::array<uint8, 5> interruptHandlerAddress {0x40, 0x48, 0x50, 0x58, 0x60};
+	static constexpr std::array<uint8, 5> interruptHandlerAddress 
+	{
+		0x40, //VBlank
+		0x48, //Stat
+		0x50, //Timer
+		0x58, //Serial
+		0x60, //Joypad
+	};
 
 	void handleInterrupts();
 	void interruptRoutine();

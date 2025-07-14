@@ -28,7 +28,6 @@ PPU::PPU(MemoryBus& bus)
 	m_platform.updateScreen(m_lcdBuffer.data());
 }
 
-//time to refactor this to make it t-cycle and not m-cycle
 void PPU::cycle()
 {
 	if(!(m_lcdc & 0b10000000)) //if bit 7 is disabled the ppu is not active
@@ -45,26 +44,26 @@ void PPU::cycle()
 	{
 	case OAM_SCAN:
 	{
-		if(m_tCycleCounter % 2 == 0) 
+		if(m_tCycleCounter % 2 == 0) //every other cycle
 		{
-			tryAddSpriteToBuffer(fetchSprite()); //every 2 cycles it checks one sprites
+			tryAddSpriteToBuffer(fetchSprite());
 
 			constexpr int OAM_SCAN_END_CYCLE{80};
-			if(m_tCycleCounter == OAM_SCAN_END_CYCLE) //80 is even so I avoid checking in odd cycles 
+			if(m_tCycleCounter == OAM_SCAN_END_CYCLE)
 			{
-				m_currentMode = DRAWING; //go to next mode
-				m_currentSpriteAddress = OAM_MEMORY_START; //reset to first sprite
+				m_currentSpriteAddress = OAM_MEMORY_START;
+				switchMode(DRAWING);
 			}
 		}
 		break;
 	}
 	case DRAWING:
 	{
-		//TODO: STAT interrupt, background scrolling
+		//TODO: LYC = LY Stat interrupt, background scrolling
 
 		m_fetcher.cycle();
 
-		if(!m_pixelFifoBackground.empty()) //if fetcher has pixels push them to the screen
+		if(!m_pixelFifoBackground.empty())
 		{
 			//this gets the right bits of the palette based on the color index of the pixel and 
 			//use this as an index for the rgb332 color array
@@ -77,11 +76,11 @@ void PPU::cycle()
 
 		if(m_fetcher.getXPosCounter() >= SCREEN_WIDTH) //when the end of the screen is reached, clear all and go to next mode
 		{
-			m_currentMode = H_BLANK;
 			m_spriteBuffer.clear();
 			m_fetcher.clear();
 			clearBackgroundFifo();
 			clearSpriteFifo();
+			switchMode(H_BLANK);
 		}
 		break;
 	}
@@ -92,13 +91,13 @@ void PPU::cycle()
 		{
 			++m_ly; //update current scanline number
 			m_tCycleCounter = 0;
-			m_currentMode = OAM_SCAN; //start the next one
+			switchMode(OAM_SCAN); //start the next one
 		}
 		if(m_ly == FIRST_V_BLANK_SCANLINE) //except if this next scanline is the first V_BLANK for another 10 scanlines
 		{
-			m_currentMode = V_BLANK;
 			vBlankInterrupt();
 			m_fetcher.clearWindowLineCounter();
+			switchMode(V_BLANK);
 		}
 		break;
 	}
@@ -115,16 +114,55 @@ void PPU::cycle()
 			m_platform.render();
 			m_ly = 0;
 			m_tCycleCounter = 0;
-			m_currentMode = OAM_SCAN;
+			switchMode(OAM_SCAN);
 		}
 		break;
 	}
 	}
 }
 
-PPU::Mode PPU::getCurrentMode() const
+uint8 PPU::read(const Index index) const
 {
-	return m_currentMode;
+	switch(index)
+	{
+	case LCDC: return m_lcdc;
+	case STAT: return m_stat;
+	case SCY: return m_scy;
+	case SCX: return m_scx;
+	case LY: return m_ly;
+	case LYC: return m_lyc;
+	case BGP: return m_bgp;
+	case OBP0: return m_obp0;
+	case OBP1: return m_obp1;
+	case WY: return m_wy;
+	case WX: return m_wx;
+	default: return 0;
+	}
+}
+
+void PPU::write(const Index index, const uint8 value)
+{
+	switch(index)
+	{
+	case LCDC: m_lcdc = value; break;
+	case STAT: m_stat = value; break;
+	case SCY: m_scy = value; break;
+	case SCX: m_scx = value; break;
+	case LY: break; //read only
+	case LYC: m_lyc = value; break;
+	case BGP: m_bgp = value; break;
+	case OBP0: m_obp0 = value; break;
+	case OBP1: m_obp1 = value; break;
+	case WY: m_wy = value; break;
+	case WX: m_wx = value; break;
+	}
+}
+
+void PPU::switchMode(const Mode mode)
+{
+	m_currentMode = mode;
+	m_stat = (m_stat & !(0b11)) | static_cast<uint8>(mode); //bits 1-0 of stat store the current mode
+	if(mode != DRAWING && m_stat & (1 << (3 + mode))) statInterrupt(); //at bits 3-4-5 are stored the stat condition enable for mode 0, 1 and 2 respectively
 }
 
 PPU::Sprite PPU::fetchSprite()
@@ -165,44 +203,12 @@ void PPU::clearSpriteFifo()
 	m_pixelFifoSprite.swap(emptySpriteFifo);
 }
 
+void PPU::statInterrupt() const
+{
+	m_bus.write(hardwareReg::IF, m_bus.read(hardwareReg::IF) | 0b10);
+}
+
 void PPU::vBlankInterrupt() const
 {
-	m_bus.write(hardwareReg::IF, m_bus.read(hardwareReg::IF) | 1); //bit 0 is vBlank interrupt
-}
-
-uint8 PPU::read(const Index index) const
-{
-	switch(index)
-	{
-	case LCDC: return m_lcdc;
-	case STAT: return m_stat;
-	case SCY: return m_scy;
-	case SCX: return m_scx;
-	case LY: return m_ly;
-	case LYC: return m_lyc;
-	case BGP: return m_bgp;
-	case OBP0: return m_obp0;
-	case OBP1: return m_obp1;
-	case WY: return m_wy;
-	case WX: return m_wx;
-	default: return 0;
-	}
-}
-
-void PPU::write(const Index index, const uint8 value)
-{
-	switch(index)
-	{
-	case LCDC: m_lcdc = value; break;
-	case STAT: m_stat = value; break;
-	case SCY: m_scy = value; break;
-	case SCX: m_scx = value; break;
-	case LY: break; //read only
-	case LYC: m_lyc = value; break;
-	case BGP: m_bgp = value; break;
-	case OBP0: m_obp0 = value; break;
-	case OBP1: m_obp1 = value; break;
-	case WY: m_wy = value; break;
-	case WX: m_wx = value; break;
-	}
+	m_bus.write(hardwareReg::IF, m_bus.read(hardwareReg::IF) | 0b1);
 }

@@ -52,7 +52,7 @@ void CPU::cycle()
 
 void CPU::handleInterrupts()
 {
-	uint8 pendingInterrupts = m_bus.read(hardwareReg::IF) & m_bus.read(hardwareReg::IE);
+	uint8 pendingInterrupts = (m_bus.read(hardwareReg::IF) & m_bus.read(hardwareReg::IE)) & 0b11111; //only bits 0-4 are used
 	if(pendingInterrupts)
 	{
 		m_isHalted = false; //even if m_ime is false exit halt
@@ -64,8 +64,9 @@ void CPU::handleInterrupts()
 				{
 					m_bus.write(hardwareReg::IF, pendingInterrupts & ~(1 << i));
 					m_ime = false;
+					m_imeEnableInTwoCycles = false;
+					m_imeEnableNextCycle = false;
 					m_iState.x = i; //save i to be used in interruptRoutine as interrupt index
-					m_cycleCounter = 1; //set cycles counter to 1 before interrupt routine to be sure to do every cycle
 					m_currentInstr = &CPU::interruptRoutine;
 				}
 			}
@@ -2482,7 +2483,7 @@ void CPU::RST_n()
 void CPU::HALT()
 {
 	m_isHalted = true;
-	if(!m_ime && (m_bus.read(hardwareReg::IF) & m_bus.read(hardwareReg::IE)) != 0) ++m_PC; //HALT bug(its not correct)
+	//if(!m_ime && (m_bus.read(hardwareReg::IF) & m_bus.read(hardwareReg::IE)) != 0) ++m_PC; //HALT bug(its not correct)
 
 	m_cycleCounter = 0;
 }
@@ -2503,7 +2504,7 @@ void CPU::DI()
 
 void CPU::EI()
 {
-	m_imeEnableInTwoCycles = true;
+	if(!m_imeEnableInTwoCycles && !m_imeEnableNextCycle && !m_ime) m_imeEnableInTwoCycles = true;
 	m_cycleCounter = 0;
 }
 
