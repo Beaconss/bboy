@@ -7,6 +7,7 @@
 #include <vector>
 #include <array>
 #include <queue>
+#include <optional>
 
 class MemoryBus;
 
@@ -54,20 +55,25 @@ private:
 
 	struct Pixel
 	{
-		uint8 data{}; //color index at bit 0 and 1. background priority at bit 7 for sprite pixels
+		//bool backgroundPriority{}; //this should hold bit 7 of the attribute byte of the sprite, when I do sprites I will decide how to do this
+		uint8 colorIndex{};
 		uint8 xPosition{};
 	};
 
 	friend PixelFetcher;
 	void switchMode(const Mode mode);
+
 	Sprite fetchSprite();
 	void tryAddSpriteToBuffer(const Sprite& sprite);
 	void clearBackgroundFifo();
 	void clearSpriteFifo();
+
+	void updateCoincidenceFlag();
+	void checkLyStatInterrupt();
 	void statInterrupt() const;
 	void vBlankInterrupt() const;
 
-	static constexpr std::array<uint8, 4> colors //in rgb332, use color id as index
+	static constexpr std::array<uint8, 4> colors //in rgb332
 	{
 		0b11111111,
 		0b11011010,
@@ -83,10 +89,13 @@ private:
 	
 	std::array<uint8, SCREEN_WIDTH * SCREEN_HEIGHT + 1> m_lcdBuffer;
 	std::vector<Sprite> m_spriteBuffer;
+	uint16 m_currentSpriteAddress;
+
 	std::queue<Pixel> m_pixelFifoBackground;
 	std::queue<Pixel> m_pixelFifoSprite;
-	uint16 m_currentSpriteAddress;
 	PixelFetcher m_fetcher;
+	
+	bool m_statBlocked;
 	uint16 m_tCycleCounter; //max value is 456 so uint16 is fine
 
 	uint8 m_lcdc; //LCD control

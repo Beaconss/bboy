@@ -201,17 +201,17 @@ void PixelFetcher::pushPixelsToFifo()
 	for(int i{7}; i >= 0; --i)
 	{
 		PPU::Pixel pixel{};
-		pixel.data = static_cast<uint8>(((m_tileDataLow >> i) & 0b1) | (((m_tileDataHigh >> i) & 0b1) << 1));
+		pixel.colorIndex = static_cast<uint8>(((m_tileDataLow >> i) & 0b1) | (((m_tileDataHigh >> i) & 0b1) << 1));
 		pixel.xPosition = m_xPosCounter++; //store position, then increment
 
 		m_ppu.m_pixelFifoBackground.push(pixel);
 
-		if(m_currentMode != WINDOW
-			&& m_ppu.m_lcdc & 0b100000 //window active bit
-			&& m_ppu.m_wy >= m_ppu.m_ly //inside window y
-			&& m_xPosCounter >= (m_ppu.m_wx - 7)) //inside window x
+		if(m_currentMode != WINDOW //check if it should go to window mode
+			&& m_ppu.m_lcdc & 0b100000
+			&& m_ppu.m_wy >= m_ppu.m_ly
+			&& m_xPosCounter >= (m_ppu.m_wx - 7))
 		{
-			//current step and stepcycle get reset when going back to BACKGROUND::PUSH_TO_FIFO
+			//current step and stepcycle get reset when going back to PUSH_TO_FIFO
 			++m_windowLineCounter;
 			m_currentMode = WINDOW;
 			m_xPosCounter = 0;

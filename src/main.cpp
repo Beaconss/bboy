@@ -61,7 +61,5 @@ int main()
     //std::cout << "\n\n" << timer.elapsedMilliseconds();
 
 	platform.mainLoop(*gb);
-
-	return 0;
 }
 

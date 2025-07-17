@@ -42,7 +42,7 @@ void CPU::cycle()
 		m_imeEnableInTwoCycles = false;
 	}
 
-	if(m_currentInstr) (this->*m_currentInstr)(); //call cached instruction if not nullptr
+	if(m_currentInstr) (this->*m_currentInstr)();
 	else
 	{
 		fetch();
@@ -363,7 +363,7 @@ void CPU::execute()
 	case 0x00: NOP(); break;
 
 	default:
-		std::cerr << "Invalid opcode " << std::hex << (int)m_IR << " at PC: " << (int)m_PC << '\n';
+		std::cerr << "Invalid opcode " << std::hex << static_cast<int>(m_IR) << " at PC: " << static_cast<int>(m_PC) << '\n';
 		break;
 	}
 }
@@ -838,26 +838,24 @@ void CPU::PUSH_rr()
 		m_iState.x = (m_IR >> 4) & 0b11; //rr
 		break;
 	case 2:
-		--m_SP;
+		switch(m_iState.x)
+		{
+		case BC: m_bus.write(--m_SP, m_registers[B]); break;
+		case DE: m_bus.write(--m_SP, m_registers[D]); break;
+		case HL: m_bus.write(--m_SP, m_registers[H]); break;
+		case AF: m_bus.write(--m_SP, m_registers[A]); break;
+		}
 		break;
 	case 3:
 		switch(m_iState.x)
 		{
-		case BC: m_bus.write(m_SP, m_registers[B]); break;
-		case DE: m_bus.write(m_SP, m_registers[D]); break;
-		case HL: m_bus.write(m_SP, m_registers[H]); break;
-		case AF: m_bus.write(m_SP, m_registers[A]); break;
+		case BC: m_bus.write(--m_SP, m_registers[C]); break;
+		case DE: m_bus.write(--m_SP, m_registers[E]); break;
+		case HL: m_bus.write(--m_SP, m_registers[L]); break;
+		case AF: m_bus.write(--m_SP, m_F & 0xF0); break;
 		}
-		--m_SP;
 		break;
 	case 4:
-		switch(m_iState.x)
-		{
-		case BC: m_bus.write(m_SP, m_registers[C]); break;
-		case DE: m_bus.write(m_SP, m_registers[E]); break;
-		case HL: m_bus.write(m_SP, m_registers[L]); break;
-		case AF: m_bus.write(m_SP, m_F & 0xF0); break;
-		}
 		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
@@ -2384,12 +2382,12 @@ void CPU::RET()
 	{
 	case 1:
 		m_currentInstr = &CPU::RET;
-		break;
-	case 2:
 		m_iState.x = m_bus.read(m_SP++); 
 		break;
-	case 3:
+	case 2:
 		m_iState.y = m_bus.read(m_SP++);
+		break;
+	case 3:
 		break;
 	case 4:
 		m_PC = (m_iState.y << 8) | m_iState.x;
@@ -2422,12 +2420,12 @@ void CPU::RET_cc()
 			m_cycleCounter = 0;
 			m_currentInstr = nullptr;
 		}
+		else m_iState.x = m_bus.read(m_SP++);
 		break;
 	case 3:
-		m_iState.x = m_bus.read(m_SP++);
+		m_iState.y = m_bus.read(m_SP++);
 		break;
 	case 4:
-		m_iState.y = m_bus.read(m_SP++);
 		break;
 	case 5:
 		m_PC = (m_iState.y << 8) | m_iState.x;
@@ -2443,12 +2441,12 @@ void CPU::RETI()
 	{
 	case 1:
 		m_currentInstr = &CPU::RETI;
-		break;
-	case 2:
 		m_iState.x = m_bus.read(m_SP++);
 		break;
-	case 3:
+	case 2:
 		m_iState.y = m_bus.read(m_SP++);
+		break;
+	case 3:
 		break;
 	case 4:
 		m_PC = (m_iState.y << 8) | m_iState.x;

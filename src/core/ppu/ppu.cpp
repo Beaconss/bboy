@@ -11,6 +11,7 @@ PPU::PPU(MemoryBus& bus)
 	, m_pixelFifoSprite{}
 	, m_currentSpriteAddress{OAM_MEMORY_START}
 	, m_fetcher{*this}
+	, m_statBlocked{false}
 	, m_tCycleCounter{}
 	, m_lcdc{0x90}
 	, m_stat{0x81}
@@ -24,17 +25,16 @@ PPU::PPU(MemoryBus& bus)
 	, m_wy{}
 	, m_wx{7}
 {
-	m_spriteBuffer.reserve(10); //sprite buffer max size is 10
+	m_spriteBuffer.reserve(10);
 	m_platform.updateScreen(m_lcdBuffer.data());
 }
 
 void PPU::cycle()
 {
-	if(!(m_lcdc & 0b10000000)) //if bit 7 is disabled the ppu is not active
+	if(!(m_lcdc & 0x80)) //bit 7 is ppu enable
 	{
 		//std::fill(std::begin(m_lcdBuffer), std::end(m_lcdBuffer), 0); 
 		//m_platform.updateScreen(m_lcdBuffer.data()); //this seems pretty useless
-		m_tCycleCounter = 0;
 		return;
 	}
 
@@ -44,7 +44,7 @@ void PPU::cycle()
 	{
 	case OAM_SCAN:
 	{
-		if(m_tCycleCounter % 2 == 0) //every other cycle
+		if(m_tCycleCounter % 2 == 0)
 		{
 			tryAddSpriteToBuffer(fetchSprite());
 
@@ -68,9 +68,9 @@ void PPU::cycle()
 			//this gets the right bits of the palette based on the color index of the pixel and 
 			//use this as an index for the rgb332 color array
 			const Pixel pixel{m_pixelFifoBackground.front()};
-			const uint8 color{colors[(m_bgp >> (pixel.data * 2)) & 0b11]};
+			const uint8 color{colors[(m_bgp >> (pixel.colorIndex * 2)) & 0b11]};
 			m_lcdBuffer[pixel.xPosition + SCREEN_WIDTH * m_ly] = color;
-			
+
 			m_pixelFifoBackground.pop();
 		}
 
@@ -87,13 +87,15 @@ void PPU::cycle()
 	case H_BLANK:
 	{
 		constexpr int FIRST_V_BLANK_SCANLINE{144};
-		if(m_tCycleCounter == SCANLINE_END_CYCLE) //when scanline finishes
+		if(m_tCycleCounter == SCANLINE_END_CYCLE)
 		{
-			++m_ly; //update current scanline number
+			++m_ly;
+			updateCoincidenceFlag();
+			checkLyStatInterrupt();
 			m_tCycleCounter = 0;
-			switchMode(OAM_SCAN); //start the next one
+			switchMode(OAM_SCAN);
 		}
-		if(m_ly == FIRST_V_BLANK_SCANLINE) //except if this next scanline is the first V_BLANK for another 10 scanlines
+		if(m_ly == FIRST_V_BLANK_SCANLINE) //if this next scanline is the first of V_BLANK, V_BLANK for another 10 scanlines
 		{
 			vBlankInterrupt();
 			m_fetcher.clearWindowLineCounter();
@@ -106,13 +108,18 @@ void PPU::cycle()
 		if(m_tCycleCounter == SCANLINE_END_CYCLE) 
 		{
 			++m_ly;
+			updateCoincidenceFlag();
+			checkLyStatInterrupt();
 			m_tCycleCounter = 0;
 		}
 		if(m_ly == 154)
 		{
 			m_platform.updateScreen(m_lcdBuffer.data());
 			m_platform.render();
+			
 			m_ly = 0;
+			updateCoincidenceFlag();
+			checkLyStatInterrupt();
 			m_tCycleCounter = 0;
 			switchMode(OAM_SCAN);
 		}
@@ -145,11 +152,11 @@ void PPU::write(const Index index, const uint8 value)
 	switch(index)
 	{
 	case LCDC: m_lcdc = value; break;
-	case STAT: m_stat = value; break;
+	case STAT: m_stat = (value & (m_stat & 0b100)) | 0x80; break; //bit 2 is read only and bit 7 is always 1
 	case SCY: m_scy = value; break;
 	case SCX: m_scx = value; break;
 	case LY: break; //read only
-	case LYC: m_lyc = value; break;
+	case LYC: m_lyc = value; updateCoincidenceFlag(); break;
 	case BGP: m_bgp = value; break;
 	case OBP0: m_obp0 = value; break;
 	case OBP1: m_obp1 = value; break;
@@ -162,7 +169,11 @@ void PPU::switchMode(const Mode mode)
 {
 	m_currentMode = mode;
 	m_stat = (m_stat & !(0b11)) | static_cast<uint8>(mode); //bits 1-0 of stat store the current mode
-	if(mode != DRAWING && m_stat & (1 << (3 + mode))) statInterrupt(); //at bits 3-4-5 are stored the stat condition enable for mode 0, 1 and 2 respectively
+	if(mode != DRAWING && m_stat & (1 << (3 + mode)))  //at bits 3-4-5 are stored the stat condition enable for mode 0, 1 and 2 respectively
+	{
+		statInterrupt();
+		m_statBlocked = true;
+	}	
 }
 
 PPU::Sprite PPU::fetchSprite()
@@ -185,7 +196,7 @@ void PPU::tryAddSpriteToBuffer(const Sprite& sprite)
 	if(m_spriteBuffer.size() < SPRITE_BUFFER_MAX_SIZE &&
 		sprite.xPosition > 0 &&
 		m_ly + 16 >= sprite.yPosition &&
-		m_ly + 16 < sprite.yPosition + ((m_lcdc & TALL_SPRITE_MODE) ? 16 : 8)) //16 or 8 depending if tall sprite mode is enabled
+		m_ly + 16 < sprite.yPosition + ((m_lcdc & TALL_SPRITE_MODE) ? 16 : 8))
 	{
 		m_spriteBuffer.push_back(sprite);
 	}
@@ -201,6 +212,20 @@ void PPU::clearSpriteFifo()
 {
 	std::queue<Pixel> emptySpriteFifo{};
 	m_pixelFifoSprite.swap(emptySpriteFifo);
+}
+
+void PPU::updateCoincidenceFlag()
+{
+	m_stat = m_stat | (m_ly == m_lyc ? 0b100 : 0);
+}
+
+void PPU::checkLyStatInterrupt()
+{
+	if(!m_statBlocked && m_stat & 0b1000000 && m_ly == m_lyc) //bit 6 of stat enables this condition
+	{
+		statInterrupt();
+		m_statBlocked = true;
+	}
 }
 
 void PPU::statInterrupt() const

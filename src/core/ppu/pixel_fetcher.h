@@ -13,7 +13,7 @@ public:
 
 	void cycle();
 	uint8 getXPosCounter() const;
-	void clearWindowLineCounter(); //this needs to be reset separately
+	void clearWindowLineCounter(); //this needs to be reset separately as it resets once vblank is reached
 	void clear();
 
 private:
