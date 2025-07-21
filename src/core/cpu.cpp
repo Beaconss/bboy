@@ -25,6 +25,8 @@ CPU::CPU(MemoryBus& bus)
 	m_registers[A] = 0x01;
 }
 
+//put ' in binary numbers
+
 void CPU::cycle()
 {
 	++m_cycleCounter;//since instructions reset m_cycleCounter to 0 increment before the cpu cycle so its 1, then if the instruction is multi-cycle 2, 3...
@@ -868,13 +870,13 @@ void CPU::POP_rr()
 	{
 	case 1:
 		m_currentInstr = &CPU::POP_rr;
-		m_iState.x = (m_IR >> 4) & 0b11; //rr
-		break;
-	case 2:
 		m_iState.xx = m_bus.read(m_SP++);
 		break;
-	case 3:
+	case 2:
 		m_iState.xx |= m_bus.read(m_SP++) << 8;
+		break;
+	case 3:
+		m_iState.x = (m_IR >> 4) & 0b11; //rr
 		switch(m_iState.x)
 		{
 		case BC: setBC(m_iState.xx); break;

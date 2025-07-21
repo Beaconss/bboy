@@ -10,9 +10,9 @@ Gameboy::Gameboy()
 
 void Gameboy::cycle() //1 machine cycle
 {
-	m_timers.cycle();
 	m_memoryBus.cycle();
+	for(int i{0}; i < 4; ++i) m_timers.cycle(); //both timers and ppu works with t-cycles, so 4 for machine cycle
 	m_cpu.cycle();
-	for(int i{0}; i < 4; ++i) m_ppu.cycle(); //each cycle is treated as a t-cycle, so 4 per m-cycle
+	for(int i{0}; i < 4; ++i) m_ppu.cycle(); 
 }
 

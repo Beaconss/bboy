@@ -95,6 +95,7 @@ void PPU::cycle()
 			m_tCycleCounter = 0;
 			switchMode(OAM_SCAN);
 		}
+
 		if(m_ly == FIRST_V_BLANK_SCANLINE) //if this next scanline is the first of V_BLANK, V_BLANK for another 10 scanlines
 		{
 			vBlankInterrupt();

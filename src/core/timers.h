@@ -2,6 +2,8 @@
 #include "../type_alias.h"
 #include "../hardware_registers.h"
 
+#include <array>
+
 class MemoryBus;
 
 class Timers
@@ -23,21 +25,33 @@ public:
 	void timerInterrupt() const;
 
 private:
-	enum TimaFrequency
+	enum TimaFrequency //in t-cycles
 	{
-		FREQUENCY_256,
-		FREQUENCY_4,
+		FREQUENCY_1024,
 		FREQUENCY_16,
 		FREQUENCY_64,
+		FREQUENCY_256,
 	};
 
+	static constexpr std::array<uint16, 4> timaBitPositions
+	{
+		1024 >> 1,
+		16 >> 1,
+		64 >> 1,
+		256 >> 1
+	};
+
+	static constexpr uint8 TIMA_RESET_START_CYCLE{1};
+	static constexpr uint8 TIMA_RESET_END_CYCLE{5};
+
 	MemoryBus& m_bus;
-	uint16 m_cycleCounter; //max value is 256
-	uint8 m_div; //divider register
+
+	uint8 m_timaResetCounter;
+	bool m_lastAndResult;
+
+	uint16 m_div; //divider register
 	uint8 m_tima; //timer counter
 	uint8 m_tma; //timer modulo
 	uint8 m_tac; //timer control
-
-	bool m_updateTimaNextCycle; 
 };
 

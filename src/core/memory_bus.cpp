@@ -8,7 +8,7 @@ MemoryBus::MemoryBus(Gameboy& gb)
 	, m_dmaTransferInProcess{false}
 	, m_dmaTransferEnableNextCycle{false}
 {
-	loadRom("test/acceptance/pop_timing.gb");
+	loadRom("test/acceptance/timer/tma_write_reloading.gb");
 	m_memory[hardwareReg::IF] = 0xE1;
 }
 
