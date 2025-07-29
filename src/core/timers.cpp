@@ -5,23 +5,23 @@ Timers::Timers(MemoryBus& bus)
 	: m_bus{bus}
 	, m_timaResetCounter{}
 	, m_lastAndResult{}
-	, m_div{0x18}
+	, m_div{0xAB}
 	, m_tima{}
 	, m_tma{}
 	, m_tac{0xF8}
 {
 }
 
+//hope those 3 tests dont matter much, maybe I will fix them, maybe not
 void Timers::cycle()
 {
 	++m_div;
 	if(m_timaResetCounter >= TIMA_RESET_START_CYCLE)
 	{
-		++m_timaResetCounter;
-		if(m_timaResetCounter == TIMA_RESET_END_CYCLE) //when 4 t-cycles passed(and not aborted) 
+		if(++m_timaResetCounter == TIMA_RESET_END_CYCLE) //when 4 t-cycles passed(and not aborted) 
 		{
 			m_tima = m_tma;
-			timerInterrupt();
+			requestTimerInterrupt();
 			m_timaResetCounter = 0;
 		}
 	}
@@ -45,6 +45,7 @@ uint8 Timers::read(const Index index) const
 	case TIMA: return m_tima;
 	case TMA: return m_tma;
 	case TAC: return m_tac;
+	default: return 0xFF;
 	}
 }
 
@@ -54,20 +55,18 @@ void Timers::write(Index index, uint8 value)
 	{
 	case DIV: m_div = 0; break;
 	case TIMA:
-		if(m_timaResetCounter != TIMA_RESET_END_CYCLE)
+		if(!(m_timaResetCounter == TIMA_RESET_END_CYCLE))
 		{
 			m_tima = value;
 			m_timaResetCounter = 0;
-			break;
 		}
-		else break;
-
+		break;
 	case TMA: m_tma = value; break;
 	case TAC: m_tac = value & 0x0F; break;
 	}
 }
 
-void Timers::timerInterrupt() const
+void Timers::requestTimerInterrupt() const
 {
 	m_bus.write(hardwareReg::IF, m_bus.read(hardwareReg::IF) | 0b100); //bit 2 is timer interrupt
 }

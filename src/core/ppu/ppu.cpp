@@ -5,25 +5,25 @@ PPU::PPU(MemoryBus& bus)
 	: m_bus{bus}
 	, m_platform{Platform::getInstance()}
 	, m_currentMode{V_BLANK}
+	, m_statInterrupt{}
 	, m_lcdBuffer{}
 	, m_spriteBuffer{}
 	, m_pixelFifoBackground{}
 	, m_pixelFifoSprite{}
 	, m_currentSpriteAddress{OAM_MEMORY_START}
 	, m_fetcher{*this}
-	, m_statBlocked{false}
 	, m_tCycleCounter{}
-	, m_lcdc{0x90}
-	, m_stat{0x81}
+	, m_lcdc{0x91}
+	, m_stat{0x85}
 	, m_scy{}
 	, m_scx{}
-	, m_ly{0x91}
+	, m_ly{}
 	, m_lyc{}
 	, m_bgp{0xFC}
 	, m_obp0{}
 	, m_obp1{}
 	, m_wy{}
-	, m_wx{7}
+	, m_wx{}
 {
 	m_spriteBuffer.reserve(10);
 	m_platform.updateScreen(m_lcdBuffer.data());
@@ -34,11 +34,12 @@ void PPU::cycle()
 	if(!(m_lcdc & 0x80)) //bit 7 is ppu enable
 	{
 		//std::fill(std::begin(m_lcdBuffer), std::end(m_lcdBuffer), 0); 
-		//m_platform.updateScreen(m_lcdBuffer.data()); //this seems pretty useless
+		//m_platform.updateScreen(m_lcdBuffer.data());
 		return;
 	}
 
 	constexpr int SCANLINE_END_CYCLE{456};
+
 	++m_tCycleCounter;
 	switch(m_currentMode)
 	{
@@ -59,7 +60,7 @@ void PPU::cycle()
 	}
 	case DRAWING:
 	{
-		//TODO: LYC = LY Stat interrupt, background scrolling
+		//TODO: background scrolling
 
 		m_fetcher.cycle();
 
@@ -68,16 +69,18 @@ void PPU::cycle()
 			//this gets the right bits of the palette based on the color index of the pixel and 
 			//use this as an index for the rgb332 color array
 			const Pixel pixel{m_pixelFifoBackground.front()};
-			const uint8 color{colors[(m_bgp >> (pixel.colorIndex * 2)) & 0b11]};
+			const uint16 color{colors[(m_bgp >> (pixel.colorIndex * 2)) & 0b11]};
 			m_lcdBuffer[pixel.xPosition + SCREEN_WIDTH * m_ly] = color;
 
 			m_pixelFifoBackground.pop();
+
+			m_fetcher.checkWindowReached();
 		}
 
 		if(m_fetcher.getXPosCounter() >= SCREEN_WIDTH) //when the end of the screen is reached, clear all and go to next mode
 		{
 			m_spriteBuffer.clear();
-			m_fetcher.clear();
+			m_fetcher.clearEndScanline();
 			clearBackgroundFifo();
 			clearSpriteFifo();
 			switchMode(H_BLANK);
@@ -91,15 +94,14 @@ void PPU::cycle()
 		{
 			++m_ly;
 			updateCoincidenceFlag();
-			checkLyStatInterrupt();
 			m_tCycleCounter = 0;
 			switchMode(OAM_SCAN);
 		}
 
 		if(m_ly == FIRST_V_BLANK_SCANLINE) //if this next scanline is the first of V_BLANK, V_BLANK for another 10 scanlines
 		{
-			vBlankInterrupt();
-			m_fetcher.clearWindowLineCounter();
+			requestVBlankInterrupt();
+			m_fetcher.clearEndFrame();
 			switchMode(V_BLANK);
 		}
 		break;
@@ -110,7 +112,6 @@ void PPU::cycle()
 		{
 			++m_ly;
 			updateCoincidenceFlag();
-			checkLyStatInterrupt();
 			m_tCycleCounter = 0;
 		}
 		if(m_ly == 154)
@@ -120,13 +121,17 @@ void PPU::cycle()
 			
 			m_ly = 0;
 			updateCoincidenceFlag();
-			checkLyStatInterrupt();
 			m_tCycleCounter = 0;
 			switchMode(OAM_SCAN);
 		}
 		break;
 	}
 	}
+
+	bool statResult {m_statInterrupt.calculateResult()};
+	if(!m_statInterrupt.previousResult && statResult) requestStatInterrupt();
+
+	m_statInterrupt.previousResult = statResult;
 }
 
 uint8 PPU::read(const Index index) const
@@ -144,7 +149,7 @@ uint8 PPU::read(const Index index) const
 	case OBP1: return m_obp1;
 	case WY: return m_wy;
 	case WX: return m_wx;
-	default: return 0;
+	default: return 0xFF;
 	}
 }
 
@@ -153,10 +158,10 @@ void PPU::write(const Index index, const uint8 value)
 	switch(index)
 	{
 	case LCDC: m_lcdc = value; break;
-	case STAT: m_stat = (value & (m_stat & 0b100)) | 0x80; break; //bit 2 is read only and bit 7 is always 1
+	case STAT: m_stat = ((m_stat & 0b111) | (value & ~0b111)) | 0x80; break; //bit 0-1-2 are read only and bit 7 is always 1
 	case SCY: m_scy = value; break;
 	case SCX: m_scx = value; break;
-	case LY: break; //read only
+	case LY: break;
 	case LYC: m_lyc = value; updateCoincidenceFlag(); break;
 	case BGP: m_bgp = value; break;
 	case OBP0: m_obp0 = value; break;
@@ -169,12 +174,24 @@ void PPU::write(const Index index, const uint8 value)
 void PPU::switchMode(const Mode mode)
 {
 	m_currentMode = mode;
-	m_stat = (m_stat & !(0b11)) | static_cast<uint8>(mode); //bits 1-0 of stat store the current mode
+	m_stat = (m_stat & ~0b11) | static_cast<uint8>(mode); //bits 1-0 of stat store the current mode
+
 	if(mode != DRAWING && m_stat & (1 << (3 + mode)))  //at bits 3-4-5 are stored the stat condition enable for mode 0, 1 and 2 respectively
 	{
-		statInterrupt();
-		m_statBlocked = true;
-	}	
+		__debugbreak();
+		//requestStatInterrupt();
+	}
+}
+
+void PPU::updateCoincidenceFlag()
+{
+	m_stat = (m_stat & ~0b100) | (m_ly == m_lyc ? 0b100 : 0);
+	if(m_stat & 0x40 && m_stat & 0b100)
+	{
+		//__debugbreak();
+		m_statInterrupt.lyCompareSource = true;
+	}
+	else m_statInterrupt.lyCompareSource = false;
 }
 
 PPU::Sprite PPU::fetchSprite()
@@ -215,26 +232,17 @@ void PPU::clearSpriteFifo()
 	m_pixelFifoSprite.swap(emptySpriteFifo);
 }
 
-void PPU::updateCoincidenceFlag()
-{
-	m_stat = m_stat | (m_ly == m_lyc ? 0b100 : 0);
-}
-
-void PPU::checkLyStatInterrupt()
-{
-	if(!m_statBlocked && m_stat & 0b1000000 && m_ly == m_lyc) //bit 6 of stat enables this condition
-	{
-		statInterrupt();
-		m_statBlocked = true;
-	}
-}
-
-void PPU::statInterrupt() const
+void PPU::requestStatInterrupt() const
 {
 	m_bus.write(hardwareReg::IF, m_bus.read(hardwareReg::IF) | 0b10);
 }
 
-void PPU::vBlankInterrupt() const
+void PPU::requestVBlankInterrupt() const
 {
 	m_bus.write(hardwareReg::IF, m_bus.read(hardwareReg::IF) | 0b1);
+}
+
+bool PPU::StatInterrupt::calculateResult()
+{
+	return HBlankSource || VBlankSource || OamScanSource || lyCompareSource;
 }

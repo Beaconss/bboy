@@ -7,7 +7,6 @@ CPU::CPU(MemoryBus& bus)
 	, m_currentInstr{nullptr}
 	, m_cycleCounter{}
 	, m_ime{false}
-	, m_imeEnableInTwoCycles{false}
 	, m_imeEnableNextCycle{false}
 	, m_isHalted{false}
 	, m_PC{0x100}
@@ -25,8 +24,6 @@ CPU::CPU(MemoryBus& bus)
 	m_registers[A] = 0x01;
 }
 
-//put ' in binary numbers
-
 void CPU::cycle()
 {
 	++m_cycleCounter;//since instructions reset m_cycleCounter to 0 increment before the cpu cycle so its 1, then if the instruction is multi-cycle 2, 3...
@@ -37,11 +34,6 @@ void CPU::cycle()
 	{
 		m_ime = true;
 		m_imeEnableNextCycle = false;
-	}
-	else if(m_imeEnableInTwoCycles) 
-	{
-		m_imeEnableNextCycle = true;
-		m_imeEnableInTwoCycles = false;
 	}
 
 	if(m_currentInstr) (this->*m_currentInstr)();
@@ -54,7 +46,7 @@ void CPU::cycle()
 
 void CPU::handleInterrupts()
 {
-	uint8 pendingInterrupts = (m_bus.read(hardwareReg::IF) & m_bus.read(hardwareReg::IE)) & 0b11111; //only bits 0-4 are used
+	uint8 pendingInterrupts = (m_bus.read(hardwareReg::IF) & m_bus.read(hardwareReg::IE)) & 0b1'1111; //only bits 0-4 are used
 	if(pendingInterrupts)
 	{
 		m_isHalted = false; //even if m_ime is false exit halt
@@ -66,7 +58,6 @@ void CPU::handleInterrupts()
 				{
 					m_bus.write(hardwareReg::IF, pendingInterrupts & ~(1 << i));
 					m_ime = false;
-					m_imeEnableInTwoCycles = false;
 					m_imeEnableNextCycle = false;
 					m_iState.x = i; //save i to be used in interruptRoutine as interrupt index
 					m_currentInstr = &CPU::interruptRoutine;
@@ -415,52 +406,53 @@ void CPU::setHL(const uint16 HL)
 
 bool CPU::getFZ() const
 {
-	return static_cast<bool>(m_F & 0b10000000);
+	return static_cast<bool>(m_F & 0b1000'0000);
 }
 
 bool CPU::getFN() const
 {
-	return static_cast<bool>(m_F & 0b01000000);
+	return static_cast<bool>(m_F & 0b0100'0000);
 }
 
 bool CPU::getFH() const
 {
-	return static_cast<bool>(m_F & 0b00100000);
+	return static_cast<bool>(m_F & 0b0010'0000);
 }
 
 bool CPU::getFC() const
 {
-	return static_cast<bool>(m_F & 0b00010000);
+	return static_cast<bool>(m_F & 0b0001'0000);
 }
 
 void CPU::setFZ(bool z)
 {
-	if(z) m_F = m_F | 0b10000000;
-	else  m_F = m_F & 0b01110000;
+	if(z) m_F = m_F | 0b1000'0000;
+	else  m_F = m_F & 0b0111'0000;
 }
 
 void CPU::setFN(bool n)
 {
-	if(n) m_F = m_F | 0b01000000;
-	else  m_F = m_F & 0b10110000;
+	if(n) m_F = m_F | 0b0100'0000;
+	else  m_F = m_F & 0b1011'0000;
 }
 
 void CPU::setFH(bool h)
 {
-	if(h) m_F = m_F | 0b00100000;
-	else  m_F = m_F & 0b11010000;
+	if(h) m_F = m_F | 0b0010'0000;
+	else  m_F = m_F & 0b1101'0000;
 } 
 
 void CPU::setFC(bool c)
 {
-	if(c) m_F = m_F | 0b00010000;
-	else  m_F = m_F & 0b11100000;
+	if(c) m_F = m_F | 0b0001'0000;
+	else  m_F = m_F & 0b1110'0000;
 }
 
 void CPU::LD_r_r2()
 {
 	m_iState.x = (m_IR >> 3) & 0b111; //r
 	m_iState.y = m_IR & 0b111; //r2
+	//if(m_iState.x == 1 && m_iState.y == 7) __debugbreak();
 
 	m_registers[m_iState.x] = m_registers[m_iState.y];
 	m_cycleCounter = 0; //reset cycles counter at the end of each instruction
@@ -870,12 +862,12 @@ void CPU::POP_rr()
 	{
 	case 1:
 		m_currentInstr = &CPU::POP_rr;
-		m_iState.xx = m_bus.read(m_SP++);
 		break;
 	case 2:
-		m_iState.xx |= m_bus.read(m_SP++) << 8;
+		m_iState.xx = m_bus.read(m_SP++);
 		break;
 	case 3:
+		m_iState.xx |= m_bus.read(m_SP++) << 8;
 		m_iState.x = (m_IR >> 4) & 0b11; //rr
 		switch(m_iState.x)
 		{
@@ -1590,9 +1582,9 @@ void CPU::ADD_SP_e()
 	{
 	case 1:
 		m_currentInstr = &CPU::ADD_SP_e;
-		m_iState.e = static_cast<int8>(m_bus.read(m_PC++)); //e
 		break;
 	case 2:
+		m_iState.e = static_cast<int8>(m_bus.read(m_PC++)); //e
 		break;
 	case 3:
 		break;
@@ -2315,12 +2307,12 @@ void CPU::CALL_nn()
 	{
 	case 1:
 		m_currentInstr = &CPU::CALL_nn;
-		m_iState.xx = m_bus.read(m_PC++);
 		break;
 	case 2:
-		m_iState.xx |= m_bus.read(m_PC++) << 8; //nn
+		m_iState.xx = m_bus.read(m_PC++);
 		break;
 	case 3:
+		m_iState.xx |= m_bus.read(m_PC++) << 8; //nn
 		break;
 	case 4:
 		m_bus.write(--m_SP, getMSB(m_PC));
@@ -2342,12 +2334,12 @@ void CPU::CALL_cc_nn()
 	{
 	case 1:
 		m_currentInstr = &CPU::CALL_cc_nn;
-		m_iState.xx = m_bus.read(m_PC++);
 		break;
 	case 2:
-		m_iState.xx |= m_bus.read(m_PC++) << 8; //nn
+		m_iState.xx = m_bus.read(m_PC++);
 		break;
 	case 3:
+		m_iState.xx |= m_bus.read(m_PC++) << 8; //nn
 		m_iState.x = (m_IR >> 3) & 0b11; //cc
 
 		switch(m_iState.x) //m_iState.y is used as a bool to check later if condition is met
@@ -2384,12 +2376,12 @@ void CPU::RET()
 	{
 	case 1:
 		m_currentInstr = &CPU::RET;
-		m_iState.x = m_bus.read(m_SP++); 
 		break;
 	case 2:
-		m_iState.y = m_bus.read(m_SP++);
+		m_iState.x = m_bus.read(m_SP++); 
 		break;
 	case 3:
+		m_iState.y = m_bus.read(m_SP++);
 		break;
 	case 4:
 		m_PC = (m_iState.y << 8) | m_iState.x;
@@ -2405,10 +2397,11 @@ void CPU::RET_cc()
 	{
 	case 1:
 		m_currentInstr = &CPU::RET_cc;
+		m_iState.x = (m_IR >> 3) & 0b11; //cc
 		break;
 	case 2:
-		m_iState.x = (m_IR >> 3) & 0b11; //cc
-
+		break;
+	case 3:
 		switch(m_iState.x)
 		{
 		case NOT_ZERO: m_iState.y = !getFZ(); break;
@@ -2424,10 +2417,8 @@ void CPU::RET_cc()
 		}
 		else m_iState.x = m_bus.read(m_SP++);
 		break;
-	case 3:
-		m_iState.y = m_bus.read(m_SP++);
-		break;
 	case 4:
+		m_iState.y = m_bus.read(m_SP++);
 		break;
 	case 5:
 		m_PC = (m_iState.y << 8) | m_iState.x;
@@ -2443,12 +2434,12 @@ void CPU::RETI()
 	{
 	case 1:
 		m_currentInstr = &CPU::RETI;
-		m_iState.x = m_bus.read(m_SP++);
 		break;
 	case 2:
-		m_iState.y = m_bus.read(m_SP++);
+		m_iState.x = m_bus.read(m_SP++);
 		break;
 	case 3:
+		m_iState.y = m_bus.read(m_SP++);
 		break;
 	case 4:
 		m_PC = (m_iState.y << 8) | m_iState.x;
@@ -2497,14 +2488,13 @@ void CPU::STOP()
 void CPU::DI()
 {
 	m_ime = false;
-	m_imeEnableInTwoCycles = false;
 	m_imeEnableNextCycle = false;
 	m_cycleCounter = 0;
 }
 
 void CPU::EI()
 {
-	if(!m_imeEnableInTwoCycles && !m_imeEnableNextCycle && !m_ime) m_imeEnableInTwoCycles = true;
+	if(!m_imeEnableNextCycle && !m_ime) m_imeEnableNextCycle = true;
 	m_cycleCounter = 0;
 }
 

@@ -12,9 +12,10 @@ public:
 	PixelFetcher(PPU& ppu);
 
 	void cycle();
+	void checkWindowReached();
 	uint8 getXPosCounter() const;
-	void clearWindowLineCounter(); //this needs to be reset separately as it resets once vblank is reached
-	void clear();
+	void clearEndScanline();
+	void clearEndFrame();
 
 private:
 	enum Mode
@@ -35,17 +36,18 @@ private:
 	void pushPixelsToFifo();
 
 	PPU& m_ppu;
-	bool m_firstFetchOnScanline;
+	bool m_firstFetchCompleted;
 	Mode m_currentMode;
 	Step m_currentStep;
 	uint8 m_stepCycle;
 
 	uint8 m_xPosCounter;
-	uint8 m_windowLineCounter;
-
 	uint8 m_tileNumber;
 	uint8 m_tileDataLow;
 	uint8 m_tileDataHigh;
 	uint16 m_tileAddress;
+
+	uint8 m_windowLineCounter;
+	bool m_wyLyCondition;
 };
 

@@ -4,7 +4,8 @@
 
 PixelFetcher::PixelFetcher(PPU& ppu)
 	: m_ppu{ppu}
-	, m_firstFetchOnScanline{true}
+	, m_firstFetchCompleted{false}
+	, m_wyLyCondition{false}
 	, m_currentMode{BACKGROUND}
 	, m_currentStep{FETCH_TILE_NO}
 	, m_stepCycle{}
@@ -22,7 +23,7 @@ void PixelFetcher::cycle()
 	constexpr uint16 TILEMAP_SIZE{0x3FF};
 	constexpr uint8 PIXELS_PER_TILE{8};
 	constexpr uint8 TILES_PER_ROW{32};
-
+	if(m_ppu.m_wy == m_ppu.m_ly) m_wyLyCondition = true;
 
 	switch(m_currentMode)
 	{
@@ -80,10 +81,10 @@ void PixelFetcher::cycle()
 				m_tileDataHigh = m_ppu.m_bus.read(m_tileAddress + 1);
 				m_stepCycle = 0;
 
-				if(m_firstFetchOnScanline)	
+				if(!m_firstFetchCompleted)	
 				{
 					m_currentStep = FETCH_TILE_NO;
-					m_firstFetchOnScanline = false;
+					m_firstFetchCompleted = true;
 				}
 				else m_currentStep = PUSH_TO_FIFO;
 			}
@@ -118,7 +119,7 @@ void PixelFetcher::cycle()
 			++m_stepCycle;
 			if(m_stepCycle == 2)
 			{
-				const uint16 tileMapAddress{static_cast<uint16>(m_ppu.m_lcdc & 0b1000000 ? 0x9C00 : 0x9800)}; //bit 6 sets tilemap for window
+				const uint16 tileMapAddress{static_cast<uint16>(m_ppu.m_lcdc & 0b100'0000 ? 0x9C00 : 0x9800)}; //bit 6 sets tilemap for window
 				const uint16 offset{static_cast<uint16>((m_xPosCounter & 0x1F)
 														+ (TILES_PER_ROW * (m_windowLineCounter / PIXELS_PER_TILE))
 														& TILEMAP_SIZE)};
@@ -145,7 +146,7 @@ void PixelFetcher::cycle()
 				else
 				{
 					//8800 method
-					m_tileAddress = 0x9000 + (static_cast<int8>(m_tileNumber) * 16)
+					m_tileAddress = 0x9000 + (16 * static_cast<int8>(m_tileNumber))
 						+ (2 * (m_windowLineCounter % 8));
 					m_tileDataLow = m_ppu.m_bus.read(m_tileAddress);
 				}
@@ -205,19 +206,23 @@ void PixelFetcher::pushPixelsToFifo()
 		pixel.xPosition = m_xPosCounter++; //store position, then increment
 
 		m_ppu.m_pixelFifoBackground.push(pixel);
+	}
+}
 
-		if(m_currentMode != WINDOW //check if it should go to window mode
-			&& m_ppu.m_lcdc & 0b100000
-			&& m_ppu.m_wy >= m_ppu.m_ly
-			&& m_xPosCounter >= (m_ppu.m_wx - 7))
-		{
-			//current step and stepcycle get reset when going back to PUSH_TO_FIFO
-			++m_windowLineCounter;
-			m_currentMode = WINDOW;
-			m_xPosCounter = 0;
-			m_ppu.clearBackgroundFifo();
-			break;
-		}
+void PixelFetcher::checkWindowReached()
+{	
+	if(m_currentMode != WINDOW
+		&& m_ppu.m_lcdc & 0b100000
+		&& m_wyLyCondition
+		&& m_xPosCounter >= (m_ppu.m_wx - 7))
+	{
+		//__debugbreak();
+		++m_windowLineCounter;
+		m_currentMode = WINDOW;
+		m_currentStep = FETCH_TILE_NO;
+		m_stepCycle = 0;
+		m_xPosCounter = 0;
+		m_ppu.clearBackgroundFifo();
 	}
 }
 
@@ -226,14 +231,9 @@ uint8 PixelFetcher::getXPosCounter() const
 	return m_xPosCounter;
 }
 
-void PixelFetcher::clearWindowLineCounter()
+void PixelFetcher::clearEndScanline()
 {
-	m_windowLineCounter = 0;
-}
-
-void PixelFetcher::clear()
-{
-	m_firstFetchOnScanline = true;
+	m_firstFetchCompleted = false;
 	m_currentMode = BACKGROUND;
 	m_currentStep = FETCH_TILE_NO;
 	m_stepCycle = 0;
@@ -242,5 +242,11 @@ void PixelFetcher::clear()
 	m_tileDataLow = 0;
 	m_tileDataHigh = 0;
 	m_tileAddress = 0;
+}
+
+void PixelFetcher::clearEndFrame()
+{
+	m_windowLineCounter = 0;
+	m_wyLyCondition = false;
 }
 

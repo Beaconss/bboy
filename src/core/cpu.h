@@ -217,7 +217,6 @@ private:
 
 	//interrupt things
 	bool m_ime; //interrupt master enabler
-	bool m_imeEnableInTwoCycles;
 	bool m_imeEnableNextCycle;
 	bool m_isHalted;
 

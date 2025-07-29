@@ -60,25 +60,35 @@ private:
 		uint8 xPosition{};
 	};
 
+	struct StatInterrupt
+	{
+		bool HBlankSource{false};
+		bool VBlankSource{false};
+		bool OamScanSource{false};
+		bool lyCompareSource{false};
+
+		bool calculateResult();
+		bool previousResult{false};
+	};
+
 	friend PixelFetcher;
 	void switchMode(const Mode mode);
+	void updateCoincidenceFlag();
 
 	Sprite fetchSprite();
 	void tryAddSpriteToBuffer(const Sprite& sprite);
 	void clearBackgroundFifo();
 	void clearSpriteFifo();
 
-	void updateCoincidenceFlag();
-	void checkLyStatInterrupt();
-	void statInterrupt() const;
-	void vBlankInterrupt() const;
+	void requestStatInterrupt() const;
+	void requestVBlankInterrupt() const;
 
-	static constexpr std::array<uint8, 4> colors //in rgb332
+	static constexpr std::array<uint16, 4> colors //in rgb565
 	{
-		0b11111111,
-		0b11011010,
-		0b01001001,
-		0b0,
+		0xFFFF,
+		0x7BEF,
+		0x39E7,
+		0x0,
 	};
 
 	static constexpr uint16 OAM_MEMORY_START{0xFE00};
@@ -86,8 +96,9 @@ private:
 	MemoryBus& m_bus;
 	Platform& m_platform;
 	Mode m_currentMode;
+	StatInterrupt m_statInterrupt;
 	
-	std::array<uint8, SCREEN_WIDTH * SCREEN_HEIGHT + 1> m_lcdBuffer;
+	std::array<uint16, SCREEN_WIDTH * SCREEN_HEIGHT + 1> m_lcdBuffer;
 	std::vector<Sprite> m_spriteBuffer;
 	uint16 m_currentSpriteAddress;
 
@@ -95,7 +106,6 @@ private:
 	std::queue<Pixel> m_pixelFifoSprite;
 	PixelFetcher m_fetcher;
 	
-	bool m_statBlocked;
 	uint16 m_tCycleCounter; //max value is 456 so uint16 is fine
 
 	uint8 m_lcdc; //LCD control

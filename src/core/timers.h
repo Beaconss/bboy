@@ -22,7 +22,7 @@ public:
 	uint8 read(const Index index) const;
 	void write(const Index index, const uint8 value);
 	void cycle();
-	void timerInterrupt() const;
+	void requestTimerInterrupt() const;
 
 private:
 	enum TimaFrequency //in t-cycles
