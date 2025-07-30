@@ -10,7 +10,7 @@ MemoryBus::MemoryBus(Gameboy& gb)
 	, m_dmaTransferInProcess{false}
 	, m_dmaTransferEnableNextCycle{false}
 {
-	loadRom("test/acceptance/jp_timing.gb");
+	loadRom("test/acceptance/di_timing-GS.gb");
 	m_memory[hardwareReg::IF] = 0xE1;
 	m_memory[hardwareReg::IE] = 0xE0;
 	m_memory[hardwareReg::DMA] = 0xFF;

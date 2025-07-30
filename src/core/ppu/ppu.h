@@ -44,6 +44,8 @@ public:
 	void write(const Index index, const uint8 value);
 
 private:
+	bool firstvblank{true};
+
 	struct Sprite
 	{
 		uint8 yPosition{}; //byte 0 
@@ -62,12 +64,16 @@ private:
 
 	struct StatInterrupt
 	{
-		bool HBlankSource{false};
-		bool VBlankSource{false};
-		bool OamScanSource{false};
-		bool lyCompareSource{false};
+		std::array<bool, 4> sources{};
+		enum Source
+		{
+			H_BLANK,
+			V_BLANK,
+			OAM_SCAN,
+			LY_COMPARE,
+		};
 
-		bool calculateResult();
+		bool calculateResult() const;
 		bool previousResult{false};
 	};
 

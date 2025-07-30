@@ -56,11 +56,13 @@ void CPU::handleInterrupts()
 			{
 				if(pendingInterrupts & (1 << i))
 				{
+					if(i == 0) std::cout << "VBlank interrupt at PC: " << std::hex << m_PC << '\n';
 					m_bus.write(hardwareReg::IF, pendingInterrupts & ~(1 << i));
 					m_ime = false;
 					m_imeEnableNextCycle = false;
 					m_iState.x = i; //save i to be used in interruptRoutine as interrupt index
 					m_currentInstr = &CPU::interruptRoutine;
+					break;
 				}
 			}
 		}
@@ -832,6 +834,8 @@ void CPU::PUSH_rr()
 		m_iState.x = (m_IR >> 4) & 0b11; //rr
 		break;
 	case 2:
+		break;
+	case 3:
 		switch(m_iState.x)
 		{
 		case BC: m_bus.write(--m_SP, m_registers[B]); break;
@@ -840,7 +844,7 @@ void CPU::PUSH_rr()
 		case AF: m_bus.write(--m_SP, m_registers[A]); break;
 		}
 		break;
-	case 3:
+	case 4:
 		switch(m_iState.x)
 		{
 		case BC: m_bus.write(--m_SP, m_registers[C]); break;
@@ -848,8 +852,6 @@ void CPU::PUSH_rr()
 		case HL: m_bus.write(--m_SP, m_registers[L]); break;
 		case AF: m_bus.write(--m_SP, m_F & 0xF0); break;
 		}
-		break;
-	case 4:
 		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;
@@ -2458,12 +2460,12 @@ void CPU::RST_n()
 		m_currentInstr = &CPU::RST_n;
 		break;
 	case 2:
-		m_bus.write(--m_SP, getMSB(m_PC));
 		break;
 	case 3:
-		m_bus.write(--m_SP, getLSB(m_PC));
+		m_bus.write(--m_SP, getMSB(m_PC));
 		break;
 	case 4:
+		m_bus.write(--m_SP, getLSB(m_PC));
 		m_PC = m_IR & 0b111000;
 		m_cycleCounter = 0;
 		m_currentInstr = nullptr;

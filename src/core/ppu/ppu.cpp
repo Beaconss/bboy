@@ -63,17 +63,19 @@ void PPU::cycle()
 		//TODO: background scrolling
 
 		m_fetcher.cycle();
-
+		
 		if(!m_pixelFifoBackground.empty())
 		{
-			//this gets the right bits of the palette based on the color index of the pixel and 
-			//use this as an index for the rgb332 color array
-			const Pixel pixel{m_pixelFifoBackground.front()};
-			const uint16 color{colors[(m_bgp >> (pixel.colorIndex * 2)) & 0b11]};
-			m_lcdBuffer[pixel.xPosition + SCREEN_WIDTH * m_ly] = color;
+			if(m_lcdc & 1)
+			{
+				//this gets the right bits of the palette based on the color index of the pixel and 
+				//use this as an index for the rgb332 color array
+				const Pixel pixel{m_pixelFifoBackground.front()};
+				const uint16 color{colors[(m_bgp >> (pixel.colorIndex * 2)) & 0b11]};
+				m_lcdBuffer[pixel.xPosition + SCREEN_WIDTH * m_ly] = color;
+			}
 
 			m_pixelFifoBackground.pop();
-
 			m_fetcher.checkWindowReached();
 		}
 
@@ -118,10 +120,8 @@ void PPU::cycle()
 		{
 			m_platform.updateScreen(m_lcdBuffer.data());
 			m_platform.render();
-			
 			m_ly = 0;
 			updateCoincidenceFlag();
-			m_tCycleCounter = 0;
 			switchMode(OAM_SCAN);
 		}
 		break;
@@ -176,10 +176,13 @@ void PPU::switchMode(const Mode mode)
 	m_currentMode = mode;
 	m_stat = (m_stat & ~0b11) | static_cast<uint8>(mode); //bits 1-0 of stat store the current mode
 
-	if(mode != DRAWING && m_stat & (1 << (3 + mode)))  //at bits 3-4-5 are stored the stat condition enable for mode 0, 1 and 2 respectively
+	if(mode != DRAWING)
 	{
-		__debugbreak();
-		//requestStatInterrupt();
+		for(int i{0}; i < 4; ++i)
+		{
+			if(m_stat & (1 << (3 + i)) && i == mode) m_statInterrupt.sources[i] = true;  //at bits 3-4-5 are stored the stat condition enable for mode 0, 1 and 2 respectively
+			else m_statInterrupt.sources[i] = false;
+		}
 	}
 }
 
@@ -188,10 +191,9 @@ void PPU::updateCoincidenceFlag()
 	m_stat = (m_stat & ~0b100) | (m_ly == m_lyc ? 0b100 : 0);
 	if(m_stat & 0x40 && m_stat & 0b100)
 	{
-		//__debugbreak();
-		m_statInterrupt.lyCompareSource = true;
+		m_statInterrupt.sources[StatInterrupt::LY_COMPARE] = true;
 	}
-	else m_statInterrupt.lyCompareSource = false;
+	else m_statInterrupt.sources[StatInterrupt::LY_COMPARE] = false;
 }
 
 PPU::Sprite PPU::fetchSprite()
@@ -242,7 +244,7 @@ void PPU::requestVBlankInterrupt() const
 	m_bus.write(hardwareReg::IF, m_bus.read(hardwareReg::IF) | 0b1);
 }
 
-bool PPU::StatInterrupt::calculateResult()
+bool PPU::StatInterrupt::calculateResult() const
 {
-	return HBlankSource || VBlankSource || OamScanSource || lyCompareSource;
+	return sources[StatInterrupt::H_BLANK] || sources[StatInterrupt::V_BLANK] || sources[StatInterrupt::OAM_SCAN] || sources[StatInterrupt::LY_COMPARE];
 }
