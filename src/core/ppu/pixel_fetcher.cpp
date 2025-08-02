@@ -210,20 +210,19 @@ void PixelFetcher::pushPixelsToFifo()
 }
 
 void PixelFetcher::checkWindowReached()
-{	/*
+{	
 	if(m_currentMode != WINDOW
 		&& m_ppu.m_lcdc & 0b100000
 		&& m_wyLyCondition
 		&& m_xPosCounter >= (m_ppu.m_wx - 7))
 	{
-		//__debugbreak();
 		++m_windowLineCounter;
 		m_currentMode = WINDOW;
 		m_currentStep = FETCH_TILE_NO;
 		m_stepCycle = 0;
-		//m_xPosCounter = 0;
+		m_xPosCounter = 0;
 		m_ppu.clearBackgroundFifo();
-	}*/
+	}
 }
 
 uint8 PixelFetcher::getXPosCounter() const

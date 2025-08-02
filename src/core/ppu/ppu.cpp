@@ -39,7 +39,6 @@ void PPU::cycle()
 	}
 
 	constexpr int SCANLINE_END_CYCLE{456};
-
 	++m_tCycleCounter;
 	switch(m_currentMode)
 	{
@@ -63,7 +62,7 @@ void PPU::cycle()
 		//TODO: background scrolling
 
 		m_fetcher.cycle();
-		
+
 		if(!m_pixelFifoBackground.empty())
 		{
 			if(m_lcdc & 1)
@@ -82,7 +81,7 @@ void PPU::cycle()
 		if(m_fetcher.getXPosCounter() >= SCREEN_WIDTH) //when the end of the screen is reached, clear all and go to next mode
 		{
 			m_spriteBuffer.clear();
-			m_fetcher.clearEndScanline();
+
 			clearBackgroundFifo();
 			clearSpriteFifo();
 			switchMode(H_BLANK);
@@ -91,26 +90,28 @@ void PPU::cycle()
 	}
 	case H_BLANK:
 	{
-		constexpr int FIRST_V_BLANK_SCANLINE{144};
 		if(m_tCycleCounter == SCANLINE_END_CYCLE)
 		{
 			++m_ly;
 			updateCoincidenceFlag();
-			m_tCycleCounter = 0;
 			switchMode(OAM_SCAN);
+			m_tCycleCounter = 0;
+			m_fetcher.clearEndScanline();
 		}
-
+		constexpr int FIRST_V_BLANK_SCANLINE{144};
 		if(m_ly == FIRST_V_BLANK_SCANLINE) //if this next scanline is the first of V_BLANK, V_BLANK for another 10 scanlines
 		{
 			requestVBlankInterrupt();
 			m_fetcher.clearEndFrame();
 			switchMode(V_BLANK);
+			if(m_stat & 0b10'0000) m_statInterrupt.sources[OAM_SCAN] = true; //re enable oam scan source if the corresponding stat bit is active as switchMode(V_BLANK) cleared it
 		}
 		break;
 	}
 	case V_BLANK:
 	{
-		if(m_tCycleCounter == SCANLINE_END_CYCLE) 
+		constexpr int LAST_VBLANK_SCANLINE{154};
+		if(m_tCycleCounter == SCANLINE_END_CYCLE)
 		{
 			++m_ly;
 			updateCoincidenceFlag();
@@ -128,7 +129,7 @@ void PPU::cycle()
 	}
 	}
 
-	bool statResult {m_statInterrupt.calculateResult()};
+	bool statResult{m_statInterrupt.calculateResult()};
 	if(!m_statInterrupt.previousResult && statResult) requestStatInterrupt();
 
 	m_statInterrupt.previousResult = statResult;
@@ -178,7 +179,7 @@ void PPU::switchMode(const Mode mode)
 
 	if(mode != DRAWING)
 	{
-		for(int i{0}; i < 4; ++i)
+		for(int i{0}; i < 3; ++i)
 		{
 			if(m_stat & (1 << (3 + i)) && i == mode) m_statInterrupt.sources[i] = true;  //at bits 3-4-5 are stored the stat condition enable for mode 0, 1 and 2 respectively
 			else m_statInterrupt.sources[i] = false;

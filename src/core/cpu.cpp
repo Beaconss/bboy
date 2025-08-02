@@ -1,5 +1,6 @@
 #include "cpu.h"
 #include "memory_bus.h"
+#include "gameboy.h"
 
 CPU::CPU(MemoryBus& bus)
 	: m_bus{bus}
@@ -28,7 +29,11 @@ void CPU::cycle()
 {
 	++m_cycleCounter;//since instructions reset m_cycleCounter to 0 increment before the cpu cycle so its 1, then if the instruction is multi-cycle 2, 3...
 	if(!m_currentInstr) handleInterrupts();
-	if(m_isHalted) return;
+	if(m_isHalted) 
+	{
+		m_cycleCounter = 0;
+		return;
+	}
 
 	if(m_imeEnableNextCycle)
 	{
@@ -56,7 +61,6 @@ void CPU::handleInterrupts()
 			{
 				if(pendingInterrupts & (1 << i))
 				{
-					if(i == 0) std::cout << "VBlank interrupt at PC: " << std::hex << m_PC << '\n';
 					m_bus.write(hardwareReg::IF, pendingInterrupts & ~(1 << i));
 					m_ime = false;
 					m_imeEnableNextCycle = false;
@@ -2402,8 +2406,6 @@ void CPU::RET_cc()
 		m_iState.x = (m_IR >> 3) & 0b11; //cc
 		break;
 	case 2:
-		break;
-	case 3:
 		switch(m_iState.x)
 		{
 		case NOT_ZERO: m_iState.y = !getFZ(); break;
@@ -2417,7 +2419,9 @@ void CPU::RET_cc()
 			m_cycleCounter = 0;
 			m_currentInstr = nullptr;
 		}
-		else m_iState.x = m_bus.read(m_SP++);
+		break;
+	case 3:
+		m_iState.x = m_bus.read(m_SP++);
 		break;
 	case 4:
 		m_iState.y = m_bus.read(m_SP++);

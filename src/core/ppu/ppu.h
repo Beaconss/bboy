@@ -42,10 +42,7 @@ public:
 	void cycle();
 	uint8 read(const Index index) const;
 	void write(const Index index, const uint8 value);
-
 private:
-	bool firstvblank{true};
-
 	struct Sprite
 	{
 		uint8 yPosition{}; //byte 0 
@@ -114,6 +111,7 @@ private:
 	
 	uint16 m_tCycleCounter; //max value is 456 so uint16 is fine
 
+	//maybe i will delete some of these to just use the memory instead
 	uint8 m_lcdc; //LCD control
 	uint8 m_stat; //LDC status
 	uint8 m_scy; //viewport y position
