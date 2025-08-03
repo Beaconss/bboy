@@ -12,7 +12,7 @@ Timers::Timers(MemoryBus& bus)
 {
 }
 
-//hope those 2 tests dont matter much, maybe I will fix them, maybe not
+//hope those 3 tests dont matter much, maybe I will fix them, maybe not
 void Timers::cycle()
 {
 	++m_div;

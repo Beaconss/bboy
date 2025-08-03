@@ -38,7 +38,7 @@ void PPU::cycle()
 		return;
 	}
 
-	constexpr int SCANLINE_END_CYCLE{456};
+	constexpr uint16 SCANLINE_END_CYCLE{456};
 	++m_tCycleCounter;
 	switch(m_currentMode)
 	{
@@ -48,7 +48,7 @@ void PPU::cycle()
 		{
 			tryAddSpriteToBuffer(fetchSprite());
 
-			constexpr int OAM_SCAN_END_CYCLE{80};
+			constexpr uint8 OAM_SCAN_END_CYCLE{80};
 			if(m_tCycleCounter == OAM_SCAN_END_CYCLE)
 			{
 				m_currentSpriteAddress = OAM_MEMORY_START;
@@ -78,9 +78,10 @@ void PPU::cycle()
 			m_fetcher.checkWindowReached();
 		}
 
+		//if(m_tCycleCounter == 80 + 172)
 		if(m_fetcher.getXPosCounter() >= SCREEN_WIDTH) //when the end of the screen is reached, clear all and go to next mode
 		{
-			m_spriteBuffer.clear();
+			m_spriteBuffer.clear(); 
 
 			clearBackgroundFifo();
 			clearSpriteFifo();
@@ -98,7 +99,7 @@ void PPU::cycle()
 			m_tCycleCounter = 0;
 			m_fetcher.clearEndScanline();
 		}
-		constexpr int FIRST_V_BLANK_SCANLINE{144};
+		constexpr uint16 FIRST_V_BLANK_SCANLINE{144};
 		if(m_ly == FIRST_V_BLANK_SCANLINE) //if this next scanline is the first of V_BLANK, V_BLANK for another 10 scanlines
 		{
 			requestVBlankInterrupt();
@@ -110,14 +111,14 @@ void PPU::cycle()
 	}
 	case V_BLANK:
 	{
-		constexpr int LAST_VBLANK_SCANLINE{154};
 		if(m_tCycleCounter == SCANLINE_END_CYCLE)
 		{
 			++m_ly;
 			updateCoincidenceFlag();
 			m_tCycleCounter = 0;
 		}
-		if(m_ly == 154)
+		constexpr uint16 LAST_VBLANK_SCANLINE{154};
+		if(m_ly == LAST_VBLANK_SCANLINE)
 		{
 			m_platform.updateScreen(m_lcdBuffer.data());
 			m_platform.render();
@@ -159,7 +160,10 @@ void PPU::write(const Index index, const uint8 value)
 	switch(index)
 	{
 	case LCDC: m_lcdc = value; break;
-	case STAT: m_stat = ((m_stat & 0b111) | (value & ~0b111)) | 0x80; break; //bit 0-1-2 are read only and bit 7 is always 1
+	case STAT: 
+		m_stat = ((m_stat & 0b111) | (value & ~0b111)) | 0x80; //bit 0-1-2 are read only and bit 7 is always 1
+		setStatModeSources();
+		break;
 	case SCY: m_scy = value; break;
 	case SCX: m_scx = value; break;
 	case LY: break;
@@ -176,15 +180,7 @@ void PPU::switchMode(const Mode mode)
 {
 	m_currentMode = mode;
 	m_stat = (m_stat & ~0b11) | static_cast<uint8>(mode); //bits 1-0 of stat store the current mode
-
-	if(mode != DRAWING)
-	{
-		for(int i{0}; i < 3; ++i)
-		{
-			if(m_stat & (1 << (3 + i)) && i == mode) m_statInterrupt.sources[i] = true;  //at bits 3-4-5 are stored the stat condition enable for mode 0, 1 and 2 respectively
-			else m_statInterrupt.sources[i] = false;
-		}
-	}
+	setStatModeSources();
 }
 
 void PPU::updateCoincidenceFlag()
@@ -243,6 +239,15 @@ void PPU::requestStatInterrupt() const
 void PPU::requestVBlankInterrupt() const
 {
 	m_bus.write(hardwareReg::IF, m_bus.read(hardwareReg::IF) | 0b1);
+}
+
+void PPU::setStatModeSources()
+{
+	for(int i{0}; i < 3; ++i)
+	{
+		if(m_stat & (1 << (3 + i)) && i == m_currentMode) m_statInterrupt.sources[i] = true;  //at bits 3-4-5 are stored the stat condition enable for mode 0, 1 and 2 respectively
+		else m_statInterrupt.sources[i] = false;
+	}
 }
 
 bool PPU::StatInterrupt::calculateResult() const

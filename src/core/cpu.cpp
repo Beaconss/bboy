@@ -45,6 +45,7 @@ void CPU::cycle()
 	else
 	{
 		fetch();
+		//if(m_PC == 0x16C) __debugbreak();
 		execute();
 	}
 }
@@ -61,6 +62,7 @@ void CPU::handleInterrupts()
 			{
 				if(pendingInterrupts & (1 << i))
 				{
+					if(i == 1) std::cout << "STAT INTERRUPT THROWN AT PC: " << std::hex << m_PC << "\n\n";
 					m_bus.write(hardwareReg::IF, pendingInterrupts & ~(1 << i));
 					m_ime = false;
 					m_imeEnableNextCycle = false;

@@ -43,6 +43,8 @@ public:
 	uint8 read(const Index index) const;
 	void write(const Index index, const uint8 value);
 private:
+	friend PixelFetcher;
+
 	struct Sprite
 	{
 		uint8 yPosition{}; //byte 0 
@@ -73,8 +75,8 @@ private:
 		bool calculateResult() const;
 		bool previousResult{false};
 	};
+	void setStatModeSources();
 
-	friend PixelFetcher;
 	void switchMode(const Mode mode);
 	void updateCoincidenceFlag();
 

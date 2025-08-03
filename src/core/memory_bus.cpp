@@ -10,7 +10,7 @@ MemoryBus::MemoryBus(Gameboy& gb)
 	, m_dmaTransferInProcess{false}
 	, m_dmaTransferEnableNextCycle{false}
 {
-	loadRom("test/acceptance/ppu/stat_irq_blocking.gb");
+	loadRom("test/acceptance/ppu/intr_2_0_timing.gb");
 	m_memory[hardwareReg::IF] = 0xE1;
 	m_memory[hardwareReg::IE] = 0xE0;
 	m_memory[hardwareReg::DMA] = 0xFF;
