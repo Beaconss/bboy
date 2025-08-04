@@ -1,7 +1,6 @@
 #include "ppu.h"
-#include "../memory_bus.h"
 
-PPU::PPU(MemoryBus& bus)
+PPU::PPU(Bus& bus)
 	: m_bus{bus}
 	, m_platform{Platform::getInstance()}
 	, m_currentMode{V_BLANK}
@@ -13,6 +12,8 @@ PPU::PPU(MemoryBus& bus)
 	, m_currentSpriteAddress{OAM_MEMORY_START}
 	, m_fetcher{*this}
 	, m_tCycleCounter{}
+	, m_currentXPosition{}
+	, m_backgroundPixelsToDiscard{}
 	, m_lcdc{0x91}
 	, m_stat{0x85}
 	, m_scy{}
@@ -37,7 +38,8 @@ void PPU::cycle()
 		//m_platform.updateScreen(m_lcdBuffer.data());
 		return;
 	}
-
+	static int a;
+	 
 	constexpr uint16 SCANLINE_END_CYCLE{456};
 	++m_tCycleCounter;
 	switch(m_currentMode)
@@ -53,38 +55,41 @@ void PPU::cycle()
 			{
 				m_currentSpriteAddress = OAM_MEMORY_START;
 				switchMode(DRAWING);
+				m_backgroundPixelsToDiscard = m_scx % 8;
 			}
 		}
 		break;
 	}
 	case DRAWING:
 	{
-		//TODO: background scrolling
-
 		m_fetcher.cycle();
 
-		if(!m_pixelFifoBackground.empty())
+		if(m_lcdc & 1 && !m_pixelFifoBackground.empty() )
 		{
-			if(m_lcdc & 1)
+			if(m_backgroundPixelsToDiscard == 0)
 			{
 				//this gets the right bits of the palette based on the color index of the pixel and 
 				//use this as an index for the rgb332 color array
 				const Pixel pixel{m_pixelFifoBackground.front()};
 				const uint16 color{colors[(m_bgp >> (pixel.colorIndex * 2)) & 0b11]};
-				m_lcdBuffer[pixel.xPosition + SCREEN_WIDTH * m_ly] = color;
+				//std::cout << std::dec << (int)pixel.xPosition << '\n';
+				m_lcdBuffer[m_currentXPosition + SCREEN_WIDTH * m_ly] = color;
+				++m_currentXPosition;
 			}
+			else --m_backgroundPixelsToDiscard;
 
 			m_pixelFifoBackground.pop();
 			m_fetcher.checkWindowReached();
 		}
 
-		//if(m_tCycleCounter == 80 + 172)
-		if(m_fetcher.getXPosCounter() >= SCREEN_WIDTH) //when the end of the screen is reached, clear all and go to next mode
+		if(m_currentXPosition == SCREEN_WIDTH && m_pixelFifoBackground.empty()) //when the end of the screen is reached, clear all and go to next mode
 		{
-			m_spriteBuffer.clear(); 
-
+			a = m_tCycleCounter;
+			m_currentXPosition = 0;
+			m_fetcher.clearEndScanline();
 			clearBackgroundFifo();
 			clearSpriteFifo();
+			m_spriteBuffer.clear(); 
 			switchMode(H_BLANK);
 		}
 		break;
@@ -93,11 +98,11 @@ void PPU::cycle()
 	{
 		if(m_tCycleCounter == SCANLINE_END_CYCLE)
 		{
+			//std::cout << "HBLANK DURATION: " << SCANLINE_END_CYCLE - a << '\n';
 			++m_ly;
 			updateCoincidenceFlag();
 			switchMode(OAM_SCAN);
 			m_tCycleCounter = 0;
-			m_fetcher.clearEndScanline();
 		}
 		constexpr uint16 FIRST_V_BLANK_SCANLINE{144};
 		if(m_ly == FIRST_V_BLANK_SCANLINE) //if this next scanline is the first of V_BLANK, V_BLANK for another 10 scanlines
@@ -134,6 +139,16 @@ void PPU::cycle()
 	if(!m_statInterrupt.previousResult && statResult) requestStatInterrupt();
 
 	m_statInterrupt.previousResult = statResult;
+}
+
+PPU::Mode PPU::getCurrentMode() const
+{
+	return m_currentMode;
+}
+
+bool PPU::isEnabled() const
+{
+	return m_lcdc & 0x80;
 }
 
 uint8 PPU::read(const Index index) const
@@ -197,10 +212,10 @@ PPU::Sprite PPU::fetchSprite()
 {
 	//TODO: fix for tall sprite mode
 	Sprite sprite;
-	sprite.yPosition = m_bus.read(m_currentSpriteAddress);
-	sprite.xPosition = m_bus.read(m_currentSpriteAddress + 1);
-	sprite.tileIndex = m_bus.read(m_currentSpriteAddress + 2);
-	sprite.flags = m_bus.read(m_currentSpriteAddress + 3);
+	sprite.yPosition = m_bus.read(m_currentSpriteAddress, Bus::Component::PPU);
+	sprite.xPosition = m_bus.read(m_currentSpriteAddress + 1, Bus::Component::PPU);
+	sprite.tileIndex = m_bus.read(m_currentSpriteAddress + 2, Bus::Component::PPU);
+	sprite.flags = m_bus.read(m_currentSpriteAddress + 3, Bus::Component::PPU);
 	m_currentSpriteAddress += 4; //go to next sprite
 	return sprite;
 }
@@ -233,12 +248,12 @@ void PPU::clearSpriteFifo()
 
 void PPU::requestStatInterrupt() const
 {
-	m_bus.write(hardwareReg::IF, m_bus.read(hardwareReg::IF) | 0b10);
+	m_bus.write(hardwareReg::IF, m_bus.read(hardwareReg::IF, Bus::Component::PPU) | 0b10, Bus::Component::PPU);
 }
 
 void PPU::requestVBlankInterrupt() const
 {
-	m_bus.write(hardwareReg::IF, m_bus.read(hardwareReg::IF) | 0b1);
+	m_bus.write(hardwareReg::IF, m_bus.read(hardwareReg::IF, Bus::Component::PPU) | 0b1, Bus::Component::PPU);
 }
 
 void PPU::setStatModeSources()

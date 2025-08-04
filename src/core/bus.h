@@ -1,7 +1,5 @@
 #pragma once
 #include "../hardware_registers.h"
-#include "timers.h"
-#include "ppu/ppu.h"
 
 #include <array>
 #include <fstream>
@@ -23,14 +21,20 @@ namespace MemoryRegions //each pair has the start as first and the end as second
 	constexpr std::pair<uint16, uint16> HIGH_RAM{0xFF80, 0xFFFE};
 }
 
-class MemoryBus
+class Bus
 {
 public:
-	MemoryBus(Gameboy& gb);
+	Bus(Gameboy& gb);
 
+	enum class Component
+	{
+		CPU,
+		PPU,
+		OTHER,
+	};
 	void cycle();
-	uint8 read(const uint16 addr) const;
-	void write(const uint16 addr, const uint8 value);
+	uint8 read(const uint16 addr, const Component component) const;
+	void write(const uint16 addr, const uint8 value, const Component component);
 	void loadRom(char const* filePath);
 
 private:
@@ -39,7 +43,7 @@ private:
 		std::pair<uint16, uint16>(0, 0x7FFF),
 		std::pair<uint16, uint16>(0xA000, 0xFDFF),
 	};
-	bool isInsideExternalBus(const uint16 addr) const;
+	bool isInExternalBus(const uint16 addr) const;
 
 	Gameboy& m_gameboy;
 	std::array<uint8, 0xFFFF + 1> m_memory;

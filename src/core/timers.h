@@ -1,15 +1,16 @@
 #pragma once
 #include "../type_alias.h"
 #include "../hardware_registers.h"
+#include "bus.h"
 
 #include <array>
 
-class MemoryBus;
+class Bus;
 
 class Timers
 {
 public:
-	Timers(MemoryBus& bus);
+	Timers(Bus& bus);
 
 	enum Index
 	{
@@ -44,7 +45,7 @@ private:
 	static constexpr uint8 TIMA_RESET_START_CYCLE{1};
 	static constexpr uint8 TIMA_RESET_END_CYCLE{5};
 
-	MemoryBus& m_bus;
+	Bus& m_bus;
 
 	uint8 m_timaResetCounter;
 	bool m_lastAndResult;

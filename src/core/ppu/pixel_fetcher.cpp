@@ -1,5 +1,4 @@
 #include "pixel_fetcher.h"
-#include "../gameboy.h"
 #include "ppu.h"
 
 PixelFetcher::PixelFetcher(PPU& ppu)
@@ -41,7 +40,7 @@ void PixelFetcher::cycle()
 														+ (TILES_PER_ROW * (((m_ppu.m_ly + m_ppu.m_scy) & 0xFF) / PIXELS_PER_TILE))
 														& TILEMAP_SIZE)};
 
-				m_tileNumber = m_ppu.m_bus.read(tileMapAddress + offset);
+				m_tileNumber = m_ppu.m_bus.read(tileMapAddress + offset, Bus::Component::PPU);
 
 				m_stepCycle = 0;
 				m_currentStep = FETCH_TILE_DATA_LOW;
@@ -58,14 +57,14 @@ void PixelFetcher::cycle()
 					//8000 method
 					m_tileAddress = 0x8000 + (16 * m_tileNumber)
 									+ (2 * ((m_ppu.m_ly + m_ppu.m_scy) % 8));
-					m_tileDataLow = m_ppu.m_bus.read(m_tileAddress);
+					m_tileDataLow = m_ppu.m_bus.read(m_tileAddress, Bus::Component::PPU);
 				}
 				else
 				{
 					//8800 method
 					m_tileAddress = 0x9000 + (static_cast<int8>(m_tileNumber) * 16)
 									+ (2 * ((m_ppu.m_ly + m_ppu.m_scy) % 8));
-					m_tileDataLow = m_ppu.m_bus.read(m_tileAddress);
+					m_tileDataLow = m_ppu.m_bus.read(m_tileAddress, Bus::Component::PPU);
 				}
 
 				m_stepCycle = 0;
@@ -78,7 +77,7 @@ void PixelFetcher::cycle()
 			++m_stepCycle;
 			if(m_stepCycle == 2)
 			{
-				m_tileDataHigh = m_ppu.m_bus.read(m_tileAddress + 1);
+				m_tileDataHigh = m_ppu.m_bus.read(m_tileAddress + 1, Bus::Component::PPU);
 				m_stepCycle = 0;
 
 				if(!m_firstFetchCompleted)	
@@ -92,19 +91,9 @@ void PixelFetcher::cycle()
 		}
 		case PUSH_TO_FIFO:
 		{
-			++m_stepCycle;
-			if(m_stepCycle == 2)
-			{
-				if(!m_ppu.m_pixelFifoBackground.empty()) //if its not empty repeat this step until it is
-				{
-					m_stepCycle = 1;
-					break;
-				}
-
-				pushPixelsToFifo();
-				m_stepCycle = 0;
-				m_currentStep = FETCH_TILE_NO;
-			}
+			if(!m_ppu.m_pixelFifoBackground.empty()) break; //if its not empty repeat this step until it is
+			pushPixelsToFifo();
+			m_currentStep = FETCH_TILE_NO;
 			break;
 		}
 		}
@@ -124,7 +113,7 @@ void PixelFetcher::cycle()
 														+ (TILES_PER_ROW * (m_windowLineCounter / PIXELS_PER_TILE))
 														& TILEMAP_SIZE)};
 
-				m_tileNumber = m_ppu.m_bus.read(tileMapAddress + offset);
+				m_tileNumber = m_ppu.m_bus.read(tileMapAddress + offset, Bus::Component::PPU);
 
 				m_stepCycle = 0;
 				m_currentStep = FETCH_TILE_DATA_LOW;
@@ -141,14 +130,14 @@ void PixelFetcher::cycle()
 					//8000 method
 					m_tileAddress = 0x8000 + (16 * m_tileNumber)
 						+ (2 * (m_windowLineCounter % 8));
-					m_tileDataLow = m_ppu.m_bus.read(m_tileAddress);
+					m_tileDataLow = m_ppu.m_bus.read(m_tileAddress, Bus::Component::PPU);
 				}
 				else
 				{
 					//8800 method
 					m_tileAddress = 0x9000 + (16 * static_cast<int8>(m_tileNumber))
 						+ (2 * (m_windowLineCounter % 8));
-					m_tileDataLow = m_ppu.m_bus.read(m_tileAddress);
+					m_tileDataLow = m_ppu.m_bus.read(m_tileAddress, Bus::Component::PPU);
 				}
 
 				m_stepCycle = 0;
@@ -161,7 +150,7 @@ void PixelFetcher::cycle()
 			++m_stepCycle;
 			if(m_stepCycle == 2)
 			{
-				m_tileDataHigh = m_ppu.m_bus.read(m_tileAddress + 1);
+				m_tileDataHigh = m_ppu.m_bus.read(m_tileAddress + 1, Bus::Component::PPU);
 				m_stepCycle = 0;
 
 				m_currentStep = PUSH_TO_FIFO;
@@ -203,14 +192,15 @@ void PixelFetcher::pushPixelsToFifo()
 	{
 		PPU::Pixel pixel{};
 		pixel.colorIndex = static_cast<uint8>(((m_tileDataLow >> i) & 0b1) | (((m_tileDataHigh >> i) & 0b1) << 1));
-		pixel.xPosition = m_xPosCounter++; //store position, then increment
 
 		m_ppu.m_pixelFifoBackground.push(pixel);
 	}
+	m_xPosCounter += 8;
 }
 
 void PixelFetcher::checkWindowReached()
 {	
+	/*
 	if(m_currentMode != WINDOW
 		&& m_ppu.m_lcdc & 0b100000
 		&& m_wyLyCondition
@@ -222,12 +212,7 @@ void PixelFetcher::checkWindowReached()
 		m_stepCycle = 0;
 		m_xPosCounter = 0;
 		m_ppu.clearBackgroundFifo();
-	}
-}
-
-uint8 PixelFetcher::getXPosCounter() const
-{
-	return m_xPosCounter;
+	}*/
 }
 
 void PixelFetcher::clearEndScanline()

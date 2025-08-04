@@ -1,19 +1,22 @@
 #pragma once
 #include "../type_alias.h"
 #include "../hardware_registers.h"
+#include "bus.h"
 
 #include <iostream>
 #include <array>
 
-class MemoryBus;
+class Bus;
 
 class CPU
 {
 public:
-	CPU(MemoryBus& bus);
+	CPU(Bus& bus);
 	void cycle();
 
 private:
+	using InstructionHandler = void (CPU::*)(); //pointer to a instruction function
+	
 	struct IState //these values are used in instructions
 	{
 		uint8 x{};
@@ -23,7 +26,6 @@ private:
 		int8 e{};
 	};
 
-	using InstructionHandler = void (CPU::*)(); //pointer to a instruction function
 
 	enum Register8bit
 	{
@@ -210,7 +212,7 @@ private:
 	void NOP();
 
 	
-	MemoryBus& m_bus;
+	Bus& m_bus;
 	IState m_iState;
 	void (CPU::* m_currentInstr)(); //pointer to a CPU function that returns void and take no parameters called m_currentInstr
 	uint8 m_cycleCounter; //max value is like 8

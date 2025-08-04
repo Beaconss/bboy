@@ -10,7 +10,7 @@ Platform::Platform()
 {
     if(!SDL_InitSubSystem(SDL_INIT_VIDEO)) std::cerr << "SDL failed to initialize " << SDL_GetError();
 
-    m_window = SDL_CreateWindow("std-boy", 800, 600, SDL_WINDOW_RESIZABLE);
+    m_window = SDL_CreateWindow("std-boy", 160 * 4, 144 * 4, SDL_WINDOW_RESIZABLE);
     if(!m_window) std::cerr << "SDL window failed to initialize " << SDL_GetError() << '\n';
     m_renderer = SDL_CreateRenderer(m_window, SDL_GetRenderDriver(0));
     if(!m_renderer) std::cerr << "SDL renderer failed to initialize " << SDL_GetError() << '\n';

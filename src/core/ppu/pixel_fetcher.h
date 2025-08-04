@@ -13,7 +13,6 @@ public:
 
 	void cycle();
 	void checkWindowReached();
-	uint8 getXPosCounter() const;
 	void clearEndScanline();
 	void clearEndFrame();
 

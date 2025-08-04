@@ -1,7 +1,7 @@
-#include "memory_bus.h"
+#include "bus.h"
 #include "gameboy.h"
 
-MemoryBus::MemoryBus(Gameboy& gb)
+Bus::Bus(Gameboy& gb)
 	: m_gameboy{gb}
 	, m_memory{}
 	, m_externalBusBlocked{false}
@@ -10,13 +10,13 @@ MemoryBus::MemoryBus(Gameboy& gb)
 	, m_dmaTransferInProcess{false}
 	, m_dmaTransferEnableNextCycle{false}
 {
-	loadRom("test/acceptance/ppu/intr_2_0_timing.gb");
+	loadRom("test/acceptance/ppu/hblank_ly_scx_timing-GS.gb");
 	m_memory[hardwareReg::IF] = 0xE1;
 	m_memory[hardwareReg::IE] = 0xE0;
 	m_memory[hardwareReg::DMA] = 0xFF;
 }
 
-void MemoryBus::cycle()
+void Bus::cycle()
 {
 	if((m_dmaTransferCurrentAddress & 0xFF) == 0xA0) 
 	{
@@ -33,13 +33,13 @@ void MemoryBus::cycle()
 		{
 			m_vramBusBlocked = true;
 		}
-		else if(isInsideExternalBus(m_dmaTransferCurrentAddress))
+		else if(isInExternalBus(m_dmaTransferCurrentAddress))
 		{
 			m_externalBusBlocked = true;
 		}
 
 		const uint16 destinationAddr{static_cast<uint16>(0xFE00 | m_dmaTransferCurrentAddress & 0xFF)};
-		m_memory[destinationAddr] = m_memory[m_dmaTransferCurrentAddress++];
+		write(destinationAddr, read(m_dmaTransferCurrentAddress++, Component::OTHER), Component::OTHER);
 	}
 	if(m_dmaTransferEnableNextCycle)
 	{
@@ -49,7 +49,7 @@ void MemoryBus::cycle()
 	}
 }
 
-void MemoryBus::loadRom(char const* filePath)
+void Bus::loadRom(char const* filePath)
 {
 	std::ifstream file(filePath, std::ios::binary | std::ios::ate);
 
@@ -70,7 +70,7 @@ void MemoryBus::loadRom(char const* filePath)
 
 		for(int i{0x0}; i < size; ++i)
 		{
-			write(i, buffer[i]);
+			write(i, buffer[i], Component::OTHER);
 		}
 
 		delete[] buffer;
@@ -78,18 +78,26 @@ void MemoryBus::loadRom(char const* filePath)
 	else std::cerr << "Failed to open file";
 }
 
-uint8 MemoryBus::read(const uint16 addr) const
+uint8 Bus::read(const uint16 addr, const Component component) const
 {
 	using namespace MemoryRegions;
 	using namespace hardwareReg;
 
-	//TODO: block cpu's access to vram during drawing and oam scan
+	const PPU::Mode ppuMode{m_gameboy.m_ppu.getCurrentMode()};
+	const bool addrInOam{addr >= OAM.first && addr <= OAM.second};
+	const bool addrInVram{addr >= VRAM.first && addr <= VRAM.second};
+
+	if(component == Component::CPU && m_gameboy.m_ppu.isEnabled())
+	{
+		if(ppuMode == PPU::OAM_SCAN && addrInOam) return 0xFF;
+		else if(ppuMode == PPU::DRAWING && addrInOam || addrInVram) return 0xFF;
+	}
 
 	if(m_dmaTransferInProcess)
 	{
-		if(addr >= OAM.first && addr <= OAM.second) return 0xFF;
-		else if(m_vramBusBlocked && addr >= VRAM.first && addr <= VRAM.second) return 0xFF;
-		else if(m_externalBusBlocked && isInsideExternalBus(addr)) return 0xFF;
+		if(addrInOam) return 0xFF;
+		else if(m_vramBusBlocked && addrInVram) return 0xFF;
+		else if(m_externalBusBlocked && isInExternalBus(addr)) return 0xFF;
 	}
 
 	switch(addr)
@@ -113,16 +121,26 @@ uint8 MemoryBus::read(const uint16 addr) const
 	}
 }
 
-void MemoryBus::write(const uint16 addr, const uint8 value)
+void Bus::write(const uint16 addr, const uint8 value, const Component component)
 {
 	using namespace MemoryRegions;
 	using namespace hardwareReg;
+
+	const PPU::Mode ppuMode{m_gameboy.m_ppu.getCurrentMode()};
+	const bool addrInOam{addr >= OAM.first && addr <= OAM.second};
+	const bool addrInVram{addr >= VRAM.first && addr <= VRAM.second};
+
+	if(component == Component::CPU && m_gameboy.m_ppu.isEnabled())
+	{
+		if(ppuMode == PPU::OAM_SCAN && addrInOam) return;
+		else if(ppuMode == PPU::DRAWING && addrInOam) return;
+	}
 
 	if(m_dmaTransferInProcess)
 	{
 		if(addr >= OAM.first && addr <= OAM.second) return;
 		else if(m_vramBusBlocked && addr >= VRAM.first && addr <= VRAM.second) return;
-		else if(m_externalBusBlocked && isInsideExternalBus(addr)) return;
+		else if(m_externalBusBlocked && isInExternalBus(addr)) return;
 	}
 
 	switch(addr)
@@ -153,7 +171,7 @@ void MemoryBus::write(const uint16 addr, const uint8 value)
 }
 
 
-bool MemoryBus::isInsideExternalBus(const uint16 addr) const
+bool Bus::isInExternalBus(const uint16 addr) const
 {
 	return (addr >= EXTERNAL_BUS[0].first
 		&& addr <= EXTERNAL_BUS[0].second)

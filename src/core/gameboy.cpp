@@ -1,10 +1,10 @@
 #include "gameboy.h"
 
 Gameboy::Gameboy()
-	: m_memoryBus{*this}
-	, m_cpu{m_memoryBus}
-	, m_ppu{m_memoryBus}
-	, m_timers{m_memoryBus}
+	: m_bus{*this}
+	, m_cpu{m_bus}
+	, m_ppu{m_bus}
+	, m_timers{m_bus}
 {
 }
 
@@ -16,6 +16,6 @@ void Gameboy::cycle() //1 machine cycle
 		m_timers.cycle();
 		m_ppu.cycle();
 	}
-	m_memoryBus.cycle();
+	m_bus.cycle();
 }
 

@@ -1,7 +1,7 @@
 #pragma once
 #include "../type_alias.h"
 #include "../hardware_registers.h"
-#include "memory_bus.h"
+#include "bus.h"
 #include "cpu.h"
 #include "ppu/ppu.h"
 #include "timers.h"
@@ -16,9 +16,9 @@ public:
 	void cycle();
 
 private:
-	friend MemoryBus;
+	friend class Bus;
 
-	MemoryBus m_memoryBus;
+	Bus m_bus;
 	CPU m_cpu;
 	PPU m_ppu;
 

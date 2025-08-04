@@ -2,6 +2,7 @@
 #include "../../type_alias.h"
 #include "../../hardware_registers.h"
 #include "../../platform.h"
+#include "../bus.h"
 #include "pixel_fetcher.h"
 
 #include <vector>
@@ -9,12 +10,10 @@
 #include <queue>
 #include <optional>
 
-class MemoryBus;
-
 class PPU
 {
 public:
-	PPU(MemoryBus& bus);
+	PPU(Bus& bus);
 
 	enum Index
 	{
@@ -40,10 +39,12 @@ public:
 	};
 
 	void cycle();
+	PPU::Mode getCurrentMode() const;
+	bool isEnabled() const;
 	uint8 read(const Index index) const;
 	void write(const Index index, const uint8 value);
 private:
-	friend PixelFetcher;
+	friend class PixelFetcher;
 
 	struct Sprite
 	{
@@ -58,7 +59,6 @@ private:
 	{
 		//bool backgroundPriority{}; //this should hold bit 7 of the attribute byte of the sprite, when I do sprites I will decide how to do this
 		uint8 colorIndex{};
-		uint8 xPosition{};
 	};
 
 	struct StatInterrupt
@@ -98,12 +98,12 @@ private:
 
 	static constexpr uint16 OAM_MEMORY_START{0xFE00};
 
-	MemoryBus& m_bus;
+	Bus& m_bus;
 	Platform& m_platform;
 	Mode m_currentMode;
 	StatInterrupt m_statInterrupt;
 	
-	std::array<uint16, SCREEN_WIDTH * SCREEN_HEIGHT + 1> m_lcdBuffer;
+	std::array<uint16, SCREEN_WIDTH * SCREEN_HEIGHT> m_lcdBuffer;
 	std::vector<Sprite> m_spriteBuffer;
 	uint16 m_currentSpriteAddress;
 
@@ -112,6 +112,8 @@ private:
 	PixelFetcher m_fetcher;
 	
 	uint16 m_tCycleCounter; //max value is 456 so uint16 is fine
+	uint8 m_currentXPosition;
+	uint8 m_backgroundPixelsToDiscard;
 
 	//maybe i will delete some of these to just use the memory instead
 	uint8 m_lcdc; //LCD control
