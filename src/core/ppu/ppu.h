@@ -8,7 +8,6 @@
 #include <vector>
 #include <array>
 #include <queue>
-#include <optional>
 
 class PPU
 {
@@ -88,11 +87,11 @@ private:
 	void requestStatInterrupt() const;
 	void requestVBlankInterrupt() const;
 
-	static constexpr std::array<uint16, 4> colors //in rgb565
+	static constexpr std::array<uint8, 4> colors //in rgb332
 	{
-		0xFFFF,
-		0x7BEF,
-		0x39E7,
+		0xFF,
+		0xB6,
+		0x49,
 		0x0,
 	};
 
@@ -100,21 +99,20 @@ private:
 
 	Bus& m_bus;
 	Platform& m_platform;
-	Mode m_currentMode;
-	StatInterrupt m_statInterrupt;
-	
-	std::array<uint16, SCREEN_WIDTH * SCREEN_HEIGHT> m_lcdBuffer;
-	std::vector<Sprite> m_spriteBuffer;
-	uint16 m_currentSpriteAddress;
-
-	std::queue<Pixel> m_pixelFifoBackground;
-	std::queue<Pixel> m_pixelFifoSprite;
 	PixelFetcher m_fetcher;
+	StatInterrupt m_statInterrupt;
+	Mode m_currentMode;
 	
 	uint16 m_tCycleCounter; //max value is 456 so uint16 is fine
+	bool m_vblankInterruptNextCycle;
+	std::array<uint8, SCREEN_WIDTH * SCREEN_HEIGHT> m_lcdBuffer;
 	uint8 m_currentXPosition;
-	uint8 m_backgroundPixelsToDiscard;
-
+	uint8 m_backgroundPixelsToDiscard;	
+	std::vector<Sprite> m_spriteBuffer;
+	uint16 m_currentSpriteAddress;
+	std::queue<Pixel> m_pixelFifoBackground;
+	std::queue<Pixel> m_pixelFifoSprite;
+	
 	//maybe i will delete some of these to just use the memory instead
 	uint8 m_lcdc; //LCD control
 	uint8 m_stat; //LDC status

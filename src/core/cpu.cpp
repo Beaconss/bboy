@@ -2320,12 +2320,12 @@ void CPU::CALL_nn()
 		m_iState.xx |= m_bus.read(m_PC++, Bus::Component::CPU) << 8; //nn
 		break;
 	case 4:
-		m_bus.write(--m_SP, getMSB(m_PC), Bus::Component::CPU);
 		break;
 	case 5:
-		m_bus.write(--m_SP, getLSB(m_PC), Bus::Component::CPU);
+		m_bus.write(--m_SP, getMSB(m_PC), Bus::Component::CPU);
 		break;
 	case 6:
+		m_bus.write(--m_SP, getLSB(m_PC), Bus::Component::CPU);
 		m_PC = m_iState.xx;
 		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
@@ -2362,12 +2362,12 @@ void CPU::CALL_cc_nn()
 		}
 		break;
 	case 4:
-		m_bus.write(--m_SP, getMSB(m_PC), Bus::Component::CPU);
 		break;
 	case 5:
-		m_bus.write(--m_SP, getLSB(m_PC), Bus::Component::CPU);
+		m_bus.write(--m_SP, getMSB(m_PC), Bus::Component::CPU);
 		break;
 	case 6:
+		m_bus.write(--m_SP, getLSB(m_PC), Bus::Component::CPU);
 		m_PC = m_iState.xx;
 		m_cycleCounter = 0;
 		m_currentInstr = nullptr;

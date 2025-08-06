@@ -3,17 +3,18 @@
 PPU::PPU(Bus& bus)
 	: m_bus{bus}
 	, m_platform{Platform::getInstance()}
-	, m_currentMode{V_BLANK}
-	, m_statInterrupt{}
-	, m_lcdBuffer{}
-	, m_spriteBuffer{}
-	, m_pixelFifoBackground{}
-	, m_pixelFifoSprite{}
-	, m_currentSpriteAddress{OAM_MEMORY_START}
 	, m_fetcher{*this}
+	, m_statInterrupt{}
+	, m_currentMode{V_BLANK}
 	, m_tCycleCounter{}
+	, m_vblankInterruptNextCycle{}
+	, m_lcdBuffer{}
 	, m_currentXPosition{}
 	, m_backgroundPixelsToDiscard{}
+	, m_spriteBuffer{}
+	, m_currentSpriteAddress{OAM_MEMORY_START}
+	, m_pixelFifoBackground{}
+	, m_pixelFifoSprite{}
 	, m_lcdc{0x91}
 	, m_stat{0x85}
 	, m_scy{}
@@ -38,10 +39,26 @@ void PPU::cycle()
 		//m_platform.updateScreen(m_lcdBuffer.data());
 		return;
 	}
-	static int a;
-	 
-	constexpr uint16 SCANLINE_END_CYCLE{456};
+
 	++m_tCycleCounter;
+	if(m_tCycleCounter % 4 == 1) //every m-cycle
+	{
+		m_stat = (m_stat & ~0b11) | m_currentMode; //bits 1-0 of stat store the current mode
+		updateCoincidenceFlag();
+
+		const bool statResult{m_statInterrupt.calculateResult()};
+		if(!m_statInterrupt.previousResult && statResult) requestStatInterrupt();
+		m_statInterrupt.previousResult = statResult;
+
+		if(m_vblankInterruptNextCycle)
+		{
+			requestVBlankInterrupt();
+			m_statInterrupt.sources[OAM_SCAN] = false; //reset this in case it was briefly true
+			m_vblankInterruptNextCycle = false;
+		}
+	}
+
+	constexpr uint16 SCANLINE_END_CYCLE{456};
 	switch(m_currentMode)
 	{
 	case OAM_SCAN:
@@ -50,12 +67,12 @@ void PPU::cycle()
 		{
 			tryAddSpriteToBuffer(fetchSprite());
 
-			constexpr uint8 OAM_SCAN_END_CYCLE{80};
+			constexpr uint16 OAM_SCAN_END_CYCLE{80};
 			if(m_tCycleCounter == OAM_SCAN_END_CYCLE)
 			{
 				m_currentSpriteAddress = OAM_MEMORY_START;
 				switchMode(DRAWING);
-				m_backgroundPixelsToDiscard = m_scx % 8;
+				m_backgroundPixelsToDiscard = m_scx % 8; //i think this should be in the first cycle of drawing so the next one but the test pass so if it doesnt create problems
 			}
 		}
 		break;
@@ -71,8 +88,7 @@ void PPU::cycle()
 				//this gets the right bits of the palette based on the color index of the pixel and 
 				//use this as an index for the rgb332 color array
 				const Pixel pixel{m_pixelFifoBackground.front()};
-				const uint16 color{colors[(m_bgp >> (pixel.colorIndex * 2)) & 0b11]};
-				//std::cout << std::dec << (int)pixel.xPosition << '\n';
+				const uint8 color{colors[(m_bgp >> (pixel.colorIndex * 2)) & 0b11]};
 				m_lcdBuffer[m_currentXPosition + SCREEN_WIDTH * m_ly] = color;
 				++m_currentXPosition;
 			}
@@ -82,9 +98,8 @@ void PPU::cycle()
 			m_fetcher.checkWindowReached();
 		}
 
-		if(m_currentXPosition == SCREEN_WIDTH && m_pixelFifoBackground.empty()) //when the end of the screen is reached, clear all and go to next mode
+		if(m_currentXPosition == SCREEN_WIDTH) //when the end of the screen is reached, clear all and go to next mode
 		{
-			a = m_tCycleCounter;
 			m_currentXPosition = 0;
 			m_fetcher.clearEndScanline();
 			clearBackgroundFifo();
@@ -98,16 +113,14 @@ void PPU::cycle()
 	{
 		if(m_tCycleCounter == SCANLINE_END_CYCLE)
 		{
-			//std::cout << "HBLANK DURATION: " << SCANLINE_END_CYCLE - a << '\n';
 			++m_ly;
-			updateCoincidenceFlag();
 			switchMode(OAM_SCAN);
 			m_tCycleCounter = 0;
 		}
 		constexpr uint16 FIRST_V_BLANK_SCANLINE{144};
 		if(m_ly == FIRST_V_BLANK_SCANLINE) //if this next scanline is the first of V_BLANK, V_BLANK for another 10 scanlines
 		{
-			requestVBlankInterrupt();
+			m_vblankInterruptNextCycle = true;
 			m_fetcher.clearEndFrame();
 			switchMode(V_BLANK);
 			if(m_stat & 0b10'0000) m_statInterrupt.sources[OAM_SCAN] = true; //re enable oam scan source if the corresponding stat bit is active as switchMode(V_BLANK) cleared it
@@ -119,7 +132,6 @@ void PPU::cycle()
 		if(m_tCycleCounter == SCANLINE_END_CYCLE)
 		{
 			++m_ly;
-			updateCoincidenceFlag();
 			m_tCycleCounter = 0;
 		}
 		constexpr uint16 LAST_VBLANK_SCANLINE{154};
@@ -128,22 +140,16 @@ void PPU::cycle()
 			m_platform.updateScreen(m_lcdBuffer.data());
 			m_platform.render();
 			m_ly = 0;
-			updateCoincidenceFlag();
 			switchMode(OAM_SCAN);
 		}
 		break;
 	}
 	}
-
-	bool statResult{m_statInterrupt.calculateResult()};
-	if(!m_statInterrupt.previousResult && statResult) requestStatInterrupt();
-
-	m_statInterrupt.previousResult = statResult;
 }
 
 PPU::Mode PPU::getCurrentMode() const
 {
-	return m_currentMode;
+	return static_cast<Mode>(m_stat & 0b11);
 }
 
 bool PPU::isEnabled() const
@@ -182,7 +188,7 @@ void PPU::write(const Index index, const uint8 value)
 	case SCY: m_scy = value; break;
 	case SCX: m_scx = value; break;
 	case LY: break;
-	case LYC: m_lyc = value; updateCoincidenceFlag(); break;
+	case LYC: m_lyc = value; break;
 	case BGP: m_bgp = value; break;
 	case OBP0: m_obp0 = value; break;
 	case OBP1: m_obp1 = value; break;
@@ -191,10 +197,10 @@ void PPU::write(const Index index, const uint8 value)
 	}
 }
 
+//this sets the sources so that it is done only when needed, regarding the mode, the actual mode bits in the stat register are updated every m-cycle based on this mode
 void PPU::switchMode(const Mode mode)
 {
-	m_currentMode = mode;
-	m_stat = (m_stat & ~0b11) | static_cast<uint8>(mode); //bits 1-0 of stat store the current mode
+	m_currentMode = mode; 
 	setStatModeSources();
 }
 
