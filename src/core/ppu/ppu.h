@@ -71,9 +71,9 @@ private:
 			LY_COMPARE,
 		};
 
-		bool calculateResult() const;
 		bool previousResult{false};
 	};
+	void handleStatInterrupt();
 	void setStatModeSources();
 
 	void switchMode(const Mode mode);
@@ -101,15 +101,15 @@ private:
 	Platform& m_platform;
 	PixelFetcher m_fetcher;
 	StatInterrupt m_statInterrupt;
-	Mode m_currentMode;
+	Mode m_mode;
 	
 	uint16 m_tCycleCounter; //max value is 456 so uint16 is fine
 	bool m_vblankInterruptNextCycle;
 	std::array<uint8, SCREEN_WIDTH * SCREEN_HEIGHT> m_lcdBuffer;
-	uint8 m_currentXPosition;
+	uint8 m_xPosition; //x position of the pixel to output
 	uint8 m_backgroundPixelsToDiscard;	
 	std::vector<Sprite> m_spriteBuffer;
-	uint16 m_currentSpriteAddress;
+	uint16 m_spriteAddress;
 	std::queue<Pixel> m_pixelFifoBackground;
 	std::queue<Pixel> m_pixelFifoSprite;
 	

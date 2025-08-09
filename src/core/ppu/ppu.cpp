@@ -5,14 +5,14 @@ PPU::PPU(Bus& bus)
 	, m_platform{Platform::getInstance()}
 	, m_fetcher{*this}
 	, m_statInterrupt{}
-	, m_currentMode{V_BLANK}
+	, m_mode{V_BLANK}
 	, m_tCycleCounter{}
 	, m_vblankInterruptNextCycle{}
 	, m_lcdBuffer{}
-	, m_currentXPosition{}
+	, m_xPosition{}
 	, m_backgroundPixelsToDiscard{}
 	, m_spriteBuffer{}
-	, m_currentSpriteAddress{OAM_MEMORY_START}
+	, m_spriteAddress{OAM_MEMORY_START}
 	, m_pixelFifoBackground{}
 	, m_pixelFifoSprite{}
 	, m_lcdc{0x91}
@@ -43,12 +43,10 @@ void PPU::cycle()
 	++m_tCycleCounter;
 	if(m_tCycleCounter % 4 == 1) //every m-cycle
 	{
-		m_stat = (m_stat & ~0b11) | m_currentMode; //bits 1-0 of stat store the current mode
+		m_stat = (m_stat & ~0b11) | m_mode; //bits 1-0 of stat store the current mode
 		updateCoincidenceFlag();
-
-		const bool statResult{m_statInterrupt.calculateResult()};
-		if(!m_statInterrupt.previousResult && statResult) requestStatInterrupt();
-		m_statInterrupt.previousResult = statResult;
+		handleStatInterrupt();
+		
 
 		if(m_vblankInterruptNextCycle)
 		{
@@ -59,21 +57,23 @@ void PPU::cycle()
 	}
 
 	constexpr uint16 SCANLINE_END_CYCLE{456};
-	switch(m_currentMode)
+	switch(m_mode)
 	{
 	case OAM_SCAN:
 	{
-		if(m_tCycleCounter % 2 == 0)
+		constexpr int SPRITE_BUFFER_MAX_SIZE{10};
+
+		if(m_tCycleCounter % 2 == 0 && m_spriteBuffer.size() < SPRITE_BUFFER_MAX_SIZE)
 		{
 			tryAddSpriteToBuffer(fetchSprite());
+		}
 
-			constexpr uint16 OAM_SCAN_END_CYCLE{80};
-			if(m_tCycleCounter == OAM_SCAN_END_CYCLE)
-			{
-				m_currentSpriteAddress = OAM_MEMORY_START;
-				switchMode(DRAWING);
-				m_backgroundPixelsToDiscard = m_scx % 8; //i think this should be in the first cycle of drawing so the next one but the test pass so if it doesnt create problems
-			}
+		constexpr uint16 OAM_SCAN_END_CYCLE{80};
+		if(m_tCycleCounter == OAM_SCAN_END_CYCLE)
+		{
+			m_spriteAddress = OAM_MEMORY_START;
+			switchMode(DRAWING);
+			m_backgroundPixelsToDiscard = m_scx % 8; //i think this should be in the first cycle of drawing so the next one but the test pass so if it doesnt create problems
 		}
 		break;
 	}
@@ -81,16 +81,16 @@ void PPU::cycle()
 	{
 		m_fetcher.cycle();
 
-		if(m_lcdc & 1 && !m_pixelFifoBackground.empty() )
+		if(!m_pixelFifoBackground.empty())
 		{
 			if(m_backgroundPixelsToDiscard == 0)
 			{
 				//this gets the right bits of the palette based on the color index of the pixel and 
-				//use this as an index for the rgb332 color array
-				const Pixel pixel{m_pixelFifoBackground.front()};
+				//use this as an index for the rgb332 color array(lcdc bit 1 is background/window enable)
+				const Pixel pixel{m_lcdc & 1 ? m_pixelFifoBackground.front() : Pixel{0}};
 				const uint8 color{colors[(m_bgp >> (pixel.colorIndex * 2)) & 0b11]};
-				m_lcdBuffer[m_currentXPosition + SCREEN_WIDTH * m_ly] = color;
-				++m_currentXPosition;
+				m_lcdBuffer[m_xPosition + (SCREEN_WIDTH * m_ly)] = color;
+				++m_xPosition;
 			}
 			else --m_backgroundPixelsToDiscard;
 
@@ -98,9 +98,9 @@ void PPU::cycle()
 			m_fetcher.checkWindowReached();
 		}
 
-		if(m_currentXPosition == SCREEN_WIDTH) //when the end of the screen is reached, clear all and go to next mode
+		if(m_xPosition == SCREEN_WIDTH) //when the end of the screen is reached, clear all and go to next mode
 		{
-			m_currentXPosition = 0;
+			m_xPosition = 0;
 			m_fetcher.clearEndScanline();
 			clearBackgroundFifo();
 			clearSpriteFifo();
@@ -180,7 +180,10 @@ void PPU::write(const Index index, const uint8 value)
 {
 	switch(index)
 	{
-	case LCDC: m_lcdc = value; break;
+	case LCDC: 
+		m_lcdc = value; 
+		m_fetcher.update();
+		break;
 	case STAT: 
 		m_stat = ((m_stat & 0b111) | (value & ~0b111)) | 0x80; //bit 0-1-2 are read only and bit 7 is always 1
 		setStatModeSources();
@@ -200,7 +203,7 @@ void PPU::write(const Index index, const uint8 value)
 //this sets the sources so that it is done only when needed, regarding the mode, the actual mode bits in the stat register are updated every m-cycle based on this mode
 void PPU::switchMode(const Mode mode)
 {
-	m_currentMode = mode; 
+	m_mode = mode; 
 	setStatModeSources();
 }
 
@@ -218,21 +221,19 @@ PPU::Sprite PPU::fetchSprite()
 {
 	//TODO: fix for tall sprite mode
 	Sprite sprite;
-	sprite.yPosition = m_bus.read(m_currentSpriteAddress, Bus::Component::PPU);
-	sprite.xPosition = m_bus.read(m_currentSpriteAddress + 1, Bus::Component::PPU);
-	sprite.tileIndex = m_bus.read(m_currentSpriteAddress + 2, Bus::Component::PPU);
-	sprite.flags = m_bus.read(m_currentSpriteAddress + 3, Bus::Component::PPU);
-	m_currentSpriteAddress += 4; //go to next sprite
+	sprite.yPosition = m_bus.read(m_spriteAddress, Bus::Component::PPU);
+	sprite.xPosition = m_bus.read(m_spriteAddress + 1, Bus::Component::PPU);
+	sprite.tileIndex = m_bus.read(m_spriteAddress + 2, Bus::Component::PPU);
+	sprite.flags = m_bus.read(m_spriteAddress + 3, Bus::Component::PPU);
+	m_spriteAddress += 4; //go to next sprite
 	return sprite;
 }
 
 void PPU::tryAddSpriteToBuffer(const Sprite& sprite)
 {
-	constexpr int SPRITE_BUFFER_MAX_SIZE{10};
 	constexpr uint8 TALL_SPRITE_MODE{0b100};
 
-	if(m_spriteBuffer.size() < SPRITE_BUFFER_MAX_SIZE &&
-		sprite.xPosition > 0 &&
+	if( sprite.xPosition > 0 &&
 		m_ly + 16 >= sprite.yPosition &&
 		m_ly + 16 < sprite.yPosition + ((m_lcdc & TALL_SPRITE_MODE) ? 16 : 8))
 	{
@@ -262,16 +263,21 @@ void PPU::requestVBlankInterrupt() const
 	m_bus.write(hardwareReg::IF, m_bus.read(hardwareReg::IF, Bus::Component::PPU) | 0b1, Bus::Component::PPU);
 }
 
+void PPU::handleStatInterrupt()
+{
+	const bool statResult{m_statInterrupt.sources[StatInterrupt::H_BLANK]
+						 || m_statInterrupt.sources[StatInterrupt::V_BLANK]
+						 || m_statInterrupt.sources[StatInterrupt::OAM_SCAN]
+						 || m_statInterrupt.sources[StatInterrupt::LY_COMPARE]};
+	if(!m_statInterrupt.previousResult && statResult) requestStatInterrupt(); //if there was a rising edge
+	m_statInterrupt.previousResult = statResult;
+}
+
 void PPU::setStatModeSources()
 {
 	for(int i{0}; i < 3; ++i)
 	{
-		if(m_stat & (1 << (3 + i)) && i == m_currentMode) m_statInterrupt.sources[i] = true;  //at bits 3-4-5 are stored the stat condition enable for mode 0, 1 and 2 respectively
+		if(m_stat & (1 << (3 + i)) && i == m_mode) m_statInterrupt.sources[i] = true;  //at bits 3-4-5 are stored the stat condition enable for mode 0, 1 and 2 respectively
 		else m_statInterrupt.sources[i] = false;
 	}
-}
-
-bool PPU::StatInterrupt::calculateResult() const
-{
-	return sources[StatInterrupt::H_BLANK] || sources[StatInterrupt::V_BLANK] || sources[StatInterrupt::OAM_SCAN] || sources[StatInterrupt::LY_COMPARE];
 }

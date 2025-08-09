@@ -10,7 +10,7 @@ Bus::Bus(Gameboy& gb)
 	, m_dmaTransferInProcess{false}
 	, m_dmaTransferEnableNextCycle{false}
 {
-	loadRom("test/acceptance/oam_dma_start.gb");
+	loadRom("test/acceptance/ppu/hblank_ly_scx_timing-GS.gb");
 	m_memory[hardwareReg::IF] = 0xE1;
 	m_memory[hardwareReg::IE] = 0xE0;
 	m_memory[hardwareReg::DMA] = 0xFF;
@@ -75,7 +75,7 @@ void Bus::loadRom(char const* filePath)
 
 		delete[] buffer;
 	}
-	else std::cerr << "Failed to open file";
+	else std::cerr << "Failed to open file\n";
 }
 
 uint8 Bus::read(const uint16 addr, const Component component) const

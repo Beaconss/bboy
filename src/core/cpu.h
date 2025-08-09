@@ -211,7 +211,6 @@ private:
 	void EI();
 	void NOP();
 
-	
 	Bus& m_bus;
 	IState m_iState;
 	void (CPU::* m_currentInstr)(); //pointer to a CPU function that returns void and take no parameters called m_currentInstr
@@ -223,9 +222,9 @@ private:
 	bool m_isHalted;
 
 	//register file:
-	uint16 m_PC; //program counter
-	uint16 m_SP; //stack pointer
+	uint16 m_pc; //program counter
+	uint16 m_sp; //stack pointer
 	std::array<uint8, 8> m_registers; //general purpose registers
-	uint8 m_F; //flags register
-	uint8 m_IR; //instruction register
+	uint8 m_f; //flags register
+	uint8 m_ir; //instruction register
 };

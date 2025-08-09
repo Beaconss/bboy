@@ -2,20 +2,12 @@
 #include "../../type_alias.h"
 
 #include <iostream>
-#include <iomanip>
+#include <optional>
 
 class PPU;
 
 class PixelFetcher
 {
-public:
-	PixelFetcher(PPU& ppu);
-
-	void cycle();
-	void checkWindowReached();
-	void clearEndScanline();
-	void clearEndFrame();
-
 private:
 	enum Mode
 	{
@@ -23,6 +15,18 @@ private:
 		WINDOW,
 		SPRITE,
 	};
+
+public:
+	PixelFetcher(PPU& ppu);
+
+	void cycle();
+	void update(std::optional<Mode> mode = std::nullopt);
+	void checkWindowReached();
+	void clearEndScanline();
+	void clearEndFrame();
+
+private:
+	
 
 	enum Step
 	{
@@ -32,21 +36,22 @@ private:
 		PUSH_TO_FIFO,
 	};
 
-	void pushPixelsToFifo();
+	void pushToBackgroundFifo();
 
 	PPU& m_ppu;
 	bool m_firstFetchCompleted;
-	Mode m_currentMode;
-	Step m_currentStep;
+	Mode m_mode;
+	Step m_step;
 	uint8 m_stepCycle;
 
-	uint8 m_xPosCounter;
+	uint8 m_xPositionCounter;
+	uint16 m_backGroundTileMap;
 	uint8 m_tileNumber;
 	uint8 m_tileDataLow;
 	uint8 m_tileDataHigh;
 	uint16 m_tileAddress;
 
-	uint8 m_windowLineCounter;
+	int16 m_windowLineCounter;
 	bool m_wyLyCondition;
 };
 
