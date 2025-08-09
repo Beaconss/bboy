@@ -3,4 +3,3 @@
 ### Credits 
 * Blargg's test roms: https://github.com/retrio/gb-test-roms
 * Mooneye test roms: https://github.com/Gekkio/mooneye-test-suite
-* Custom boot rom: https://github.com/alloncm/MagenBoot
