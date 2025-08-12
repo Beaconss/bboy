@@ -26,7 +26,6 @@ private:
 		int8 e{};
 	};
 
-
 	enum Register8bit
 	{
 		B = 0,
@@ -220,6 +219,8 @@ private:
 	bool m_ime; //interrupt master enabler
 	bool m_imeEnableNextCycle;
 	bool m_isHalted;
+	uint8 m_pendingInterrupts;
+	uint8 m_interruptIndex;
 
 	//register file:
 	uint16 m_pc; //program counter

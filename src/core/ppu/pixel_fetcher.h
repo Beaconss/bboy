@@ -9,24 +9,15 @@ class PPU;
 class PixelFetcher
 {
 private:
+	PixelFetcher(PPU& ppu);
+	friend class PPU;
+
 	enum Mode
 	{
 		BACKGROUND,
 		WINDOW,
 		SPRITE,
 	};
-
-public:
-	PixelFetcher(PPU& ppu);
-
-	void cycle();
-	void update(std::optional<Mode> mode = std::nullopt);
-	void checkWindowReached();
-	void clearEndScanline();
-	void clearEndFrame();
-
-private:
-	
 
 	enum Step
 	{
@@ -36,11 +27,18 @@ private:
 		PUSH_TO_FIFO,
 	};
 
+	void cycle();
+	void update(std::optional<Mode> mode = std::nullopt);
+	void checkWindowReached();
+	void clearEndScanline();
+	void clearEndFrame();
 	void pushToBackgroundFifo();
+	void pushToSpriteFifo();
 
 	PPU& m_ppu;
 	bool m_firstFetchCompleted;
 	Mode m_mode;
+	Mode m_previousMode;
 	Step m_step;
 	uint8 m_stepCycle;
 

@@ -46,7 +46,6 @@ void PPU::cycle()
 		m_stat = (m_stat & ~0b11) | m_mode; //bits 1-0 of stat store the current mode
 		updateCoincidenceFlag();
 		handleStatInterrupt();
-		
 
 		if(m_vblankInterruptNextCycle)
 		{
@@ -63,14 +62,16 @@ void PPU::cycle()
 	{
 		constexpr int SPRITE_BUFFER_MAX_SIZE{10};
 
-		if(m_tCycleCounter % 2 == 0 && m_spriteBuffer.size() < SPRITE_BUFFER_MAX_SIZE)
-		{
-			tryAddSpriteToBuffer(fetchSprite());
-		}
+		if(m_tCycleCounter % 2 == 0 && m_spriteBuffer.size() < SPRITE_BUFFER_MAX_SIZE) tryAddSpriteToBuffer(fetchSprite());
 
 		constexpr uint16 OAM_SCAN_END_CYCLE{80};
 		if(m_tCycleCounter == OAM_SCAN_END_CYCLE)
 		{
+			std::ranges::sort(m_spriteBuffer,[](Sprite a, Sprite b)
+			{
+				return a.xPosition > b.xPosition;
+			});
+
 			m_spriteAddress = OAM_MEMORY_START;
 			switchMode(DRAWING);
 			m_backgroundPixelsToDiscard = m_scx % 8; //i think this should be in the first cycle of drawing so the next one but the test pass so if it doesnt create problems
@@ -81,24 +82,48 @@ void PPU::cycle()
 	{
 		m_fetcher.cycle();
 
-		if(!m_pixelFifoBackground.empty())
+		if(!m_pixelFifoBackground.empty() && m_fetcher.m_mode != PixelFetcher::SPRITE)
 		{
 			if(m_backgroundPixelsToDiscard == 0)
 			{
 				//this gets the right bits of the palette based on the color index of the pixel and 
-				//use this as an index for the rgb332 color array(lcdc bit 1 is background/window enable)
-				const Pixel pixel{m_lcdc & 1 ? m_pixelFifoBackground.front() : Pixel{0}};
-				const uint8 color{colors[(m_bgp >> (pixel.colorIndex * 2)) & 0b11]};
+				//use them as an index for the rgb565 color array(lcdc bit 1 is background/window enable)
+				bool pushSpritePixel{false};
+				if(!m_pixelFifoSprite.empty() && m_pixelFifoSprite.front().colorIndex != 0
+					&&
+					(!m_pixelFifoSprite.front().backgroundPriority
+					||
+					(m_pixelFifoSprite.front().backgroundPriority && m_pixelFifoBackground.front().colorIndex == 0)))
+				{
+					pushSpritePixel = true;
+				}
+
+				uint16 color{};
+				if(pushSpritePixel)
+				{
+					constexpr uint8 SPRITE_ENABLE{0b10};
+					uint8 palette{m_pixelFifoSprite.front().palette ? m_obp1 : m_obp0};
+					color = m_lcdc & SPRITE_ENABLE ?
+							colors[(palette >> (m_pixelFifoSprite.front().colorIndex * 2)) & 0b11] :
+						    colors[0];
+				}
+				else //background/window
+				{
+					constexpr uint8 BACKGROUND_WINDOW_ENABLE{0b1};
+					color = m_lcdc & BACKGROUND_WINDOW_ENABLE ?
+								 colors[(m_bgp >> (m_pixelFifoBackground.front().colorIndex * 2)) & 0b11] :
+								 colors[0];
+				}
 				m_lcdBuffer[m_xPosition + (SCREEN_WIDTH * m_ly)] = color;
 				++m_xPosition;
 			}
 			else --m_backgroundPixelsToDiscard;
 
 			m_pixelFifoBackground.pop();
-			m_fetcher.checkWindowReached();
+			if(!m_pixelFifoSprite.empty()) m_pixelFifoSprite.pop();
 		}
 
-		if(m_xPosition == SCREEN_WIDTH) //when the end of the screen is reached, clear all and go to next mode
+		if(m_xPosition == SCREEN_WIDTH) //when the end of the screen is reached
 		{
 			m_xPosition = 0;
 			m_fetcher.clearEndScanline();
@@ -123,7 +148,8 @@ void PPU::cycle()
 			m_vblankInterruptNextCycle = true;
 			m_fetcher.clearEndFrame();
 			switchMode(V_BLANK);
-			if(m_stat & 0b10'0000) m_statInterrupt.sources[OAM_SCAN] = true; //re enable oam scan source if the corresponding stat bit is active as switchMode(V_BLANK) cleared it
+			constexpr uint8 STAT_OAM_SOURCE_ENABLE{0b10'0000};
+			if(m_stat & STAT_OAM_SOURCE_ENABLE) m_statInterrupt.sources[OAM_SCAN] = true; //re enable oam scan source if the corresponding stat bit is active as switchMode(V_BLANK) cleared it
 		}
 		break;
 	}
@@ -223,7 +249,7 @@ PPU::Sprite PPU::fetchSprite()
 	Sprite sprite;
 	sprite.yPosition = m_bus.read(m_spriteAddress, Bus::Component::PPU);
 	sprite.xPosition = m_bus.read(m_spriteAddress + 1, Bus::Component::PPU);
-	sprite.tileIndex = m_bus.read(m_spriteAddress + 2, Bus::Component::PPU);
+	sprite.tileNumber = m_bus.read(m_spriteAddress + 2, Bus::Component::PPU);
 	sprite.flags = m_bus.read(m_spriteAddress + 3, Bus::Component::PPU);
 	m_spriteAddress += 4; //go to next sprite
 	return sprite;
@@ -233,8 +259,7 @@ void PPU::tryAddSpriteToBuffer(const Sprite& sprite)
 {
 	constexpr uint8 TALL_SPRITE_MODE{0b100};
 
-	if( sprite.xPosition > 0 &&
-		m_ly + 16 >= sprite.yPosition &&
+	if(m_ly + 16 >= sprite.yPosition &&
 		m_ly + 16 < sprite.yPosition + ((m_lcdc & TALL_SPRITE_MODE) ? 16 : 8))
 	{
 		m_spriteBuffer.push_back(sprite);

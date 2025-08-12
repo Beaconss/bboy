@@ -14,7 +14,7 @@ Platform::Platform()
     if(!m_window) std::cerr << "SDL window failed to initialize " << SDL_GetError() << '\n';
     m_renderer = SDL_CreateRenderer(m_window, SDL_GetRenderDriver(0));
     if(!m_renderer) std::cerr << "SDL renderer failed to initialize " << SDL_GetError() << '\n';
-    m_screenTexture = SDL_CreateTexture(m_renderer, SDL_PixelFormat::SDL_PIXELFORMAT_RGB332 , SDL_TextureAccess::SDL_TEXTUREACCESS_STREAMING, SCREEN_WIDTH, SCREEN_HEIGHT);
+    m_screenTexture = SDL_CreateTexture(m_renderer, SDL_PixelFormat::SDL_PIXELFORMAT_RGB565 , SDL_TextureAccess::SDL_TEXTUREACCESS_STREAMING, SCREEN_WIDTH, SCREEN_HEIGHT);
     if(!m_screenTexture) std::cerr << "SDL texture failed to initialize " << SDL_GetError() << '\n';
 
     SDL_SetTextureScaleMode(m_screenTexture, SDL_SCALEMODE_NEAREST);
@@ -64,7 +64,7 @@ void Platform::render() const
     SDL_RenderPresent(m_renderer);
 }
 
-void Platform::updateScreen(uint8* data)
+void Platform::updateScreen(uint16* data)
 {
-    SDL_UpdateTexture(m_screenTexture, nullptr, data, SCREEN_WIDTH * sizeof(uint8));
+    SDL_UpdateTexture(m_screenTexture, nullptr, data, SCREEN_WIDTH * sizeof(uint16));
 }

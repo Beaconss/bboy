@@ -20,7 +20,7 @@ public:
 	}
 
 	void mainLoop(Gameboy& gb);
-	void updateScreen(uint8* data);
+	void updateScreen(uint16* data);
 	void render() const;
 
 private:

@@ -8,6 +8,8 @@ CPU::CPU(Bus& bus)
 	, m_ime{false}
 	, m_imeEnableNextCycle{false}
 	, m_isHalted{false}
+	, m_pendingInterrupts{}
+	, m_interruptIndex{}
 	, m_pc{0x100}
 	, m_sp{0xFFFE}
 	, m_registers{}
@@ -49,20 +51,19 @@ void CPU::cycle()
 
 void CPU::handleInterrupts()
 {
-	uint8 pendingInterrupts = (m_bus.read(hardwareReg::IF, Bus::Component::CPU) & m_bus.read(hardwareReg::IE, Bus::Component::CPU)) & 0b1'1111; //only bits 0-4 are used
-	if(pendingInterrupts)
+	m_pendingInterrupts = (m_bus.read(hardwareReg::IF, Bus::Component::CPU) & m_bus.read(hardwareReg::IE, Bus::Component::CPU)) & 0b1'1111; //only bits 0-4 are used
+	if(m_pendingInterrupts)
 	{
 		m_isHalted = false; //even if m_ime is false exit halt
 		if(m_ime)
 		{
 			for(int i = 0; i <= 4; ++i)
 			{
-				if(pendingInterrupts & (1 << i))
+				if(m_pendingInterrupts & (1 << i))
 				{
-					m_bus.write(hardwareReg::IF, pendingInterrupts & ~(1 << i), Bus::Bus::Component::CPU);
+					m_interruptIndex = i;
 					m_ime = false;
 					m_imeEnableNextCycle = false;
-					m_iState.x = i; //save i to be used in interruptRoutine as interrupt index
 					m_currentInstr = &CPU::interruptRoutine;
 					break;
 				}
@@ -82,12 +83,35 @@ void CPU::interruptRoutine()
 		break;
 	case 3:
 		m_bus.write(--m_sp, getMSB(m_pc), Bus::Component::CPU);
+		//here if the interrupt currently dispatching gets disabled it checks if 
+		//there's another one to continue the dispatching with and if not it cancels the dispatching
+		//(im not sure about this but it pass the test)
+		if(m_sp == hardwareReg::IE && !(getMSB(m_pc) & (1 << m_interruptIndex))) 
+		{
+			bool anotherInterruptPending{false};
+			for(int i = 0; i <= 4; ++i)
+			{
+				if(m_pendingInterrupts & (1 << i) && m_interruptIndex != i)
+				{
+					m_interruptIndex = i;
+					anotherInterruptPending = true;
+					break;
+				}
+			}
+			if(!anotherInterruptPending)
+			{
+				m_pc = 0;
+				m_cycleCounter = 0;
+				m_currentInstr = nullptr;
+			}
+		}
 		break;
 	case 4:
 		m_bus.write(--m_sp, getLSB(m_pc), Bus::Component::CPU);
 		break;
 	case 5:
-		m_pc = interruptHandlerAddress[m_iState.x]; //m_iState.x is interrupt index
+		m_bus.write(hardwareReg::IF, m_pendingInterrupts & ~(1 << m_interruptIndex), Bus::Component::CPU);
+		m_pc = interruptHandlerAddress[m_interruptIndex];
 		m_cycleCounter = 0;
 		m_currentInstr = nullptr;
 		break;

@@ -6,6 +6,7 @@ PixelFetcher::PixelFetcher(PPU& ppu)
 	, m_firstFetchCompleted{false}
 	, m_wyLyCondition{false}
 	, m_mode{BACKGROUND}
+	, m_previousMode{}
 	, m_step{FETCH_TILE_NO}
 	, m_stepCycle{}
 	, m_xPositionCounter{}
@@ -24,6 +25,19 @@ void PixelFetcher::cycle()
 	constexpr uint8 PIXELS_PER_TILE{8};
 	constexpr uint8 TILES_PER_ROW{32};
 	if(m_ppu.m_wy == m_ppu.m_ly) m_wyLyCondition = true;
+	
+	checkWindowReached();
+	
+	//since the sprite buffer is sorted in descending order the last element is the one with the lowest x
+	if(!m_ppu.m_spriteBuffer.empty() && m_mode != SPRITE && m_ppu.m_spriteBuffer.back().xPosition <= (m_ppu.m_xPosition + 8))
+	{
+		//once the pipeline finishes the sprite gets popped
+		m_stepCycle = 0;
+		m_step = FETCH_TILE_NO;
+		m_previousMode = m_mode;
+		SDL_assert(m_previousMode != SPRITE);
+		m_mode = SPRITE;
+	}
 
 	switch(m_mode)
 	{
@@ -107,15 +121,62 @@ void PixelFetcher::cycle()
 			if(!m_ppu.m_pixelFifoBackground.empty()) break; //if its not empty repeat this step until it is
 			pushToBackgroundFifo();
 			m_step = FETCH_TILE_NO;
+			cycle(); //apparently the same cycle it pushes it starts the next fetch
 			break;
 		}
 		}
 	break;
 	}
 	case SPRITE:
+	SDL_assert(!m_ppu.m_spriteBuffer.empty());
 	{
-
-		break;
+		switch(m_step)
+		{
+		case FETCH_TILE_NO:
+		{
+			++m_stepCycle;
+			if(m_stepCycle == 2) 
+			{
+				constexpr uint8 TALL_SPRITE_MODE{0b100};
+				m_tileNumber = m_ppu.m_spriteBuffer.back().tileNumber;
+				m_stepCycle = 0;
+				m_step = FETCH_TILE_DATA_LOW;
+			}
+			break;
+		}
+		case FETCH_TILE_DATA_LOW:
+		{
+			++m_stepCycle;
+			if(m_stepCycle == 2)
+			{
+				m_tileAddress = 0x8000 + (m_tileNumber * 16) + (2 * ((m_ppu.m_ly - (m_ppu.m_spriteBuffer.back().yPosition - 16))));
+				m_tileDataLow = m_ppu.m_bus.read(m_tileAddress, Bus::Component::PPU);
+				m_stepCycle = 0;
+				m_step = FETCH_TILE_DATA_HIGH;
+			}
+			break;
+		}
+		case FETCH_TILE_DATA_HIGH:
+		{
+			++m_stepCycle;
+			if(m_stepCycle == 2)
+			{
+				m_tileDataHigh = m_ppu.m_bus.read(m_tileAddress + 1, Bus::Component::PPU);
+				m_stepCycle = 0;
+				m_step = PUSH_TO_FIFO;
+			}
+			break;
+		}
+		case PUSH_TO_FIFO:
+		{
+			pushToSpriteFifo();
+			m_step = FETCH_TILE_NO;
+			m_mode = m_previousMode;
+			cycle();
+			break;
+		}
+		}
+	break;
 	}
 	}
 }
@@ -140,12 +201,54 @@ void PixelFetcher::pushToBackgroundFifo()
 	++m_xPositionCounter;
 }
 
+void PixelFetcher::pushToSpriteFifo()
+{
+	uint8 pixelsToDiscard{static_cast<uint8>(m_ppu.m_pixelFifoSprite.size())};
+	constexpr uint8 X_FLIP{0b10'0000};
+	if(m_ppu.m_spriteBuffer.front().flags & X_FLIP)
+	{
+		for(int i{0}; i <= 7; ++i)
+		{
+			constexpr uint8 PALETTE_FLAG{0b1'0000};
+			constexpr uint8 BACKGROUND_PRIORITY_FLAG{0x80};
+			if(pixelsToDiscard == 0)
+			{
+				PPU::Pixel pixel{};
+				pixel.colorIndex = static_cast<uint8>(((m_tileDataLow >> i) & 0b1) | (((m_tileDataHigh >> i) & 0b1) << 1));
+				pixel.palette = m_ppu.m_spriteBuffer.back().flags & PALETTE_FLAG;
+				pixel.backgroundPriority = m_ppu.m_spriteBuffer.back().flags & BACKGROUND_PRIORITY_FLAG ? true : false;
+				m_ppu.m_pixelFifoSprite.push(pixel);
+			}
+			else --pixelsToDiscard;
+		}
+	}
+	else
+	{
+		for(int i{7}; i >= 0; --i)
+		{
+			constexpr uint8 PALETTE_FLAG{0b1'0000};
+			constexpr uint8 BACKGROUND_PRIORITY_FLAG{0x80};
+			if(pixelsToDiscard == 0)
+			{
+				PPU::Pixel pixel{};
+				pixel.colorIndex = static_cast<uint8>(((m_tileDataLow >> i) & 0b1) | (((m_tileDataHigh >> i) & 0b1) << 1));
+				pixel.palette = m_ppu.m_spriteBuffer.back().flags & PALETTE_FLAG;
+				pixel.backgroundPriority = m_ppu.m_spriteBuffer.back().flags & BACKGROUND_PRIORITY_FLAG ? true : false;
+				m_ppu.m_pixelFifoSprite.push(pixel);
+			}
+			else --pixelsToDiscard;
+		}
+	}
+	m_ppu.m_spriteBuffer.pop_back();
+}
+
 void PixelFetcher::checkWindowReached()
 {	
-	if(m_mode != WINDOW
-		&& m_ppu.m_lcdc & 0b100000
+	if((m_ppu.m_xPosition >= (m_ppu.m_wx - 7))
+		&& m_mode != WINDOW
+		&& m_previousMode != WINDOW
 		&& m_wyLyCondition
-		&& m_ppu.m_xPosition >= (m_ppu.m_wx - 7))
+		&& m_ppu.m_lcdc & 0b100000)
 	{
 		++m_windowLineCounter;
 		update(WINDOW);

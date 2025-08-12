@@ -10,7 +10,7 @@ Bus::Bus(Gameboy& gb)
 	, m_dmaTransferInProcess{false}
 	, m_dmaTransferEnableNextCycle{false}
 {
-	loadRom("test/acceptance/ppu/hblank_ly_scx_timing-GS.gb");
+	loadRom("test/dmg-acid2.gb");
 	m_memory[hardwareReg::IF] = 0xE1;
 	m_memory[hardwareReg::IE] = 0xE0;
 	m_memory[hardwareReg::DMA] = 0xFF;
@@ -70,7 +70,7 @@ void Bus::loadRom(char const* filePath)
 
 		for(int i{0x0}; i < size; ++i)
 		{
-			write(i, buffer[i], Component::OTHER);
+			m_memory[i] = buffer[i];
 		}
 
 		delete[] buffer;
@@ -126,6 +126,8 @@ void Bus::write(const uint16 addr, const uint8 value, const Component component)
 	using namespace MemoryRegions;
 	using namespace hardwareReg;
 
+	if((addr >= ROM_BANK_0.first && addr <= ROM_BANK_1.second)) return;
+
 	const PPU::Mode ppuMode{m_gameboy.m_ppu.getCurrentMode()};
 	const bool addrInOam{addr >= OAM.first && addr <= OAM.second};
 	const bool addrInVram{addr >= VRAM.first && addr <= VRAM.second};
@@ -173,9 +175,6 @@ void Bus::write(const uint16 addr, const uint8 value, const Component component)
 
 bool Bus::isInExternalBus(const uint16 addr) const
 {
-	return (addr >= EXTERNAL_BUS[0].first
-		&& addr <= EXTERNAL_BUS[0].second)
-		||
-		(addr >= EXTERNAL_BUS[1].first 
-		&& addr <= EXTERNAL_BUS[1].second);
+	return (addr >= EXTERNAL_BUS[0].first && addr <= EXTERNAL_BUS[0].second)
+		   || (addr >= EXTERNAL_BUS[1].first && addr <= EXTERNAL_BUS[1].second);
 }

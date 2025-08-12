@@ -21,6 +21,5 @@ private:
 	Bus m_bus;
 	CPU m_cpu;
 	PPU m_ppu;
-
 	Timers m_timers;
 };

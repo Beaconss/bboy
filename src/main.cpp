@@ -53,13 +53,12 @@ int main()
 {
 	Platform& platform = Platform::getInstance();
 
-    std::unique_ptr<Gameboy> gb {std::make_unique<Gameboy>()};
+    std::unique_ptr<Gameboy> gameboy {std::make_unique<Gameboy>()};
 
     //Timer timer;
     //timer.start();
-
     //std::cout << "\n\n" << timer.elapsedMilliseconds();
 
-	platform.mainLoop(*gb);
+	platform.mainLoop(*gameboy);
 }
 

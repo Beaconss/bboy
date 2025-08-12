@@ -8,6 +8,8 @@
 #include <vector>
 #include <array>
 #include <queue>
+#include <ranges>
+#include <algorithm>
 
 class PPU
 {
@@ -49,20 +51,24 @@ private:
 	{
 		uint8 yPosition{}; //byte 0 
 		uint8 xPosition{}; //byte 1
-		uint8 tileIndex{}; //byte 2
+		uint8 tileNumber{}; //byte 2
 		uint8 flags{}; //byte 3
-		//todo: add each flag
+		//bit 7: background priority
+		//bit 6: y-flip
+		//bit 5: x-flip
+		//bit 4: palette
+		//others are cgb only
 	};
 
 	struct Pixel
 	{
-		//bool backgroundPriority{}; //this should hold bit 7 of the attribute byte of the sprite, when I do sprites I will decide how to do this
 		uint8 colorIndex{};
+		bool palette{}; //obp1 if true, obp0 if false
+		bool backgroundPriority{};
 	};
 
 	struct StatInterrupt
 	{
-		std::array<bool, 4> sources{};
 		enum Source
 		{
 			H_BLANK,
@@ -70,7 +76,7 @@ private:
 			OAM_SCAN,
 			LY_COMPARE,
 		};
-
+		std::array<bool, 4> sources{};
 		bool previousResult{false};
 	};
 	void handleStatInterrupt();
@@ -87,11 +93,11 @@ private:
 	void requestStatInterrupt() const;
 	void requestVBlankInterrupt() const;
 
-	static constexpr std::array<uint8, 4> colors //in rgb332
+	static constexpr std::array<uint16, 4> colors //in rgb565
 	{
-		0xFF,
-		0xB6,
-		0x49,
+		0xFFFF,
+		0xC618,
+		0x8410,
 		0x0,
 	};
 
@@ -105,11 +111,14 @@ private:
 	
 	uint16 m_tCycleCounter; //max value is 456 so uint16 is fine
 	bool m_vblankInterruptNextCycle;
-	std::array<uint8, SCREEN_WIDTH * SCREEN_HEIGHT> m_lcdBuffer;
+
+	std::array<uint16, SCREEN_WIDTH * SCREEN_HEIGHT> m_lcdBuffer;
 	uint8 m_xPosition; //x position of the pixel to output
-	uint8 m_backgroundPixelsToDiscard;	
+	uint8 m_backgroundPixelsToDiscard;
+
 	std::vector<Sprite> m_spriteBuffer;
 	uint16 m_spriteAddress;
+
 	std::queue<Pixel> m_pixelFifoBackground;
 	std::queue<Pixel> m_pixelFifoSprite;
 	
