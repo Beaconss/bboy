@@ -4,6 +4,7 @@
 
 #include <iostream>
 #include <array>
+#include <string>
 
 constexpr int SCREEN_WIDTH{160};
 constexpr int SCREEN_HEIGHT{144};

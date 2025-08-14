@@ -57,7 +57,7 @@ private:
 		//bit 6: y-flip
 		//bit 5: x-flip
 		//bit 4: palette
-		//others are cgb only
+		//other bits are cgb only
 	};
 
 	struct Pixel
@@ -87,6 +87,9 @@ private:
 
 	Sprite fetchSprite();
 	void tryAddSpriteToBuffer(const Sprite& sprite);
+	void pushToLcd();
+	bool shouldPushSpritePixel() const;
+
 	void clearBackgroundFifo();
 	void clearSpriteFifo();
 

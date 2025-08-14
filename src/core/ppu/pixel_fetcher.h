@@ -28,8 +28,9 @@ private:
 	};
 
 	void cycle();
-	void update(std::optional<Mode> mode = std::nullopt);
-	void checkWindowReached();
+	void updateMode(std::optional<Mode> mode = std::nullopt);
+	void checkForWindow();
+	void checkForSprite();
 	void clearEndScanline();
 	void clearEndFrame();
 	void pushToBackgroundFifo();
@@ -42,7 +43,7 @@ private:
 	Step m_step;
 	uint8 m_stepCycle;
 
-	uint8 m_xPositionCounter;
+	uint8 m_tileX;
 	uint16 m_backGroundTileMap;
 	uint8 m_tileNumber;
 	uint8 m_tileDataLow;

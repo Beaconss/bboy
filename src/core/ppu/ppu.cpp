@@ -43,7 +43,7 @@ void PPU::cycle()
 	++m_tCycleCounter;
 	if(m_tCycleCounter % 4 == 1) //every m-cycle
 	{
-		m_stat = (m_stat & ~0b11) | m_mode; //bits 1-0 of stat store the current mode
+		m_stat = (m_stat & 0b11111100) | m_mode; //bits 1-0 of stat store the current mode
 		updateCoincidenceFlag();
 		handleStatInterrupt();
 
@@ -67,9 +67,11 @@ void PPU::cycle()
 		constexpr uint16 OAM_SCAN_END_CYCLE{80};
 		if(m_tCycleCounter == OAM_SCAN_END_CYCLE)
 		{
-			std::ranges::sort(m_spriteBuffer,[](Sprite a, Sprite b)
+			//here if left xPosition is equal to the right's one, 
+			//left goes up because the left one has higher priority
+			std::ranges::sort(m_spriteBuffer, [](Sprite left, Sprite right)
 			{
-				return a.xPosition > b.xPosition;
+				return left.xPosition >= right.xPosition;
 			});
 
 			m_spriteAddress = OAM_MEMORY_START;
@@ -81,47 +83,7 @@ void PPU::cycle()
 	case DRAWING:
 	{
 		m_fetcher.cycle();
-
-		if(!m_pixelFifoBackground.empty() && m_fetcher.m_mode != PixelFetcher::SPRITE)
-		{
-			if(m_backgroundPixelsToDiscard == 0)
-			{
-				//this gets the right bits of the palette based on the color index of the pixel and 
-				//use them as an index for the rgb565 color array(lcdc bit 1 is background/window enable)
-				bool pushSpritePixel{false};
-				if(!m_pixelFifoSprite.empty() && m_pixelFifoSprite.front().colorIndex != 0
-					&&
-					(!m_pixelFifoSprite.front().backgroundPriority
-					||
-					(m_pixelFifoSprite.front().backgroundPriority && m_pixelFifoBackground.front().colorIndex == 0)))
-				{
-					pushSpritePixel = true;
-				}
-
-				uint16 color{};
-				if(pushSpritePixel)
-				{
-					constexpr uint8 SPRITE_ENABLE{0b10};
-					uint8 palette{m_pixelFifoSprite.front().palette ? m_obp1 : m_obp0};
-					color = m_lcdc & SPRITE_ENABLE ?
-							colors[(palette >> (m_pixelFifoSprite.front().colorIndex * 2)) & 0b11] :
-						    colors[0];
-				}
-				else //background/window
-				{
-					constexpr uint8 BACKGROUND_WINDOW_ENABLE{0b1};
-					color = m_lcdc & BACKGROUND_WINDOW_ENABLE ?
-								 colors[(m_bgp >> (m_pixelFifoBackground.front().colorIndex * 2)) & 0b11] :
-								 colors[0];
-				}
-				m_lcdBuffer[m_xPosition + (SCREEN_WIDTH * m_ly)] = color;
-				++m_xPosition;
-			}
-			else --m_backgroundPixelsToDiscard;
-
-			m_pixelFifoBackground.pop();
-			if(!m_pixelFifoSprite.empty()) m_pixelFifoSprite.pop();
-		}
+		pushToLcd();
 
 		if(m_xPosition == SCREEN_WIDTH) //when the end of the screen is reached
 		{
@@ -208,7 +170,7 @@ void PPU::write(const Index index, const uint8 value)
 	{
 	case LCDC: 
 		m_lcdc = value; 
-		m_fetcher.update();
+		m_fetcher.updateMode();
 		break;
 	case STAT: 
 		m_stat = ((m_stat & 0b111) | (value & ~0b111)) | 0x80; //bit 0-1-2 are read only and bit 7 is always 1
@@ -245,7 +207,6 @@ void PPU::updateCoincidenceFlag()
 
 PPU::Sprite PPU::fetchSprite()
 {
-	//TODO: fix for tall sprite mode
 	Sprite sprite;
 	sprite.yPosition = m_bus.read(m_spriteAddress, Bus::Component::PPU);
 	sprite.xPosition = m_bus.read(m_spriteAddress + 1, Bus::Component::PPU);
@@ -258,12 +219,54 @@ PPU::Sprite PPU::fetchSprite()
 void PPU::tryAddSpriteToBuffer(const Sprite& sprite)
 {
 	constexpr uint8 TALL_SPRITE_MODE{0b100};
-
-	if(m_ly + 16 >= sprite.yPosition &&
-		m_ly + 16 < sprite.yPosition + ((m_lcdc & TALL_SPRITE_MODE) ? 16 : 8))
+	if(m_ly + 16 >= sprite.yPosition 
+		&& m_ly + 16 < sprite.yPosition + (m_lcdc & TALL_SPRITE_MODE ? 16 : 8))
 	{
 		m_spriteBuffer.push_back(sprite);
 	}
+}
+
+void PPU::pushToLcd()
+{
+	if(!m_pixelFifoBackground.empty() && m_fetcher.m_mode != PixelFetcher::SPRITE)
+	{
+		if(m_backgroundPixelsToDiscard == 0)
+		{
+			bool pushSpritePixel{shouldPushSpritePixel()};
+
+			//this gets the right bits of the palette based on the color index of the pixel and 
+			//use them as an index for the rgb565 color array(lcdc bit 1 is background/window enable)
+			uint16 color{};
+			if(pushSpritePixel)
+			{
+				color = colors[((m_pixelFifoSprite.front().palette ? m_obp1 : m_obp0) >> (m_pixelFifoSprite.front().colorIndex << 1)) & 0b11];
+			}
+			else //background/window
+			{
+				constexpr uint8 BACKGROUND_WINDOW_ENABLE{0b1};
+				color = m_lcdc & BACKGROUND_WINDOW_ENABLE ?
+					colors[(m_bgp >> (m_pixelFifoBackground.front().colorIndex * 2)) & 0b11] :
+					colors[0];
+			}
+			
+			m_lcdBuffer[m_xPosition + (SCREEN_WIDTH * m_ly)] = color;
+			++m_xPosition;
+		}
+		else --m_backgroundPixelsToDiscard;
+
+		m_pixelFifoBackground.pop();
+		if(!m_pixelFifoSprite.empty()) m_pixelFifoSprite.pop();
+	}
+}
+
+bool PPU::shouldPushSpritePixel() const
+{
+	constexpr uint8 SPRITE_ENABLE{0b10};
+	return !m_pixelFifoSprite.empty()
+			&& (m_lcdc & SPRITE_ENABLE
+			&& m_pixelFifoSprite.front().colorIndex != 0
+			&& !m_pixelFifoSprite.front().backgroundPriority
+			|| (m_pixelFifoSprite.front().backgroundPriority && m_pixelFifoBackground.front().colorIndex == 0));
 }
 
 void PPU::clearBackgroundFifo()
