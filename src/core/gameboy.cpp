@@ -5,6 +5,7 @@ Gameboy::Gameboy()
 	, m_cpu{m_bus}
 	, m_ppu{m_bus}
 	, m_timers{m_bus}
+	, m_input{}
 {
 }
 

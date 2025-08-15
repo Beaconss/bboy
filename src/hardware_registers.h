@@ -3,7 +3,7 @@
 
 namespace hardwareReg
 {
-	constexpr uint16 JOYP = 0xFF00; //joypad
+	constexpr uint16 P1 = 0xFF00; //joypad
 
 	//Timers registers
 	constexpr uint16 DIV = 0xFF04; //divider register

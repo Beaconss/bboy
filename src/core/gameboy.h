@@ -5,6 +5,7 @@
 #include "cpu.h"
 #include "ppu/ppu.h"
 #include "timers.h"
+#include "input.h"
 
 #include <array>
 #include <fstream>
@@ -22,4 +23,5 @@ private:
 	CPU m_cpu;
 	PPU m_ppu;
 	Timers m_timers;
+	Input m_input;
 };

@@ -185,7 +185,7 @@ void PixelFetcher::cycle()
 			pushToSpriteFifo();
 			m_step = FETCH_TILE_NO;
 			updateMode(m_previousMode);
-			checkForSprite();
+			//checkForSprite();
 			break;
 		}
 		}
@@ -217,7 +217,7 @@ void PixelFetcher::pushToBackgroundFifo()
 void PixelFetcher::pushToSpriteFifo()
 {
 	uint8 pixelsAlreadyInFifo{static_cast<uint8>(m_ppu.m_pixelFifoSprite.size())};
-	uint8 pixelsOffScreenLeft{static_cast<uint8>(8 - m_ppu.m_spriteBuffer.back().xPosition > 8 ? 8 : m_ppu.m_spriteBuffer.back().xPosition)}; //cap to 8
+	uint8 pixelsOffScreenLeft{static_cast<uint8>(8 - (m_ppu.m_spriteBuffer.back().xPosition > 8 ? 8 : m_ppu.m_spriteBuffer.back().xPosition))}; //cap to 8
 	uint8 pixelsOffScreenRight{static_cast<uint8>((SCREEN_WIDTH + 8) - m_ppu.m_spriteBuffer.back().xPosition)};
 	constexpr uint8 X_FLIP_FLAG{0b10'0000};
 	if(m_ppu.m_spriteBuffer.back().flags & X_FLIP_FLAG)
@@ -246,17 +246,22 @@ void PixelFetcher::pushToSpriteFifo()
 	{
 		for(int i{7}; i >= 0; --i) //normal rendering
 		{
+			if(i == pixelsOffScreenRight) break;
 			constexpr uint8 PALETTE_FLAG{0b1'0000};
 			constexpr uint8 BACKGROUND_PRIORITY_FLAG{0x80};
-			if(pixelsAlreadyInFifo == 0)
+			if(pixelsOffScreenLeft == 0)
 			{
-				PPU::Pixel pixel{};
-				pixel.colorIndex = static_cast<uint8>(((m_tileDataLow >> i) & 0b1) | (((m_tileDataHigh >> i) & 0b1) << 1));
-				pixel.palette = m_ppu.m_spriteBuffer.back().flags & PALETTE_FLAG;
-				pixel.backgroundPriority = m_ppu.m_spriteBuffer.back().flags & BACKGROUND_PRIORITY_FLAG ? true : false;
-				m_ppu.m_pixelFifoSprite.push(pixel);
+				if(pixelsAlreadyInFifo == 0)
+				{
+					PPU::Pixel pixel{};
+					pixel.colorIndex = static_cast<uint8>(((m_tileDataLow >> i) & 0b1) | (((m_tileDataHigh >> i) & 0b1) << 1));
+					pixel.palette = m_ppu.m_spriteBuffer.back().flags & PALETTE_FLAG;
+					pixel.backgroundPriority = m_ppu.m_spriteBuffer.back().flags & BACKGROUND_PRIORITY_FLAG;
+					m_ppu.m_pixelFifoSprite.push(pixel);
+				}
+				else --pixelsAlreadyInFifo;
 			}
-			else --pixelsAlreadyInFifo;
+			else --pixelsOffScreenLeft;
 		}
 	}
 	m_ppu.m_spriteBuffer.pop_back();

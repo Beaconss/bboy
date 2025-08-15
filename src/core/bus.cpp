@@ -10,7 +10,7 @@ Bus::Bus(Gameboy& gb)
 	, m_dmaTransferInProcess{false}
 	, m_dmaTransferEnableNextCycle{false}
 {
-	loadRom("test/acceptance/ppu/intr_2_mode0_timing_sprites.gb");
+	loadRom("");
 	m_memory[hardwareReg::IF] = 0xE1;
 	m_memory[hardwareReg::IE] = 0xE0;
 	m_memory[hardwareReg::DMA] = 0xFF;
@@ -56,7 +56,7 @@ void Bus::loadRom(char const* filePath)
 	if(file.is_open())
 	{
 		std::streamsize size{file.tellg()};
-		if(size > 0xFFFF)
+		if(size > (0xFFFF + 1))
 		{
 			std::cerr << "File too large\n";
 			return;
@@ -102,6 +102,7 @@ uint8 Bus::read(const uint16 addr, const Component component) const
 
 	switch(addr)
 	{
+	case P1: return m_gameboy.m_input.read();
 	case DIV: return m_gameboy.m_timers.read(Timers::DIV);
 	case TIMA: return m_gameboy.m_timers.read(Timers::TIMA);
 	case TMA: return m_gameboy.m_timers.read(Timers::TMA);
@@ -147,11 +148,12 @@ void Bus::write(const uint16 addr, const uint8 value, const Component component)
 
 	switch(addr)
 	{
+	case P1: m_gameboy.m_input.write(value); break;
 	case DIV: m_gameboy.m_timers.write(Timers::DIV, value); break;
 	case TIMA: m_gameboy.m_timers.write(Timers::TIMA, value); break;
 	case TMA: m_gameboy.m_timers.write(Timers::TMA, value); break;
 	case TAC: m_gameboy.m_timers.write(Timers::TAC, value); break;
-	case IF: m_memory[addr] = value | 0b1110'0000; break;
+	case IF: m_memory[IF] = value | 0b1110'0000; break;
 	case LCDC: m_gameboy.m_ppu.write(PPU::LCDC, value); break;
 	case STAT: m_gameboy.m_ppu.write(PPU::STAT, value); break;
 	case SCY: m_gameboy.m_ppu.write(PPU::SCY, value); break;
