@@ -23,20 +23,44 @@ Platform::Platform()
     SDL_SetRenderLogicalPresentation(m_renderer, 160, 144, SDL_RendererLogicalPresentation::SDL_LOGICAL_PRESENTATION_INTEGER_SCALE);
 }
 
-void Platform::mainLoop(Gameboy& gb)
+void Platform::mainLoop(Gameboy& gameboy)
 {
     constexpr int CYCLES_PER_FRAME{17556};
 
+    using clock = std::chrono::steady_clock;
+    using seconds = std::chrono::duration<double>;
+
+    auto last_fps_print = clock::now();
+    int frame_count = 0;
+
     while(m_running)
     {
-        while(SDL_PollEvent(&m_event))
+        auto start = clock::now();
+
+        if(SDL_PollEvent(&m_event))
         {
             if(m_event.type == SDL_EVENT_QUIT) m_running = false;
         }
 
-        for(int i{}; i < CYCLES_PER_FRAME; ++i)
+        if(gameboy.hasRom())
         {
-            gb.cycle();
+            for(int i{}; i < CYCLES_PER_FRAME; ++i)
+            {
+                gameboy.cycle();
+            }
+        }
+        updateScreen(gameboy.getLcdBuffer());
+        render();
+
+        frame_count++;
+        auto finish = clock::now();
+        auto elapsed = std::chrono::duration_cast<seconds>(finish - last_fps_print).count();
+        if(elapsed >= .4)
+        {
+            double fps = frame_count / elapsed;
+            SDL_SetWindowTitle(m_window, std::to_string(fps).c_str());
+            frame_count = 0;
+            last_fps_print = finish;
         }
     }
     
@@ -53,7 +77,7 @@ void Platform::render() const
     SDL_RenderPresent(m_renderer);
 }
 
-void Platform::updateScreen(uint16* data)
+void Platform::updateScreen(const uint16* data)
 {
-    SDL_UpdateTexture(m_screenTexture, nullptr, data, SCREEN_WIDTH * sizeof(uint16));
+    SDL_UpdateTexture(m_screenTexture, nullptr, data, SCREEN_WIDTH * 2);
 }

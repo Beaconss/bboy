@@ -20,3 +20,21 @@ void Gameboy::cycle() //1 machine cycle
 	}
 }
 
+void Gameboy::reset()
+{
+	m_bus.reset();
+	m_cpu.reset();
+	m_ppu.reset();
+	m_timers.reset();
+}
+
+bool Gameboy::hasRom() const
+{
+	return m_bus.hasRom();
+}
+
+const uint16* Gameboy::getLcdBuffer() const
+{
+	return m_ppu.getLcdBuffer();
+}
+

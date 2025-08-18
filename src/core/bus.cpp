@@ -4,13 +4,25 @@
 Bus::Bus(Gameboy& gb)
 	: m_gameboy{gb}
 	, m_memory{}
-	, m_externalBusBlocked{false}
-	, m_vramBusBlocked{false}
+	, m_externalBusBlocked{}
+	, m_vramBusBlocked{}
 	, m_dmaTransferCurrentAddress{}
-	, m_dmaTransferInProcess{false}
-	, m_dmaTransferEnableNextCycle{false}
+	, m_dmaTransferInProcess{}
+	, m_dmaTransferEnableNextCycle{}
+	, m_hasRom{}
 {
-	loadRom("");
+	reset();
+	loadRom("Legend of Zelda, The - Link's Awakening (USA, Europe) (Rev 2).gb");
+}
+
+void Bus::reset()
+{
+	std::ranges::fill(m_memory, 0);
+	m_externalBusBlocked = 0;
+	m_vramBusBlocked = 0;
+	m_dmaTransferCurrentAddress = 0;
+	m_dmaTransferInProcess = false;
+	m_dmaTransferEnableNextCycle = false;
 	m_memory[hardwareReg::IF] = 0xE1;
 	m_memory[hardwareReg::IE] = 0xE0;
 	m_memory[hardwareReg::DMA] = 0xFF;
@@ -49,33 +61,39 @@ void Bus::cycle()
 	}
 }
 
-void Bus::loadRom(char const* filePath)
+void Bus::loadRom(std::string_view filePath)
 {
-	std::ifstream file(filePath, std::ios::binary | std::ios::ate);
+	std::ifstream rom(filePath.data(), std::ios::binary | std::ios::ate);
 
-	if(file.is_open())
+	if(rom.fail())
 	{
-		std::streamsize size{file.tellg()};
-		if(size > (0xFFFF + 1))
-		{
-			std::cerr << "File too large\n";
-			return;
-		}
-
-		uint8* buffer{new uint8[size]};
-
-		file.seekg(0, std::ios::beg);
-		file.read((char*)buffer, size);
-		file.close();
-
-		for(int i{0x0}; i < size; ++i)
-		{
-			m_memory[i] = buffer[i];
-		}
-
-		delete[] buffer;
+		std::cerr << "Failed to open file\n";
+		return;
 	}
-	else std::cerr << "Failed to open file\n";
+
+	std::streamsize size{rom.tellg()};
+	if(size > 0x10000)
+	{
+		std::cerr << "File too large\n";
+		return;
+	}
+
+	std::unique_ptr<char[]> buffer{new char[size]};
+
+	rom.seekg(0);
+	rom.read(buffer.get(), size);
+	rom.close();
+
+	for(int i{0x0}; i < size; ++i)
+	{
+		m_memory[i] = buffer[i];
+	}
+	m_hasRom = true;
+}
+
+bool Bus::hasRom() const
+{
+	return m_hasRom;
 }
 
 uint8 Bus::read(const uint16 addr, const Component component) const
@@ -83,18 +101,19 @@ uint8 Bus::read(const uint16 addr, const Component component) const
 	using namespace MemoryRegions;
 	using namespace hardwareReg;
 
-	const PPU::Mode ppuMode{m_gameboy.m_ppu.getCurrentMode()};
-	const bool addrInOam{addr >= OAM.first && addr <= OAM.second};
-	const bool addrInVram{addr >= VRAM.first && addr <= VRAM.second};
-
-	if(component == Component::CPU && m_gameboy.m_ppu.isEnabled())
+	if(component == Component::CPU)
 	{
+		const bool addrInOam{addr >= OAM.first && addr <= OAM.second};
+		const bool addrInVram{addr >= VRAM.first && addr <= VRAM.second};
+		const PPU::Mode ppuMode{m_gameboy.m_ppu.getCurrentMode()};
 		if(ppuMode == PPU::OAM_SCAN && addrInOam) return 0xFF;
 		else if(ppuMode == PPU::DRAWING && (addrInOam || addrInVram)) return 0xFF;
 	}
 
 	if(m_dmaTransferInProcess)
 	{
+		const bool addrInOam{addr >= OAM.first && addr <= OAM.second};
+		const bool addrInVram{addr >= VRAM.first && addr <= VRAM.second};
 		if(addrInOam) return 0xFF;
 		else if(m_vramBusBlocked && addrInVram) return 0xFF;
 		else if(m_externalBusBlocked && isInExternalBus(addr)) return 0xFF;
@@ -127,22 +146,28 @@ void Bus::write(const uint16 addr, const uint8 value, const Component component)
 	using namespace MemoryRegions;
 	using namespace hardwareReg;
 
-	if((addr >= ROM_BANK_0.first && addr <= ROM_BANK_1.second)) return;
+	if((addr >= ROM_BANK_0.first && addr <= ROM_BANK_1.second))
+	{
+		//mbc...
+		return;
+	}
 
-	const PPU::Mode ppuMode{m_gameboy.m_ppu.getCurrentMode()};
-	const bool addrInOam{addr >= OAM.first && addr <= OAM.second};
-	const bool addrInVram{addr >= VRAM.first && addr <= VRAM.second};
 
 	if(component == Component::CPU && m_gameboy.m_ppu.isEnabled())
 	{
+		const PPU::Mode ppuMode{m_gameboy.m_ppu.getCurrentMode()};
+		const bool addrInOam{addr >= OAM.first && addr <= OAM.second};
+		const bool addrInVram{addr >= VRAM.first && addr <= VRAM.second};
 		if(ppuMode == PPU::OAM_SCAN && addrInOam) return;
 		else if(ppuMode == PPU::DRAWING && (addrInOam || addrInVram)) return;
 	}
 
 	if(m_dmaTransferInProcess)
 	{
-		if(addr >= OAM.first && addr <= OAM.second) return;
-		else if(m_vramBusBlocked && addr >= VRAM.first && addr <= VRAM.second) return;
+		const bool addrInOam{addr >= OAM.first && addr <= OAM.second};
+		const bool addrInVram{addr >= VRAM.first && addr <= VRAM.second};
+		if(addrInOam) return;
+		else if(m_vramBusBlocked && addrInVram) return;
 		else if(m_externalBusBlocked && isInExternalBus(addr)) return;
 	}
 

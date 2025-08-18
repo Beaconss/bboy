@@ -4,14 +4,24 @@ Timers::Timers(Bus& bus)
 	: m_bus{bus}
 	, m_timaResetCounter{}
 	, m_lastAndResult{}
-	, m_div{0xAB}
+	, m_div{}
 	, m_tima{}
 	, m_tma{}
-	, m_tac{0xF8}
+	, m_tac{}
 {
+	reset();
 }
 
-//hope those 3 tests dont matter much, maybe I will fix them, maybe not
+void Timers::reset()
+{
+	m_timaResetCounter = 0;
+	m_lastAndResult = 0;
+	m_div = 0xAB;
+	m_tima = 0;
+	m_tma = 0;
+	m_tac = 0xF8;
+}
+
 void Timers::cycle()
 {
 	++m_div;

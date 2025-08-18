@@ -39,9 +39,14 @@ public:
 		DRAWING,
 	};
 
+	void reset();
 	void cycle();
+
 	PPU::Mode getCurrentMode() const;
 	bool isEnabled() const;
+	
+	const uint16* getLcdBuffer() const;
+	
 	uint8 read(const Index index) const;
 	void write(const Index index, const uint8 value);
 private:
@@ -62,9 +67,11 @@ private:
 
 	struct Pixel
 	{
-		uint8 colorIndex{};
-		bool palette{}; //obp1 if true, obp0 if false
+		//default to 0xFF because its not a valid color index, so when resetting the lcd pixel buffer each pixel is invalidated
+		uint8 colorIndex{0xFF}; 
+		bool spritePalette{}; //obp1 if true, obp0 if false
 		bool backgroundPriority{};
+		uint8 paletteValue{};
 	};
 
 	struct StatInterrupt
@@ -82,7 +89,7 @@ private:
 	void handleStatInterrupt();
 	void setStatModeSources();
 
-	void switchMode(const Mode mode);
+	void updateMode(const Mode mode);
 	void updateCoincidenceFlag();
 
 	Sprite fetchSprite();
@@ -107,7 +114,6 @@ private:
 	static constexpr uint16 OAM_MEMORY_START{0xFE00};
 
 	Bus& m_bus;
-	Platform& m_platform;
 	PixelFetcher m_fetcher;
 	StatInterrupt m_statInterrupt;
 	Mode m_mode;
@@ -116,6 +122,7 @@ private:
 	bool m_vblankInterruptNextCycle;
 
 	std::array<uint16, SCREEN_WIDTH * SCREEN_HEIGHT> m_lcdBuffer;
+	std::array<Pixel, SCREEN_WIDTH* SCREEN_HEIGHT> m_lcdPixels;
 	uint8 m_xPosition; //x position of the pixel to output
 	uint8 m_backgroundPixelsToDiscard;
 

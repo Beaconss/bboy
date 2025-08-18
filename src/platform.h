@@ -5,6 +5,8 @@
 #include <iostream>
 #include <array>
 #include <string>
+#include <chrono>
+#include <thread>
 
 constexpr int SCREEN_WIDTH{160};
 constexpr int SCREEN_HEIGHT{144};
@@ -20,8 +22,8 @@ public:
 		return platform;
 	}
 
-	void mainLoop(Gameboy& gb);
-	void updateScreen(uint16* data);
+	void mainLoop(Gameboy& gameboy);
+	void updateScreen(const uint16* data);
 	void render() const;
 
 private:

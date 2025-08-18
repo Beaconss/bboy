@@ -2,41 +2,67 @@
 
 PPU::PPU(Bus& bus)
 	: m_bus{bus}
-	, m_platform{Platform::getInstance()}
 	, m_fetcher{*this}
 	, m_statInterrupt{}
-	, m_mode{V_BLANK}
+	, m_mode{}
 	, m_tCycleCounter{}
 	, m_vblankInterruptNextCycle{}
 	, m_lcdBuffer{}
+	, m_lcdPixels{}
 	, m_xPosition{}
 	, m_backgroundPixelsToDiscard{}
 	, m_spriteBuffer{}
 	, m_spriteAddress{OAM_MEMORY_START}
 	, m_pixelFifoBackground{}
 	, m_pixelFifoSprite{}
-	, m_lcdc{0x91}
-	, m_stat{0x85}
+	, m_lcdc{}
+	, m_stat{}
 	, m_scy{}
 	, m_scx{}
 	, m_ly{}
 	, m_lyc{}
-	, m_bgp{0xFC}
+	, m_bgp{}
 	, m_obp0{}
 	, m_obp1{}
 	, m_wy{}
 	, m_wx{}
 {
 	m_spriteBuffer.reserve(10);
-	m_platform.updateScreen(m_lcdBuffer.data());
+	reset();
+}
+
+void PPU::reset()
+{
+	m_fetcher.reset();
+	m_statInterrupt = StatInterrupt{};
+	m_mode = V_BLANK;
+	m_tCycleCounter = 0;
+	m_vblankInterruptNextCycle = false;
+	std::ranges::fill(m_lcdBuffer, 0);
+	std::ranges::fill(m_lcdPixels, Pixel{});
+	m_xPosition = 0;
+	m_backgroundPixelsToDiscard = 0;
+	m_spriteBuffer.clear();
+	m_spriteAddress = OAM_MEMORY_START;
+	clearBackgroundFifo();
+	clearSpriteFifo();
+	m_lcdc = 0x91;
+	m_stat = 0x85;
+	m_scy = 0;
+	m_scx = 0;
+	m_ly = 0;
+	m_lyc = 0;
+	m_bgp = 0xFC;
+	m_obp0 = 0;
+	m_obp1 = 0;
+	m_wy = 0;
+	m_wx = 0;
 }
 
 void PPU::cycle()
 {
-	if(!(m_lcdc & 0x80)) //bit 7 is ppu enable
+	if(!(m_lcdc & 0x80))
 	{
-		//std::fill(std::begin(m_lcdBuffer), std::end(m_lcdBuffer), 0); 
-		//m_platform.updateScreen(m_lcdBuffer.data());
 		return;
 	}
 
@@ -75,7 +101,7 @@ void PPU::cycle()
 			});
 
 			m_spriteAddress = OAM_MEMORY_START;
-			switchMode(DRAWING);
+			updateMode(DRAWING);
 			m_backgroundPixelsToDiscard = m_scx % 8; //i think this should be in the first cycle of drawing so the next one but the test pass so if it doesnt create problems
 		}
 		break;
@@ -92,7 +118,7 @@ void PPU::cycle()
 			clearBackgroundFifo();
 			clearSpriteFifo();
 			m_spriteBuffer.clear(); 
-			switchMode(H_BLANK);
+			updateMode(H_BLANK);
 		}
 		break;
 	}
@@ -101,17 +127,17 @@ void PPU::cycle()
 		if(m_tCycleCounter == SCANLINE_END_CYCLE)
 		{
 			++m_ly;
-			switchMode(OAM_SCAN);
+			updateMode(OAM_SCAN);
 			m_tCycleCounter = 0;
 		}
 		constexpr uint16 FIRST_V_BLANK_SCANLINE{144};
 		if(m_ly == FIRST_V_BLANK_SCANLINE) //if this next scanline is the first of V_BLANK, V_BLANK for another 10 scanlines
 		{
 			m_vblankInterruptNextCycle = true;
-			m_fetcher.clearEndFrame();
-			switchMode(V_BLANK);
+			m_fetcher.reset();
+			updateMode(V_BLANK);
 			constexpr uint8 STAT_OAM_SOURCE_ENABLE{0b10'0000};
-			if(m_stat & STAT_OAM_SOURCE_ENABLE) m_statInterrupt.sources[OAM_SCAN] = true; //re enable oam scan source if the corresponding stat bit is active as switchMode(V_BLANK) cleared it
+			if(m_stat & STAT_OAM_SOURCE_ENABLE) m_statInterrupt.sources[OAM_SCAN] = true; //re enable oam scan source if the corresponding stat bit is active as updateMode(V_BLANK) cleared it
 		}
 		break;
 	}
@@ -125,10 +151,8 @@ void PPU::cycle()
 		constexpr uint16 LAST_VBLANK_SCANLINE{154};
 		if(m_ly == LAST_VBLANK_SCANLINE)
 		{
-			m_platform.updateScreen(m_lcdBuffer.data());
-			m_platform.render();
 			m_ly = 0;
-			switchMode(OAM_SCAN);
+			updateMode(OAM_SCAN);
 		}
 		break;
 	}
@@ -143,6 +167,11 @@ PPU::Mode PPU::getCurrentMode() const
 bool PPU::isEnabled() const
 {
 	return m_lcdc & 0x80;
+}
+
+const uint16* PPU::getLcdBuffer() const
+{
+    return m_lcdBuffer.data();
 }
 
 uint8 PPU::read(const Index index) const
@@ -170,6 +199,12 @@ void PPU::write(const Index index, const uint8 value)
 	{
 	case LCDC: 
 		m_lcdc = value; 
+		if(!(m_lcdc & 0x80))
+		{
+			m_ly = 0;
+			updateMode(H_BLANK);
+			m_stat = (m_stat & 0b11111100) | m_mode; //manually update stat mode bits because if the ppu is disabled they wont update
+		}
 		m_fetcher.updateMode();
 		break;
 	case STAT: 
@@ -189,7 +224,7 @@ void PPU::write(const Index index, const uint8 value)
 }
 
 //this sets the sources so that it is done only when needed, regarding the mode, the actual mode bits in the stat register are updated every m-cycle based on this mode
-void PPU::switchMode(const Mode mode)
+void PPU::updateMode(const Mode mode)
 {
 	m_mode = mode; 
 	setStatModeSources();
@@ -236,20 +271,26 @@ void PPU::pushToLcd()
 
 			//this gets the right bits of the palette based on the color index of the pixel and 
 			//use them as an index for the rgb565 color array(lcdc bit 1 is background/window enable)
-			uint16 color{};
+			Pixel pixel{};
 			if(pushSpritePixel)
 			{
-				color = colors[((m_pixelFifoSprite.front().palette ? m_obp1 : m_obp0) >> (m_pixelFifoSprite.front().colorIndex << 1)) & 0b11];
+				pixel = m_pixelFifoSprite.front();
+				pixel.paletteValue = pixel.spritePalette ? m_obp1 : m_obp0;
 			}
 			else //background/window
 			{
+				pixel = m_pixelFifoBackground.front();
 				constexpr uint8 BACKGROUND_WINDOW_ENABLE{0b1};
-				color = m_lcdc & BACKGROUND_WINDOW_ENABLE ?
-					colors[(m_bgp >> (m_pixelFifoBackground.front().colorIndex * 2)) & 0b11] :
-					colors[0];
+				pixel.paletteValue = m_lcdc & BACKGROUND_WINDOW_ENABLE ? m_bgp : 0;
 			}
 			
-			m_lcdBuffer[m_xPosition + (SCREEN_WIDTH * m_ly)] = color;
+			int index{m_xPosition + SCREEN_WIDTH * m_ly};
+			if(pixel.colorIndex != m_lcdPixels[index].colorIndex || pixel.paletteValue != m_lcdPixels[index].paletteValue)
+			{
+				uint16 color{colors[(pixel.paletteValue >> (pixel.colorIndex << 1)) & 0b11]};
+				m_lcdBuffer[index] = color;
+				m_lcdPixels[index] = pixel;
+			}
 			++m_xPosition;
 		}
 		else --m_backgroundPixelsToDiscard;

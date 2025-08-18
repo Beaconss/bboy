@@ -3,19 +3,36 @@
 CPU::CPU(Bus& bus)
 	: m_bus{bus}
 	, m_iState{}
-	, m_currentInstr{nullptr}
+	, m_currentInstr{}
 	, m_cycleCounter{}
-	, m_ime{false}
-	, m_imeEnableNextCycle{false}
-	, m_isHalted{false}
+	, m_ime{}
+	, m_imeEnableNextCycle{}
+	, m_isHalted{}
 	, m_pendingInterrupts{}
 	, m_interruptIndex{}
-	, m_pc{0x100}
-	, m_sp{0xFFFE}
+	, m_pc{}
+	, m_sp{}
 	, m_registers{}
-	, m_f{0xB0}
+	, m_f{}
 	, m_ir{}
 {
+	reset();
+}
+
+void CPU::reset()
+{
+	m_iState = IState{};
+	m_currentInstr = nullptr;
+	m_cycleCounter = 0;
+	m_ime = false;
+	m_imeEnableNextCycle = false;
+	m_isHalted = false;
+	m_pendingInterrupts = 0;
+	m_interruptIndex = 0;
+	m_pc = 0x100;
+	m_sp = 0xFFFE;
+	m_f = 0x80;
+	m_ir = 0;
 	m_registers[B] = 0x00;
 	m_registers[C] = 0x13;
 	m_registers[D] = 0x00;

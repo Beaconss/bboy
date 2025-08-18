@@ -27,12 +27,12 @@ private:
 		PUSH_TO_FIFO,
 	};
 
+	void reset();
 	void cycle();
 	void updateMode(std::optional<Mode> mode = std::nullopt);
 	void checkForWindow();
 	void checkForSprite();
 	void clearEndScanline();
-	void clearEndFrame();
 	void pushToBackgroundFifo();
 	void pushToSpriteFifo();
 

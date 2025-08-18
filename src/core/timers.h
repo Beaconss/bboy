@@ -20,10 +20,10 @@ public:
 		TAC,
 	};
 
+	void reset();
+	void cycle();
 	uint8 read(const Index index) const;
 	void write(const Index index, const uint8 value);
-	void cycle();
-	void requestTimerInterrupt() const;
 
 private:
 	enum TimaFrequency //in t-cycles
@@ -44,6 +44,8 @@ private:
 
 	static constexpr uint8 TIMA_RESET_START_CYCLE{1};
 	static constexpr uint8 TIMA_RESET_END_CYCLE{5};
+
+	void requestTimerInterrupt() const;
 
 	Bus& m_bus;
 

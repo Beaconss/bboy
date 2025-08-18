@@ -12,6 +12,7 @@ class CPU
 {
 public:
 	CPU(Bus& bus);
+	void reset();
 	void cycle();
 
 private:

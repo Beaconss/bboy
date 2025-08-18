@@ -3,20 +3,37 @@
 
 PixelFetcher::PixelFetcher(PPU& ppu)
 	: m_ppu{ppu}
-	, m_firstFetchCompleted{false}
-	, m_wyLyCondition{false}
-	, m_mode{BACKGROUND}
+	, m_firstFetchCompleted{}
+	, m_wyLyCondition{}
+	, m_mode{}
 	, m_previousMode{}
-	, m_step{FETCH_TILE_NO}
+	, m_step{}
 	, m_stepCycle{}
 	, m_tileX{}
 	, m_backGroundTileMap{}
-	, m_windowLineCounter{-1} //start from -1 because at the first window scanline its 0, then 1, 2 etc
+	, m_windowLineCounter{} 
 	, m_tileNumber{}
 	, m_tileDataLow{}
 	, m_tileDataHigh{}
 	, m_tileAddress{}
 {
+	reset();
+}
+
+void PixelFetcher::reset()
+{
+	m_firstFetchCompleted = false;
+	m_wyLyCondition = false;
+	updateMode(BACKGROUND);
+	m_previousMode = BACKGROUND;
+	m_step = FETCH_TILE_NO;
+	m_stepCycle = 0;
+	m_tileX = 0;
+	m_windowLineCounter = -1; //start from -1 because at the first window scanline its 0, then 1, 2 etc
+	m_tileNumber = 0;
+	m_tileDataLow = 0;
+	m_tileDataHigh = 0;
+	m_tileAddress = 0;
 }
 
 void PixelFetcher::cycle()
@@ -185,7 +202,7 @@ void PixelFetcher::cycle()
 			pushToSpriteFifo();
 			m_step = FETCH_TILE_NO;
 			updateMode(m_previousMode);
-			//checkForSprite();
+			checkForSprite();
 			break;
 		}
 		}
@@ -196,7 +213,7 @@ void PixelFetcher::cycle()
 
 void PixelFetcher::updateMode(std::optional<Mode> mode)
 {
-	if(mode) m_mode = mode.value();
+	if(mode.has_value())m_mode = mode.value();
 
 	//which background tilemap is used is stored at bit 6 for window and bit 3 for background
 	if(m_mode == WINDOW) m_backGroundTileMap = m_ppu.m_lcdc & 0b100'0000 ? 0x9C00 : 0x9800;
@@ -233,7 +250,7 @@ void PixelFetcher::pushToSpriteFifo()
 				{
 					PPU::Pixel pixel{};
 					pixel.colorIndex = static_cast<uint8>(((m_tileDataLow >> i) & 0b1) | (((m_tileDataHigh >> i) & 0b1) << 1));
-					pixel.palette = m_ppu.m_spriteBuffer.back().flags & PALETTE_FLAG;
+					pixel.spritePalette = m_ppu.m_spriteBuffer.back().flags & PALETTE_FLAG;
 					pixel.backgroundPriority = m_ppu.m_spriteBuffer.back().flags & BACKGROUND_PRIORITY_FLAG;
 					m_ppu.m_pixelFifoSprite.push(pixel);
 				}
@@ -244,6 +261,7 @@ void PixelFetcher::pushToSpriteFifo()
 	}
 	else
 	{
+		pixelsOffScreenRight ^= 7;
 		for(int i{7}; i >= 0; --i) //normal rendering
 		{
 			if(i == pixelsOffScreenRight) break;
@@ -255,7 +273,7 @@ void PixelFetcher::pushToSpriteFifo()
 				{
 					PPU::Pixel pixel{};
 					pixel.colorIndex = static_cast<uint8>(((m_tileDataLow >> i) & 0b1) | (((m_tileDataHigh >> i) & 0b1) << 1));
-					pixel.palette = m_ppu.m_spriteBuffer.back().flags & PALETTE_FLAG;
+					pixel.spritePalette = m_ppu.m_spriteBuffer.back().flags & PALETTE_FLAG;
 					pixel.backgroundPriority = m_ppu.m_spriteBuffer.back().flags & BACKGROUND_PRIORITY_FLAG;
 					m_ppu.m_pixelFifoSprite.push(pixel);
 				}
@@ -293,7 +311,6 @@ void PixelFetcher::checkForSprite()
 		m_stepCycle = 0;
 		m_step = FETCH_TILE_NO;
 		m_previousMode = m_mode;
-		SDL_assert(m_previousMode != SPRITE);
 		updateMode(SPRITE);
 	}
 }
@@ -310,10 +327,3 @@ void PixelFetcher::clearEndScanline()
 	m_tileDataHigh = 0;
 	m_tileAddress = 0;
 }
-
-void PixelFetcher::clearEndFrame()
-{
-	m_windowLineCounter = -1;
-	m_wyLyCondition = false;
-}
-

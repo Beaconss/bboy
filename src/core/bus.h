@@ -32,10 +32,13 @@ public:
 		PPU,
 		OTHER,
 	};
+
+	void reset();
 	void cycle();
+	void loadRom(std::string_view filePath);
+	bool hasRom() const;
 	uint8 read(const uint16 addr, const Component component) const;
 	void write(const uint16 addr, const uint8 value, const Component component);
-	void loadRom(char const* filePath);
 
 private:
 	static constexpr std::array<std::pair<uint16, uint16>, 3> EXTERNAL_BUS =
@@ -53,5 +56,7 @@ private:
 	uint16 m_dmaTransferCurrentAddress;
 	bool m_dmaTransferInProcess;
 	bool m_dmaTransferEnableNextCycle;
+
+	bool m_hasRom;
 };
 

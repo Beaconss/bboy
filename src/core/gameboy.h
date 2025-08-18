@@ -15,6 +15,9 @@ class Gameboy
 public:
 	Gameboy();
 	void cycle();
+	void reset();
+	bool hasRom() const;
+	const uint16* getLcdBuffer() const;
 
 private:
 	friend class Bus;
