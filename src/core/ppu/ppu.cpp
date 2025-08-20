@@ -88,7 +88,13 @@ void PPU::cycle()
 	{
 		constexpr int SPRITE_BUFFER_MAX_SIZE{10};
 
-		if(m_tCycleCounter % 2 == 0 && m_spriteBuffer.size() < SPRITE_BUFFER_MAX_SIZE) tryAddSpriteToBuffer(fetchSprite());
+		if(m_tCycleCounter % 2 == 0 && m_spriteBuffer.size() < SPRITE_BUFFER_MAX_SIZE) 
+		{
+			Sprite sprite;
+			m_bus.fillSprite(m_spriteAddress, sprite);
+			tryAddSpriteToBuffer(sprite);
+			m_spriteAddress += 4; //go to next sprite
+		}
 
 		constexpr uint16 OAM_SCAN_END_CYCLE{80};
 		if(m_tCycleCounter == OAM_SCAN_END_CYCLE)
@@ -240,18 +246,7 @@ void PPU::updateCoincidenceFlag()
 	else m_statInterrupt.sources[StatInterrupt::LY_COMPARE] = false;
 }
 
-PPU::Sprite PPU::fetchSprite()
-{
-	Sprite sprite;
-	sprite.yPosition = m_bus.read(m_spriteAddress, Bus::Component::PPU);
-	sprite.xPosition = m_bus.read(m_spriteAddress + 1, Bus::Component::PPU);
-	sprite.tileNumber = m_bus.read(m_spriteAddress + 2, Bus::Component::PPU);
-	sprite.flags = m_bus.read(m_spriteAddress + 3, Bus::Component::PPU);
-	m_spriteAddress += 4; //go to next sprite
-	return sprite;
-}
-
-void PPU::tryAddSpriteToBuffer(const Sprite& sprite)
+void PPU::tryAddSpriteToBuffer(const Sprite sprite)
 {
 	constexpr uint8 TALL_SPRITE_MODE{0b100};
 	if(m_ly + 16 >= sprite.yPosition 

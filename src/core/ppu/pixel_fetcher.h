@@ -41,16 +41,16 @@ private:
 	Mode m_mode;
 	Mode m_previousMode;
 	Step m_step;
-	uint8 m_stepCycle;
+	int m_stepCycle;
 
-	uint8 m_tileX;
+	int m_tileX;
 	uint16 m_backGroundTileMap;
 	uint8 m_tileNumber;
 	uint8 m_tileDataLow;
 	uint8 m_tileDataHigh;
 	uint16 m_tileAddress;
 
-	int16 m_windowLineCounter;
+	int m_windowLineCounter;
 	bool m_wyLyCondition;
 };
 

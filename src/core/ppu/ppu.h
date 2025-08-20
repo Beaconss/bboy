@@ -39,19 +39,6 @@ public:
 		DRAWING,
 	};
 
-	void reset();
-	void cycle();
-
-	PPU::Mode getCurrentMode() const;
-	bool isEnabled() const;
-	
-	const uint16* getLcdBuffer() const;
-	
-	uint8 read(const Index index) const;
-	void write(const Index index, const uint8 value);
-private:
-	friend class PixelFetcher;
-
 	struct Sprite
 	{
 		uint8 yPosition{}; //byte 0 
@@ -64,6 +51,19 @@ private:
 		//bit 4: palette
 		//other bits are cgb only
 	};
+
+	void reset();
+	void cycle();
+
+	PPU::Mode getCurrentMode() const;
+	bool isEnabled() const;
+	
+	const uint16* getLcdBuffer() const;
+	
+	uint8 read(const Index index) const;
+	void write(const Index index, const uint8 value);
+private:
+	friend class PixelFetcher;
 
 	struct Pixel
 	{
@@ -92,8 +92,7 @@ private:
 	void updateMode(const Mode mode);
 	void updateCoincidenceFlag();
 
-	Sprite fetchSprite();
-	void tryAddSpriteToBuffer(const Sprite& sprite);
+	void tryAddSpriteToBuffer(const Sprite sprite);
 	void pushToLcd();
 	bool shouldPushSpritePixel() const;
 
@@ -118,13 +117,13 @@ private:
 	StatInterrupt m_statInterrupt;
 	Mode m_mode;
 	
-	uint16 m_tCycleCounter; //max value is 456 so uint16 is fine
+	int m_tCycleCounter;
 	bool m_vblankInterruptNextCycle;
 
 	std::array<uint16, SCREEN_WIDTH * SCREEN_HEIGHT> m_lcdBuffer;
 	std::array<Pixel, SCREEN_WIDTH* SCREEN_HEIGHT> m_lcdPixels;
-	uint8 m_xPosition; //x position of the pixel to output
-	uint8 m_backgroundPixelsToDiscard;
+	int m_xPosition; //x position of the pixel to output
+	int m_backgroundPixelsToDiscard;
 
 	std::vector<Sprite> m_spriteBuffer;
 	uint16 m_spriteAddress;
@@ -132,7 +131,6 @@ private:
 	std::queue<Pixel> m_pixelFifoBackground;
 	std::queue<Pixel> m_pixelFifoSprite;
 	
-	//maybe i will delete some of these to just use the memory instead
 	uint8 m_lcdc; //LCD control
 	uint8 m_stat; //LDC status
 	uint8 m_scy; //viewport y position

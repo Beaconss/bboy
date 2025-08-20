@@ -3,8 +3,9 @@
 
 #include <array>
 #include <fstream>
-
-class Gameboy;
+#include <vector>
+#include <memory>
+#include <algorithm>
 
 namespace MemoryRegions //each pair has the start as first and the end as second
 {
@@ -21,6 +22,8 @@ namespace MemoryRegions //each pair has the start as first and the end as second
 	constexpr std::pair<uint16, uint16> HIGH_RAM{0xFF80, 0xFFFE};
 }
 
+class Gameboy;
+
 class Bus
 {
 public:
@@ -35,28 +38,55 @@ public:
 
 	void reset();
 	void cycle();
-	void loadRom(std::string_view filePath);
+	void loadRom(std::string_view file);
 	bool hasRom() const;
 	uint8 read(const uint16 addr, const Component component) const;
 	void write(const uint16 addr, const uint8 value, const Component component);
 
+	template<typename T>
+	void fillSprite(uint16 addr, T& sprite) const;
+
 private:
-	static constexpr std::array<std::pair<uint16, uint16>, 3> EXTERNAL_BUS =
+	enum MbcType
 	{
-		std::pair<uint16, uint16>(0, 0x7FFF),
-		std::pair<uint16, uint16>(0xA000, 0xFDFF),
+		NONE,
+		MBC1,
+		MBC2,
+		MBC3,
+		MBC5,
 	};
+
+	struct Rom
+	{
+		bool isValid{};
+		MbcType mbc{};
+		bool hasRam{};
+		bool hasBattery{};
+		bool hasClock{};
+		int romBanks{};
+		int ramBanks{};
+
+		uint16 romBankIndex{};
+		uint8 ramBankIndex{};
+		bool modeFlag{};
+		uint32 romSize{};
+		uint32 ramSize{};
+	};
+
+
+	bool loadMemory(std::string_view file);
+	void setRomSize();
+	void setRamSize();
 	bool isInExternalBus(const uint16 addr) const;
 
 	Gameboy& m_gameboy;
-	std::array<uint8, 0xFFFF + 1> m_memory;
+	std::vector<uint8> m_memory;
+	Rom m_rom;
 
-	bool m_externalBusBlocked;
-	bool m_vramBusBlocked;
+	bool m_isExternalRamEnabled;
+	bool m_isExternalBusBlocked;
+	bool m_isVramBusBlocked;
 	uint16 m_dmaTransferCurrentAddress;
 	bool m_dmaTransferInProcess;
 	bool m_dmaTransferEnableNextCycle;
-
-	bool m_hasRom;
 };
-

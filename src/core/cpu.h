@@ -214,7 +214,7 @@ private:
 	Bus& m_bus;
 	IState m_iState;
 	void (CPU::* m_currentInstr)(); //pointer to a CPU function that returns void and take no parameters called m_currentInstr
-	uint8 m_cycleCounter; //max value is like 8
+	int m_cycleCounter;
 
 	//interrupt things
 	bool m_ime; //interrupt master enabler

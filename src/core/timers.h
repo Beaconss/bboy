@@ -49,7 +49,7 @@ private:
 
 	Bus& m_bus;
 
-	uint8 m_timaResetCounter;
+	int m_timaResetCounter;
 	bool m_lastAndResult;
 
 	uint16 m_div; //divider register
