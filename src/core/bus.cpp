@@ -4,24 +4,23 @@
 Bus::Bus(Gameboy& gb)
 	: m_gameboy{gb}
 	, m_memory{}
-	, m_rom{}
-	, m_isExternalRamEnabled{}
+	, m_cartridgeSlot{}
 	, m_isExternalBusBlocked{}
 	, m_isVramBusBlocked{}
 	, m_dmaTransferCurrentAddress{}
 	, m_dmaTransferInProcess{}
 	, m_dmaTransferEnableNextCycle{}
 {
-	constexpr int KB_64{0x10000};
-	m_memory.resize(0x10000);
+	constexpr unsigned int KB_64{0x10000};
+	m_memory.resize(KB_64); //32 kbs are not even used but I think its ok to have less overhead
 	reset();
-	loadRom("");
+	m_cartridgeSlot.loadCartridge("");
 }
 
 void Bus::reset()
 {
 	std::ranges::fill(m_memory, 0);
-	m_rom = Rom{};
+	m_cartridgeSlot.reset();
 	m_isExternalBusBlocked = 0;
 	m_isVramBusBlocked = 0;
 	m_dmaTransferCurrentAddress = 0;
@@ -65,92 +64,9 @@ void Bus::cycle()
 	}
 }
 
-void Bus::loadRom(std::string_view file)
-{
-	if(!loadMemory(file)) return;
-
-	constexpr uint16 MBC_HEADER_ADDRESS{0x147};
-	uint8 mbcValue{m_memory[MBC_HEADER_ADDRESS]};
-	switch(mbcValue)
-	{
-	case 0x00:
-		m_rom.mbc = NONE;
-		break;
-	case 0x08:
-		m_rom.mbc = NONE;
-		m_rom.hasRam = true;
-		break;
-	case 0x09:
-		m_rom.mbc = NONE;
-		m_rom.hasRam = true;
-		m_rom.hasBattery = true;
-		break;
-	case 0x01:
-		m_rom.mbc = MBC1;
-		break;
-	case 0x02:
-		m_rom.mbc = MBC1;
-		m_rom.hasRam = true;
-		break;
-	case 0x03:
-		m_rom.mbc = MBC1;
-		m_rom.hasRam = true;
-		m_rom.hasBattery = true;
-		break;
-	case 0x05:
-		m_rom.mbc = MBC2;
-		break;
-	case 0x06:
-		m_rom.mbc = MBC2;
-		m_rom.hasRam = true;
-		m_rom.hasBattery = true;
-		break;
-	case 0x0f:
-		m_rom.mbc = MBC3;
-		m_rom.hasClock = true;
-	case 0x10:
-		m_rom.mbc = MBC3;
-		m_rom.hasClock = true;
-		m_rom.hasRam = true;
-		m_rom.hasBattery = true;
-	case 0x11:
-		m_rom.mbc = MBC3;
-	case 0x12:
-		m_rom.mbc = MBC3;
-		m_rom.hasRam = true;
-	case 0x13:
-		m_rom.mbc = MBC3;
-		m_rom.hasRam = true;
-		m_rom.hasBattery = true;
-	case 0x19:
-		m_rom.mbc = MBC5;
-	case 0x1A:
-		m_rom.mbc = MBC5;
-		m_rom.hasRam = true;
-	case 0x1B:
-		m_rom.mbc = MBC5;
-		m_rom.hasRam = true;
-		m_rom.hasBattery = true;
-	case 0x1C:
-		m_rom.mbc = MBC5;
-	case 0x1D:
-		m_rom.mbc = MBC5;
-		m_rom.hasRam = true;
-	case 0x1E:
-		m_rom.mbc = MBC5;
-		m_rom.hasRam = true;
-		m_rom.hasBattery = true;
-	}
-
-	setRomSize();
-	setRamSize();
-	std::cout << m_rom.mbc << ' ' << m_rom.romBanks << ' ' << m_rom.ramBanks << '\n';
-	m_rom.isValid = true;
-}
-
 bool Bus::hasRom() const
 {
-	return m_rom.isValid;
+	return m_cartridgeSlot.isValid();
 }
 
 uint8 Bus::read(const uint16 addr, const Component component) const
@@ -196,7 +112,8 @@ uint8 Bus::read(const uint16 addr, const Component component) const
 			if((ppuMode == PPU::OAM_SCAN && addrInOam) || (ppuMode == PPU::DRAWING && (addrInOam || addrInVram))) return 0xFF;
 		}
 
-		if(!m_isExternalRamEnabled && addr >= EXTERNAL_RAM.first && addr <= EXTERNAL_RAM.second) return 0xFF;
+		if(addr <= ROM_BANK_1.second) return m_cartridgeSlot.readRom(addr);
+		else if(addr >= EXTERNAL_RAM.first && addr <= EXTERNAL_RAM.second) return m_cartridgeSlot.readRam(addr);
 		
 		return m_memory[addr];
 	}
@@ -249,67 +166,14 @@ void Bus::write(const uint16 addr, const uint8 value, const Component component)
 			if((ppuMode == PPU::OAM_SCAN && addrInOam) || (ppuMode == PPU::DRAWING && (addrInOam || addrInVram))) return;
 		}
 
-		if(addr >= ROM_BANK_0.first && addr <= ROM_BANK_1.second)
+		if(addr <= ROM_BANK_1.second) 
 		{
-			switch(m_rom.mbc)
-			{
-			case NONE: break;
-			case MBC1:
-			{
-				constexpr int ENABLE_RAM_END{0x1FFF};
-				constexpr int ROM_BANK_END{0x3FFF};
-				constexpr int RAM_BANK_END{0x5FFF};
-				constexpr int MODE_SELECT_END{0x7FFF};
-				if(addr <= ENABLE_RAM_END)
-				{
-					if((value & 0xF) == 0xA) m_isExternalRamEnabled = true;
-					else m_isExternalRamEnabled = false;
-				}
-				else if(addr <= ROM_BANK_END)
-				{
-					if(value == 0) m_rom.romBankIndex = 1;
-					else
-					{
-						const uint8 mask{static_cast<uint8>(std::min(((m_rom.romBanks * 0x4000) / 0x8000), 0b1'0000))};
-						m_rom.romBankIndex = value & (mask | (mask - 1)); //mask | mask - 1 is to set every less significant bit
-					}
-				}
-				else if(addr <= RAM_BANK_END)
-				{
-					m_rom.ramBankIndex = value & 0b11;
-				}
-				else m_rom.modeFlag = value & 1;//so mode select
-			}
-			break;
-			case MBC2:
-			{
-
-			}
-			break;
-			}
+			m_cartridgeSlot.writeRom(addr, value);
 			return;
 		}
-
-		if(addr >= EXTERNAL_RAM.first && addr <= EXTERNAL_RAM.second)
+		else if(addr >= EXTERNAL_RAM.first && addr <= EXTERNAL_RAM.second)
 		{
-			if(!m_isExternalRamEnabled) return;
-
-			switch(m_rom.mbc)
-			{
-			case NONE: break;
-			case MBC1:
-			{
-				if(m_rom.ramBanks == 1)
-				{
-					m_memory[(addr - 0xA000) % m_rom.ramSize] = value;
-				}
-				else //always 4 on mbc1(assuming its a good rom)
-				{
-
-				}
-			}
-			break;
-			}
+			m_cartridgeSlot.writeRam(addr, value);
 			return;
 		}
 
@@ -327,74 +191,6 @@ void Bus::fillSprite(uint16 addr, PPU::Sprite& sprite) const
 	sprite.xPosition = m_memory[addr + 1];
 	sprite.tileNumber = m_memory[addr + 2];
 	sprite.flags = m_memory[addr + 3];
-}
-
-bool Bus::loadMemory(std::string_view file)
-{
-	std::ifstream rom(file.data(), std::ios::binary | std::ios::ate);
-
-	if(rom.fail())
-	{
-		std::cerr << "Failed to open file\n";
-		return false;
-	}
-
-	std::streamsize size{rom.tellg()};
-	std::unique_ptr<char[]> buffer{std::make_unique<char[]>(size)};
-	rom.seekg(0);
-	rom.read(buffer.get(), size);
-	rom.close();
-
-	constexpr int KB_64{0x10000};
-	if(size > KB_64) m_memory.resize(size );
-	for(int i{0x0}; i < size; ++i)
-	{
-		m_memory[i] = buffer[i];
-		//after dumping the second rom bank, skip the rest of the addressable memory
-		if(i == (MemoryRegions::ROM_BANK_1.second + 1)) i = 0x10000;
-	}
-	return true;
-}
-
-void Bus::setRomSize()
-{
-	int romBanks{2};
-	if(m_rom.mbc != NONE)
-	{
-		constexpr uint16 ROM_SIZE_ADDRESS{0x148};
-		uint8 romSize{m_memory[ROM_SIZE_ADDRESS]};
-		if(romSize > 0 && romSize < 0x9) romBanks <<= romSize;
-
-		//weird edge cases
-		if(romSize == 0x52) romBanks = 72;
-		else if(romSize == 0x53) romBanks = 80;
-		else if(romSize == 0x54) romBanks = 96;
-	}
-	m_rom.romBanks = romBanks;
-	constexpr uint16 KB_16{0x4000};
-	m_rom.romSize = romBanks * KB_16;
-}
-
-void Bus::setRamSize()
-{
-	constexpr uint16 KB_2{0x800};
-	if(m_rom.hasRam)
-	{
-		constexpr uint16 RAM_SIZE_ADDRESS{0x149};
-		uint8 ramSize{m_memory[RAM_SIZE_ADDRESS]};
-		std::cout << int(ramSize) << '\n';
-		switch(ramSize)
-		{
-		case 0x1: m_rom.ramBanks = 1; m_rom.ramSize = KB_2; break; //special case
-		case 0x2: m_rom.ramBanks = 1; break;
-		case 0x3: m_rom.ramBanks = 4; break;
-		case 0x4: m_rom.ramBanks = 16; break;
-		case 0x5: m_rom.ramBanks = 8; break;
-		default: m_rom.ramBanks = 0; break;
-		}
-	}
-	constexpr uint16 KB_8{0x2000};
-	if(m_rom.ramSize != KB_2) m_rom.ramSize = m_rom.ramBanks * KB_8;
 }
 
 bool Bus::isInExternalBus(const uint16 addr) const

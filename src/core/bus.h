@@ -1,11 +1,13 @@
 #pragma once
+#include "../type_alias.h"
 #include "../hardware_registers.h"
+#include "cartridge_slot.h"
 
 #include <array>
-#include <fstream>
 #include <vector>
 #include <memory>
 #include <algorithm>
+#include <filesystem>
 
 namespace MemoryRegions //each pair has the start as first and the end as second
 {
@@ -38,7 +40,6 @@ public:
 
 	void reset();
 	void cycle();
-	void loadRom(std::string_view file);
 	bool hasRom() const;
 	uint8 read(const uint16 addr, const Component component) const;
 	void write(const uint16 addr, const uint8 value, const Component component);
@@ -47,43 +48,12 @@ public:
 	void fillSprite(uint16 addr, T& sprite) const;
 
 private:
-	enum MbcType
-	{
-		NONE,
-		MBC1,
-		MBC2,
-		MBC3,
-		MBC5,
-	};
-
-	struct Rom
-	{
-		bool isValid{};
-		MbcType mbc{};
-		bool hasRam{};
-		bool hasBattery{};
-		bool hasClock{};
-		int romBanks{};
-		int ramBanks{};
-
-		uint16 romBankIndex{};
-		uint8 ramBankIndex{};
-		bool modeFlag{};
-		uint32 romSize{};
-		uint32 ramSize{};
-	};
-
-
-	bool loadMemory(std::string_view file);
-	void setRomSize();
-	void setRamSize();
 	bool isInExternalBus(const uint16 addr) const;
 
 	Gameboy& m_gameboy;
 	std::vector<uint8> m_memory;
-	Rom m_rom;
+	CartridgeSlot m_cartridgeSlot;
 
-	bool m_isExternalRamEnabled;
 	bool m_isExternalBusBlocked;
 	bool m_isVramBusBlocked;
 	uint16 m_dmaTransferCurrentAddress;

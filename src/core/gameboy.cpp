@@ -36,5 +36,4 @@ bool Gameboy::hasRom() const
 const uint16* Gameboy::getLcdBuffer() const
 {
 	return m_ppu.getLcdBuffer();
-}
-
+} 

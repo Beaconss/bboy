@@ -39,7 +39,11 @@ void Platform::mainLoop(Gameboy& gameboy)
 
         if(SDL_PollEvent(&m_event))
         {
-            if(m_event.type == SDL_EVENT_QUIT) m_running = false;
+            if(m_event.type == SDL_EVENT_QUIT) 
+            {
+                m_running = false;
+                gameboy.reset();
+            }
         }
 
         if(gameboy.hasRom())
