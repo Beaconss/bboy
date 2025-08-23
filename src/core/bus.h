@@ -35,7 +35,8 @@ public:
 	{
 		CPU,
 		PPU,
-		OTHER,
+		BUS,
+		TIMERS,
 	};
 
 	void reset();

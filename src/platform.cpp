@@ -12,7 +12,7 @@ Platform::Platform()
 
     m_window = SDL_CreateWindow("std-boy", 160 * 4, 144 * 4, SDL_WINDOW_RESIZABLE);
     if(!m_window) std::cerr << "SDL window failed to initialize " << SDL_GetError() << '\n';
-    m_renderer = SDL_CreateRenderer(m_window, SDL_GetRenderDriver(0));
+    m_renderer = SDL_CreateRenderer(m_window, "opengl");
     if(!m_renderer) std::cerr << "SDL renderer failed to initialize " << SDL_GetError() << '\n';
 
     m_screenTexture = SDL_CreateTexture(m_renderer, SDL_PixelFormat::SDL_PIXELFORMAT_RGB565 , SDL_TextureAccess::SDL_TEXTUREACCESS_STREAMING, SCREEN_WIDTH, SCREEN_HEIGHT);
@@ -37,12 +37,25 @@ void Platform::mainLoop(Gameboy& gameboy)
     {
         auto start = clock::now();
 
-        if(SDL_PollEvent(&m_event))
+        while(SDL_PollEvent(&m_event))
         {
             if(m_event.type == SDL_EVENT_QUIT) 
             {
                 m_running = false;
                 gameboy.reset();
+            }
+            else if(m_event.type == SDL_EVENT_KEY_DOWN && m_event.key.scancode == SDL_SCANCODE_SPACE)
+            {
+                static bool a{};
+                if(a)
+                {
+                    SDL_SetRenderVSync(m_renderer, 0);
+                }
+                else
+                {
+                    SDL_SetRenderVSync(m_renderer, 1);
+                }
+                a = !a;
             }
         }
 

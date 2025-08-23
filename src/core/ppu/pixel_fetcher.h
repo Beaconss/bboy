@@ -2,49 +2,42 @@
 #include "../../type_alias.h"
 
 #include <iostream>
-#include <optional>
 
 class PPU;
 
+template <typename T>
 class PixelFetcher
 {
 private:
 	PixelFetcher(PPU& ppu);
 	friend class PPU;
 
-	enum Mode
-	{
-		BACKGROUND,
-		WINDOW,
-		SPRITE,
-	};
-
 	enum Step
 	{
-		FETCH_TILE_NO,
-		FETCH_TILE_DATA_LOW,
-		FETCH_TILE_DATA_HIGH,
-		PUSH_TO_FIFO,
+		FETCH_TILE_NO = 2,
+		FETCH_TILE_DATA_LOW = 4,
+		FETCH_TILE_DATA_HIGH = 6,
+		PUSH_TO_FIFO = 7,
 	};
 
 	void reset();
+	void resetEndScanline();
 	void cycle();
-	void updateMode(std::optional<Mode> mode = std::nullopt);
+	void updateTilemap();
 	void checkForWindow();
 	void checkForSprite();
-	void clearEndScanline();
 	void pushToBackgroundFifo();
 	void pushToSpriteFifo();
 
 	PPU& m_ppu;
+	T* m_spriteBeingFetched;
+	bool m_isFetchingWindow;
 	bool m_firstFetchCompleted;
-	Mode m_mode;
-	Mode m_previousMode;
-	Step m_step;
-	int m_stepCycle;
+	int m_backgroundCycleCounter;
+	int m_spriteCycleCounter;
 
 	int m_tileX;
-	uint16 m_backGroundTileMap;
+	uint16 m_tilemap;
 	uint8 m_tileNumber;
 	uint8 m_tileDataLow;
 	uint8 m_tileDataHigh;

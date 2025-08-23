@@ -69,6 +69,7 @@ private:
 	void interruptRoutine();
 	void fetch();
 	void execute();
+	void endInstruction();
 
 	//utilities:
 	uint8 getMSB(const uint16 in) const;

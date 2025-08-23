@@ -324,23 +324,18 @@ void CartridgeSlot::initializeRam()
 
 void CartridgeSlot::saveRam()
 {
-	std::ofstream saveFile(getSaveFileName(), std::ios::binary);
+	std::ofstream saveFile(m_cartridgePath.replace_extension(".sav"), std::ios::binary);
 	if(saveFile.fail()) std::cerr << "Couldn't open save file\n";
 	saveFile.write(reinterpret_cast<char*>(m_ram.data()), m_ram.size());
 }
 
 void CartridgeSlot::loadSave()
 {
-	std::ifstream saveFile(getSaveFileName(), std::ios::binary);
+	std::ifstream saveFile(m_cartridgePath.replace_extension(".sav"), std::ios::binary);
 	if(saveFile.fail())
 	{
 		std::cout << "No save file found or couldn't open it";
 		return;
 	}
 	saveFile.read(reinterpret_cast<char*>(m_ram.data()), m_ram.size());
-}
-
-const std::filesystem::path CartridgeSlot::getSaveFileName()
-{
-	return m_cartridgePath.parent_path() / m_cartridgePath.stem().replace_extension(".sav");
 }

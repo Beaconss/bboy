@@ -63,7 +63,7 @@ public:
 	uint8 read(const Index index) const;
 	void write(const Index index, const uint8 value);
 private:
-	friend class PixelFetcher;
+	friend class PixelFetcher<Sprite>;
 
 	struct Pixel
 	{
@@ -106,14 +106,14 @@ private:
 	{
 		0xFFFF,
 		0xC618,
-		0x8410,
+		0x4208,
 		0x0,
 	};
 
 	static constexpr uint16 OAM_MEMORY_START{0xFE00};
 
 	Bus& m_bus;
-	PixelFetcher m_fetcher;
+	PixelFetcher<Sprite> m_fetcher;
 	StatInterrupt m_statInterrupt;
 	Mode m_mode;
 	

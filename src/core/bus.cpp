@@ -14,7 +14,7 @@ Bus::Bus(Gameboy& gb)
 	constexpr unsigned int KB_64{0x10000};
 	m_memory.resize(KB_64); //32 kbs are not even used but I think its ok to have less overhead
 	reset();
-	m_cartridgeSlot.loadCartridge("");
+	m_cartridgeSlot.loadCartridge("test/acceptance/ppu/stat_lyc_onoff.gb");
 }
 
 void Bus::reset()
@@ -54,7 +54,7 @@ void Bus::cycle()
 		}
 
 		const uint16 destinationAddr{static_cast<uint16>(0xFE00 | m_dmaTransferCurrentAddress & 0xFF)};
-		m_memory[destinationAddr] = m_memory[m_dmaTransferCurrentAddress++]; //access array directly because this has the priority over everything else
+		m_memory[destinationAddr] = read(m_dmaTransferCurrentAddress++, Component::BUS);
 	}
 	if(m_dmaTransferEnableNextCycle)
 	{
@@ -97,7 +97,7 @@ uint8 Bus::read(const uint16 addr, const Component component) const
 	case IE: return m_memory[IE];
 	default: 
 	{
-		if(m_dmaTransferInProcess)
+		if(m_dmaTransferInProcess && component != Component::BUS)
 		{
 			const bool addrInOam{addr >= OAM.first && addr <= OAM.second};
 			const bool addrInVram{addr >= VRAM.first && addr <= VRAM.second};
@@ -151,7 +151,7 @@ void Bus::write(const uint16 addr, const uint8 value, const Component component)
 	case IE: m_memory[IE] = value | 0b1110'0000; break;
 	default: 
 	{
-		if(m_dmaTransferInProcess)
+		if(m_dmaTransferInProcess && component != Component::BUS)
 		{
 			const bool addrInOam{addr >= OAM.first && addr <= OAM.second};
 			const bool addrInVram{addr >= VRAM.first && addr <= VRAM.second};

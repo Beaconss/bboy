@@ -22,8 +22,8 @@ CPU::CPU(Bus& bus)
 void CPU::reset()
 {
 	m_iState = IState{};
-	m_currentInstr = nullptr;
-	m_cycleCounter = 0;
+	
+	endInstruction();
 	m_ime = false;
 	m_imeEnableNextCycle = false;
 	m_isHalted = false;
@@ -48,7 +48,7 @@ void CPU::cycle()
 	if(!m_currentInstr) handleInterrupts();
 	if(m_isHalted) 
 	{
-		m_cycleCounter = 0;
+		endInstruction();
 		return;
 	}
 
@@ -118,8 +118,8 @@ void CPU::interruptRoutine()
 			if(!anotherInterruptPending)
 			{
 				m_pc = 0;
-				m_cycleCounter = 0;
-				m_currentInstr = nullptr;
+				endInstruction();
+				
 			}
 		}
 		break;
@@ -129,8 +129,8 @@ void CPU::interruptRoutine()
 	case 5:
 		m_bus.write(hardwareReg::IF, m_pendingInterrupts & ~(1 << m_interruptIndex), Bus::Component::CPU);
 		m_pc = interruptHandlerAddress[m_interruptIndex];
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();
+		
 		break;
 	}
 }
@@ -406,6 +406,12 @@ void CPU::execute()
 	}
 }
 
+void CPU::endInstruction()
+{
+	m_cycleCounter = 0;
+	m_currentInstr = nullptr;
+}
+
 uint8 CPU::getMSB(const uint16 in) const
 {
 	return in >> 8;
@@ -500,7 +506,7 @@ void CPU::LD_r_r2()
 	//if(m_iState.x == 1 && m_iState.y == 7) __debugbreak();
 
 	m_registers[m_iState.x] = m_registers[m_iState.y];
-	m_cycleCounter = 0; //reset cycles counter at the end of each instruction
+	endInstruction(); //reset cycles counter at the end of each instruction
 }
 
 void CPU::LD_r_n()
@@ -514,8 +520,7 @@ void CPU::LD_r_n()
 	case 2:
 		m_iState.y = m_bus.read(m_pc++, Bus::Component::CPU); //n
 		m_registers[m_iState.x] = m_iState.y;
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();
 		break;
 	}
 }
@@ -530,8 +535,7 @@ void CPU::LD_r_HL()
 		break;
 	case 2:
 		m_registers[m_iState.x] = m_bus.read(getHL(), Bus::Component::CPU);
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();
 		break;
 	}
 }
@@ -546,8 +550,7 @@ void CPU::LD_HL_r()
 	case 2:
 		m_iState.x = m_ir & 0b111; //r
 		m_bus.write(getHL(), m_registers[m_iState.x], Bus::Component::CPU);
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();
 		break;
 	}
 }
@@ -564,8 +567,7 @@ void CPU::LD_HL_n()
 		break;
 	case 3:
 		m_bus.write(getHL(), m_iState.x, Bus::Component::CPU);
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();
 		break;
 	}
 }
@@ -579,8 +581,7 @@ void CPU::LD_A_BC()
 		break;
 	case 2:
 		m_registers[A] = m_bus.read(getBC(), Bus::Component::CPU);
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();
 		break;
 	}
 }
@@ -594,8 +595,7 @@ void CPU::LD_A_DE()
 		break;
 	case 2:
 		m_registers[A] = m_bus.read(getDE(), Bus::Component::CPU);
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();
 		break;
 	}
 }
@@ -609,8 +609,7 @@ void CPU::LD_BC_A()
 		break;
 	case 2:
 		m_bus.write(getBC(), m_registers[A], Bus::Component::CPU);
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();
 		break;
 	}
 }
@@ -624,8 +623,7 @@ void CPU::LD_DE_A()
 		break;
 	case 2:
 		m_bus.write(getDE(), m_registers[A], Bus::Component::CPU);
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();
 		break;
 	}
 }
@@ -645,8 +643,7 @@ void CPU::LD_A_nn()
 		break;
 	case 4:
 		m_registers[A] = m_bus.read(m_iState.xx, Bus::Component::CPU);
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();
 		break;
 	}
 }
@@ -666,8 +663,7 @@ void CPU::LD_nn_A()
 		break;
 	case 4:
 		m_bus.write(m_iState.xx, m_registers[A], Bus::Component::CPU);
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();
 		break;
 	}
 }
@@ -681,8 +677,7 @@ void CPU::LDH_A_C()
 		break;
 	case 2:
 		m_registers[A] = m_bus.read(0xFF00 | m_registers[C], Bus::Component::CPU); //xx is 0xFF00 as the high byte + C as the low byte
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();	
 		break;
 	}
 }
@@ -696,8 +691,7 @@ void CPU::LDH_C_A()
 		break;
 	case 2:
 		m_bus.write(0xFF00 | m_registers[C], m_registers[A], Bus::Component::CPU);
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();		
 		break;
 	}
 }
@@ -714,8 +708,7 @@ void CPU::LDH_A_n()
 		break;
 	case 3:
 		m_registers[A] = m_bus.read(0xFF00 | m_iState.x, Bus::Component::CPU);
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();		
 		break;
 	}
 }
@@ -732,8 +725,7 @@ void CPU::LDH_n_A()
 		break;
 	case 3:
 		m_bus.write(0xFF00 | m_iState.x, m_registers[A], Bus::Component::CPU);
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();		
 		break;
 	}
 }
@@ -748,8 +740,7 @@ void CPU::LD_A_HLd()
 	case 2:
 		m_registers[A] = m_bus.read(getHL(), Bus::Component::CPU);
 		if(--m_registers[L] == 0xFF) --m_registers[H]; //check for underflow
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();
 		break;
 	}
 }
@@ -765,8 +756,7 @@ void CPU::LD_HLd_A()
 		
 		m_bus.write(getHL(), m_registers[A], Bus::Component::CPU);
 		if(--m_registers[L] == 0xFF) --m_registers[H];
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();
 		break;
 	}
 }
@@ -781,8 +771,7 @@ void CPU::LD_A_HLi()
 	case 2:
 		m_registers[A] = m_bus.read(getHL(), Bus::Component::CPU);
 		if(++m_registers[L] == 0x00) ++m_registers[H]; //check for overflow
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();
 		break;
 	}
 }
@@ -797,8 +786,7 @@ void CPU::LD_HLi_A()
 	case 2:
 		m_bus.write(getHL(), m_registers[A], Bus::Component::CPU);
 		if(++m_registers[L] == 0x00) ++m_registers[H];
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();
 		break;
 	}
 }
@@ -823,8 +811,7 @@ void CPU::LD_rr_nn()
 		case HL: setHL(m_iState.xx); break;
 		case SP: m_sp = m_iState.xx; break;
 		}
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();
 		break;
 	}
 }
@@ -847,8 +834,7 @@ void CPU::LD_nn_SP()
 		break;
 	case 5:
 		m_bus.write(m_iState.xx + 1, getMSB(m_sp), Bus::Component::CPU);
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();
 		break;
 	}
 }
@@ -862,8 +848,7 @@ void CPU::LD_SP_HL()
 		break;
 	case 2:
 		m_sp = getHL();
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();
 		break;
 	}
 }
@@ -895,8 +880,7 @@ void CPU::PUSH_rr()
 		case HL: m_bus.write(--m_sp, m_registers[L], Bus::Component::CPU); break;
 		case AF: m_bus.write(--m_sp, m_f & 0xF0, Bus::Component::CPU); break;
 		}
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();
 		break;
 	}
 }
@@ -924,8 +908,7 @@ void CPU::POP_rr()
 			m_f = getLSB(m_iState.xx) & 0xF0; 
 			break;
 		}
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();
 		break;
 	}
 }
@@ -948,8 +931,7 @@ void CPU::LD_HL_SP_e()
 		setFH(((m_sp & 0xF) + (static_cast<uint8>(m_iState.e) & 0xF)) & 0x10);
 		setFC(((m_sp & 0xFF) + static_cast<uint8>(m_iState.e)) & 0x100);
 
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();
 		break;
 	}
 }
@@ -965,7 +947,7 @@ void CPU::ADD_r()
 	setFC(m_iState.xx & 0x100);
 
 	m_registers[A] = static_cast<uint8>(m_iState.xx);
-	m_cycleCounter = 0;
+	endInstruction();
 }
 
 void CPU::ADD_HL()
@@ -985,8 +967,7 @@ void CPU::ADD_HL()
 		setFC(m_iState.xx & 0x100);
 
 		m_registers[A] = static_cast<uint8>(m_iState.xx);
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();
 		break;
 	}
 }
@@ -1008,8 +989,7 @@ void CPU::ADD_n()
 		setFC(m_iState.xx & 0x100);
 
 		m_registers[A] = static_cast<uint8>(m_iState.xx);
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();
 		break;
 	}
 }
@@ -1025,7 +1005,7 @@ void CPU::ADC_r()
 	setFC(m_iState.xx & 0x100);
 
 	m_registers[A] = static_cast<uint8>(m_iState.xx);
-	m_cycleCounter = 0;
+	endInstruction();
 }
 
 void CPU::ADC_HL()
@@ -1045,8 +1025,7 @@ void CPU::ADC_HL()
 		setFC(m_iState.xx & 0x100);
 
 		m_registers[A] = static_cast<uint8>(m_iState.xx);
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();
 		break;
 	}
 }
@@ -1068,8 +1047,7 @@ void CPU::ADC_n()
 		setFC(m_iState.xx & 0x100);
 
 		m_registers[A] = static_cast<uint8>(m_iState.xx);
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();
 		break;
 	}
 }
@@ -1085,7 +1063,7 @@ void CPU::SUB_r()
 	setFC(m_iState.xx & 0x100);
 
 	m_registers[A] = static_cast<uint8>(m_iState.xx);
-	m_cycleCounter = 0;
+	endInstruction();
 }
 
 void CPU::SUB_HL()
@@ -1105,8 +1083,7 @@ void CPU::SUB_HL()
 		setFC(m_iState.xx & 0x100);
 
 		m_registers[A] = static_cast<uint8>(m_iState.xx);
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();
 		break;
 	}
 }
@@ -1128,8 +1105,7 @@ void CPU::SUB_n()
 		setFC(m_iState.xx & 0x100);
 
 		m_registers[A] = static_cast<uint8>(m_iState.xx);
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();
 		break;
 	}
 }
@@ -1145,7 +1121,7 @@ void CPU::SBC_r()
 	setFC(m_iState.xx & 0x100);
 
 	m_registers[A] = static_cast<uint8>(m_iState.xx);
-	m_cycleCounter = 0;
+	endInstruction();
 }
 
 void CPU::SBC_HL()
@@ -1165,8 +1141,7 @@ void CPU::SBC_HL()
 		setFC(m_iState.xx & 0x100);
 
 		m_registers[A] = static_cast<uint8>(m_iState.xx);
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();
 		break;
 	}
 }
@@ -1188,8 +1163,7 @@ void CPU::SBC_n()
 		setFC(m_iState.xx & 0x100);
 
 		m_registers[A] = static_cast<uint8>(m_iState.xx);
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();
 		break;
 	}
 }
@@ -1203,7 +1177,7 @@ void CPU::CP_r()
 	setFN(true);
 	setFH(((m_registers[A] & 0xF) - (m_registers[m_iState.x] & 0xF)) & 0x10);
 	setFC(m_iState.xx & 0x100);
-	m_cycleCounter = 0;
+	endInstruction();
 }
 
 void CPU::CP_HL()
@@ -1222,8 +1196,7 @@ void CPU::CP_HL()
 		setFH((m_registers[A] & 0xF) - (m_iState.x & 0xF) & 0x10);
 		setFC(m_iState.xx & 0x100);
 
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();
 		break;
 	}
 }
@@ -1244,8 +1217,7 @@ void CPU::CP_n()
 		setFH((m_registers[A] & 0xF) - (m_iState.x & 0xF) & 0x10);
 		setFC(m_iState.xx & 0x100);
 
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();
 		break;
 	}
 }
@@ -1259,7 +1231,7 @@ void CPU::INC_r()
 	setFH((m_registers[m_iState.x] & 0xF) == 0xF);
 
 	++m_registers[m_iState.x];
-	m_cycleCounter = 0;
+	endInstruction();
 }
 
 void CPU::INC_HL()
@@ -1279,8 +1251,7 @@ void CPU::INC_HL()
 		setFN(false);
 		setFH((m_iState.x & 0xF) == 0xF);
 
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();
 		break;
 	}
 }
@@ -1294,7 +1265,7 @@ void CPU::DEC_r()
 	setFH(((m_registers[m_iState.x] & 0xF) - 1) & 0x10);
 
 	--m_registers[m_iState.x];
-	m_cycleCounter = 0;
+	endInstruction();
 }
 
 void CPU::DEC_HL()
@@ -1314,8 +1285,7 @@ void CPU::DEC_HL()
 		setFN(true);
 		setFH(((m_iState.x & 0xF) - 1) & 0x10);
 
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();
 		break;
 	}
 }
@@ -1330,7 +1300,7 @@ void CPU::AND_r()
 	setFN(false);
 	setFH(true);
 	setFC(false);
-	m_cycleCounter = 0;
+	endInstruction();
 }
 
 void CPU::AND_HL()
@@ -1350,8 +1320,7 @@ void CPU::AND_HL()
 		setFH(true);
 		setFC(false);
 
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();
 		break;
 	}
 }
@@ -1373,8 +1342,7 @@ void CPU::AND_n()
 		setFH(true);
 		setFC(false);
 
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();
 		break;
 	}
 }
@@ -1389,7 +1357,7 @@ void CPU::OR_r()
 	setFN(false);
 	setFH(false);
 	setFC(false);
-	m_cycleCounter = 0;
+	endInstruction();
 }
 
 void CPU::OR_HL()
@@ -1409,8 +1377,7 @@ void CPU::OR_HL()
 		setFH(false);
 		setFC(false);
 
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();
 		break;
 	}
 }
@@ -1432,8 +1399,7 @@ void CPU::OR_n()
 		setFH(false);
 		setFC(false);
 
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();
 		break;
 	}
 }
@@ -1448,7 +1414,7 @@ void CPU::XOR_r()
 	setFN(false);
 	setFH(false);
 	setFC(false);
-	m_cycleCounter = 0;
+	endInstruction();
 }
 
 void CPU::XOR_HL()
@@ -1468,8 +1434,7 @@ void CPU::XOR_HL()
 		setFH(false);
 		setFC(false);
 
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();
 		break;
 	}
 }
@@ -1491,8 +1456,7 @@ void CPU::XOR_n()
 		setFH(false);
 		setFC(false);
 
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();
 		break;
 	}
 }
@@ -1519,7 +1483,7 @@ void CPU::DAA()
 	m_registers[A] = m_iState.x;
 	setFZ(m_registers[A] == 0);
 	setFH(false);
-	m_cycleCounter = 0;
+	endInstruction();
 }
 
 void CPU::CPL()
@@ -1527,7 +1491,7 @@ void CPU::CPL()
 	m_registers[A] = ~m_registers[A];
 	setFN(true);
 	setFH(true);
-	m_cycleCounter = 0;
+	endInstruction();
 }
 
 void CPU::CCF()
@@ -1535,7 +1499,7 @@ void CPU::CCF()
 	setFN(false);
 	setFH(false);
 	setFC(!getFC());
-	m_cycleCounter = 0;
+	endInstruction();
 }
 
 void CPU::SCF()
@@ -1543,7 +1507,7 @@ void CPU::SCF()
 	setFN(false);
 	setFH(false);
 	setFC(true);
-	m_cycleCounter = 0;
+	endInstruction();
 }
 
 void CPU::INC_rr()
@@ -1562,8 +1526,7 @@ void CPU::INC_rr()
 		case HL: setHL(static_cast<uint16>(getHL() + 1)); break;
 		case SP: ++m_sp; break;
 		}
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();
 		break;
 	}
 }
@@ -1584,8 +1547,7 @@ void CPU::DEC_rr()
 		case HL: setHL(static_cast<uint16>(getHL() - 1)); break;
 		case SP: --m_sp; break;
 		}
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();
 		break;
 	}
 }
@@ -1615,8 +1577,7 @@ void CPU::ADD_HL_rr()
 
 		setHL(static_cast<uint16>(result));
 
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();
 		break;
 	}
 }
@@ -1640,8 +1601,7 @@ void CPU::ADD_SP_e()
 		setFC(((m_sp & 0xFF) + static_cast<uint8>(m_iState.e)) & 0x100);
 
 		m_sp = static_cast<uint16>(m_sp + m_iState.e);
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();
 		break;
 	}
 }
@@ -1656,7 +1616,7 @@ void CPU::RLCA()
 	setFN(false);
 	setFH(false);
 	setFC(m_iState.x);
-	m_cycleCounter = 0;
+	endInstruction();
 }
 
 void CPU::RRCA()
@@ -1669,7 +1629,7 @@ void CPU::RRCA()
 	setFN(false);
 	setFH(false);
 	setFC(m_iState.x);
-	m_cycleCounter = 0;
+	endInstruction();
 }
 
 void CPU::RLA()
@@ -1682,7 +1642,7 @@ void CPU::RLA()
 	setFN(false);
 	setFH(false);
 	setFC(m_iState.x);
-	m_cycleCounter = 0;
+	endInstruction();
 }
 
 void CPU::RRA()
@@ -1695,7 +1655,7 @@ void CPU::RRA()
 	setFN(false);
 	setFH(false);
 	setFC(m_iState.x);
-	m_cycleCounter = 0;
+	endInstruction();
 }
 
 void CPU::RLC_r()
@@ -1715,9 +1675,7 @@ void CPU::RLC_r()
 		setFN(false);
 		setFH(false);
 		setFC(m_iState.y);
-
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();
 		break;
 	}
 }
@@ -1744,9 +1702,7 @@ void CPU::RLC_HL()
 		setFN(false);
 		setFH(false);
 		setFC(m_iState.y);
-
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();
 		break;
 	}
 }
@@ -1768,9 +1724,7 @@ void CPU::RRC_r()
 		setFN(false);
 		setFH(false);
 		setFC(m_iState.y);
-
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();
 		break;
 	}
 }
@@ -1797,9 +1751,7 @@ void CPU::RRC_HL()
 		setFN(false);
 		setFH(false);
 		setFC(m_iState.y);
-
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();
 		break;
 	}
 }
@@ -1820,9 +1772,7 @@ void CPU::RL_r()
 		setFN(false);
 		setFH(false);
 		setFC(m_iState.y);
-
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();
 		break;
 	}
 }
@@ -1849,9 +1799,7 @@ void CPU::RL_HL()
 		setFN(false);
 		setFH(false);
 		setFC(m_iState.y);
-
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();
 		break;
 	}
 }
@@ -1873,9 +1821,7 @@ void CPU::RR_r()
 		setFN(false);
 		setFH(false);
 		setFC(m_iState.y);
-
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();
 		break;
 	}
 }
@@ -1902,9 +1848,7 @@ void CPU::RR_HL()
 		setFN(false);
 		setFH(false);
 		setFC(m_iState.y);
-
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();
 		break;
 	}
 }
@@ -1926,9 +1870,7 @@ void CPU::SLA_r() //for some reason this doesnt actually do an arithmetic shift
 		setFN(false);
 		setFH(false);
 		setFC(m_iState.y);
-
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();
 		break;
 	}
 }
@@ -1955,9 +1897,7 @@ void CPU::SLA_HL()
 		setFN(false);
 		setFH(false);
 		setFC(m_iState.y);
-
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();
 		break;
 	}
 }
@@ -1979,9 +1919,7 @@ void CPU::SRA_r() //this actually does an arithmetic shift
 		setFN(false);
 		setFH(false);
 		setFC(m_iState.y);
-
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();
 		break;
 	}
 }
@@ -2008,9 +1946,7 @@ void CPU::SRA_HL()
 		setFN(false);
 		setFH(false);
 		setFC(m_iState.y);
-
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();
 	}
 }
 
@@ -2030,9 +1966,8 @@ void CPU::SWAP_r()
 		setFN(false);
 		setFH(false);
 		setFC(false);
-
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();
+		break;
 	}
 }
 
@@ -2057,9 +1992,7 @@ void CPU::SWAP_HL()
 		setFN(false);
 		setFH(false);
 		setFC(false);
-
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();
 		break;
 	}
 }
@@ -2081,9 +2014,7 @@ void CPU::SRL_r()
 		setFN(false);
 		setFH(false);
 		setFC(m_iState.y);
-
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();
 		break;
 	}
 }
@@ -2110,9 +2041,7 @@ void CPU::SRL_HL()
 		setFN(false);
 		setFH(false);
 		setFC(m_iState.y);
-
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();
 		break;
 	}
 }
@@ -2131,9 +2060,8 @@ void CPU::BIT_b_r()
 		setFZ((m_registers[m_iState.y] & (1 << m_iState.x)) == 0); //shift the bit in the 0 place by b times to check the right bit
 		setFN(false);
 		setFH(true);
-
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();
+		break;
 	}
 }
 
@@ -2153,9 +2081,8 @@ void CPU::BIT_b_HL()
 		setFZ((m_iState.y & (1 << m_iState.x)) == 0);
 		setFN(false);
 		setFH(true);
-
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();
+		break;
 	}
 }
 
@@ -2171,8 +2098,7 @@ void CPU::RES_b_r()
 		m_iState.y = m_ir & 0b111; //r
 
 		m_registers[m_iState.y] &= ~(1 << m_iState.x);
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();
 	}
 }
 
@@ -2192,8 +2118,8 @@ void CPU::RES_b_HL()
 		m_iState.y = (m_ir >> 3) & 0b111; //b
 
 		m_bus.write(getHL(), m_iState.x & ~(1 << m_iState.y), Bus::Component::CPU);
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();
+		break;
 	}
 }
 
@@ -2209,8 +2135,8 @@ void CPU::SET_b_r()
 		m_iState.y = m_ir & 0b111; //r
 
 		m_registers[m_iState.y] |= (1 << m_iState.x);
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();
+		break;
 	}
 }
 
@@ -2230,8 +2156,8 @@ void CPU::SET_b_HL()
 		m_iState.y = (m_ir >> 3) & 0b111; //b
 
 		m_bus.write(getHL(), m_iState.x | (1 << m_iState.y), Bus::Component::CPU);
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();
+		break;
 	}
 }
 
@@ -2250,15 +2176,15 @@ void CPU::JP_nn()
 		break;
 	case 4:
 		m_pc = m_iState.xx;
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();
+		break;
 	}
 }
 
 void CPU::JP_HL()
 {
 	m_pc = getHL();
-	m_cycleCounter = 0;
+	endInstruction();
 }
 
 void CPU::JP_cc_nn()
@@ -2284,15 +2210,11 @@ void CPU::JP_cc_nn()
 		}
 
 		if(m_iState.y) m_pc = m_iState.xx;
-		else
-		{
-			m_cycleCounter = 0;
-			m_currentInstr = nullptr;
-		}
+		else endInstruction();
 		break;
 	case 4:
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();
+		break;
 	}
 }
 
@@ -2308,8 +2230,8 @@ void CPU::JR_e()
 		break;
 	case 3:
 		m_pc += m_iState.e;
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();
+		break;
 	}
 }
 
@@ -2333,15 +2255,10 @@ void CPU::JR_cc_e()
 		}
 
 		if(m_iState.y) m_pc += m_iState.e;
-		else
-		{
-			m_cycleCounter = 0;
-			m_currentInstr = nullptr;
-		}
+		else endInstruction();
 		break;
 	case 3:
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();
 		break;
 	}
 }
@@ -2367,8 +2284,7 @@ void CPU::CALL_nn()
 	case 6:
 		m_bus.write(--m_sp, getLSB(m_pc), Bus::Component::CPU);
 		m_pc = m_iState.xx;
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();
 		break;
 	}
 }
@@ -2395,11 +2311,7 @@ void CPU::CALL_cc_nn()
 		case CARRY: m_iState.y = getFC(); break;
 		}
 
-		if(!m_iState.y)
-		{
-			m_cycleCounter = 0;
-			m_currentInstr = nullptr;
-		}
+		if(!m_iState.y) endInstruction();
 		break;
 	case 4:
 		break;
@@ -2409,8 +2321,7 @@ void CPU::CALL_cc_nn()
 	case 6:
 		m_bus.write(--m_sp, getLSB(m_pc), Bus::Component::CPU);
 		m_pc = m_iState.xx;
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();
 		break;
 	}
 }
@@ -2430,8 +2341,7 @@ void CPU::RET()
 		break;
 	case 4:
 		m_pc = (m_iState.y << 8) | m_iState.x;
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();
 		break;
 	}
 }
@@ -2453,11 +2363,7 @@ void CPU::RET_cc()
 		case CARRY: m_iState.y = getFC(); break;
 		}
 
-		if(!m_iState.y)
-		{
-			m_cycleCounter = 0;
-			m_currentInstr = nullptr;
-		}
+		if(!m_iState.y) endInstruction();
 		break;
 	case 3:
 		m_iState.x = m_bus.read(m_sp++, Bus::Component::CPU);
@@ -2467,8 +2373,7 @@ void CPU::RET_cc()
 		break;
 	case 5:
 		m_pc = (m_iState.y << 8) | m_iState.x;
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();
 		break;
 	}
 }
@@ -2489,8 +2394,7 @@ void CPU::RETI()
 	case 4:
 		m_pc = (m_iState.y << 8) | m_iState.x;
 		m_ime = true;
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();
 		break;
 	}
 }
@@ -2510,8 +2414,7 @@ void CPU::RST_n()
 	case 4:
 		m_bus.write(--m_sp, getLSB(m_pc), Bus::Component::CPU);
 		m_pc = m_ir & 0b111000;
-		m_cycleCounter = 0;
-		m_currentInstr = nullptr;
+		endInstruction();
 		break;
 	}
 }
@@ -2520,30 +2423,29 @@ void CPU::HALT()
 {
 	m_isHalted = true;
 	//if(!m_ime && (m_bus.read(hardwareReg::IF) & m_bus.read(hardwareReg::IE)) != 0) ++m_pc; //HALT bug(its not correct)
-
-	m_cycleCounter = 0;
+	endInstruction();
 }
 
 void CPU::STOP()
 {
 	//TODO
-	m_cycleCounter = 0;
+	endInstruction();
 }
 
 void CPU::DI()
 {
 	m_ime = false;
 	m_imeEnableNextCycle = false;
-	m_cycleCounter = 0;
+	endInstruction();
 }
 
 void CPU::EI()
 {
 	if(!m_imeEnableNextCycle && !m_ime) m_imeEnableNextCycle = true;
-	m_cycleCounter = 0;
+	endInstruction();
 }
 
 void CPU::NOP()
 {
-	m_cycleCounter = 0; //nop
+	endInstruction(); //nop
 }

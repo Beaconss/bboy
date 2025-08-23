@@ -77,5 +77,5 @@ void Timers::write(Index index, uint8 value)
 
 void Timers::requestTimerInterrupt() const
 {
-	m_bus.write(hardwareReg::IF, m_bus.read(hardwareReg::IF, Bus::Component::OTHER) | 0b100, Bus::Component::OTHER); //bit 2 is timer interrupt
+	m_bus.write(hardwareReg::IF, m_bus.read(hardwareReg::IF, Bus::Component::TIMERS) | 0b100, Bus::Component::TIMERS); //bit 2 is timer interrupt
 }

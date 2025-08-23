@@ -69,6 +69,7 @@ void PPU::cycle()
 	++m_tCycleCounter;
 	if(m_tCycleCounter % 4 == 1) //every m-cycle
 	{
+		if(m_ly == 153) m_ly = 0;
 		m_stat = (m_stat & 0b11111100) | m_mode; //bits 1-0 of stat store the current mode
 		updateCoincidenceFlag();
 		handleStatInterrupt();
@@ -90,7 +91,7 @@ void PPU::cycle()
 
 		if(m_tCycleCounter % 2 == 0 && m_spriteBuffer.size() < SPRITE_BUFFER_MAX_SIZE) 
 		{
-			Sprite sprite;
+			Sprite sprite{};
 			m_bus.fillSprite(m_spriteAddress, sprite);
 			tryAddSpriteToBuffer(sprite);
 			m_spriteAddress += 4; //go to next sprite
@@ -108,19 +109,20 @@ void PPU::cycle()
 
 			m_spriteAddress = OAM_MEMORY_START;
 			updateMode(DRAWING);
-			m_backgroundPixelsToDiscard = m_scx % 8; //i think this should be in the first cycle of drawing so the next one but the test pass so if it doesnt create problems
 		}
 		break;
 	}
 	case DRAWING:
 	{
+		constexpr uint8 FIRST_DRAWING_CYCLE{81};
+		if(m_tCycleCounter == FIRST_DRAWING_CYCLE) m_backgroundPixelsToDiscard = m_scx & 7;
 		m_fetcher.cycle();
 		pushToLcd();
 
 		if(m_xPosition == SCREEN_WIDTH) //when the end of the screen is reached
 		{
 			m_xPosition = 0;
-			m_fetcher.clearEndScanline();
+			m_fetcher.resetEndScanline();
 			clearBackgroundFifo();
 			clearSpriteFifo();
 			m_spriteBuffer.clear(); 
@@ -154,7 +156,7 @@ void PPU::cycle()
 			++m_ly;
 			m_tCycleCounter = 0;
 		}
-		constexpr uint16 LAST_VBLANK_SCANLINE{154};
+		constexpr uint16 LAST_VBLANK_SCANLINE{1}; //because at line 153 it goes back to 0 after 4 t-cycles
 		if(m_ly == LAST_VBLANK_SCANLINE)
 		{
 			m_ly = 0;
@@ -211,7 +213,7 @@ void PPU::write(const Index index, const uint8 value)
 			updateMode(H_BLANK);
 			m_stat = (m_stat & 0b11111100) | m_mode; //manually update stat mode bits because if the ppu is disabled they wont update
 		}
-		m_fetcher.updateMode();
+		m_fetcher.updateTilemap();
 		break;
 	case STAT: 
 		m_stat = ((m_stat & 0b111) | (value & ~0b111)) | 0x80; //bit 0-1-2 are read only and bit 7 is always 1
@@ -258,9 +260,9 @@ void PPU::tryAddSpriteToBuffer(const Sprite sprite)
 
 void PPU::pushToLcd()
 {
-	if(!m_pixelFifoBackground.empty() && m_fetcher.m_mode != PixelFetcher::SPRITE)
+	if(!m_pixelFifoBackground.empty() && !m_fetcher.m_spriteBeingFetched)
 	{
-		if(m_backgroundPixelsToDiscard == 0)
+		if(m_backgroundPixelsToDiscard == 0 || m_fetcher.m_isFetchingWindow)
 		{
 			bool pushSpritePixel{shouldPushSpritePixel()};
 

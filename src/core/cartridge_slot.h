@@ -40,7 +40,6 @@ private:
 	void initializeRam();
 	void saveRam();
 	void loadSave();
-	const std::filesystem::path getSaveFileName();
 
 	bool m_isValid;
 	std::filesystem::path m_cartridgePath;
