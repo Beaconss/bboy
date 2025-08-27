@@ -14,13 +14,12 @@ CartridgeSlot::CartridgeSlot()
 	, m_romSize{}
 	, m_ramSize{}
 	, m_romBankIndex{}
-	, m_zeroBankIndex{}
-	, m_highBankIndex{}
 	, m_romBankIndexMask{}
 	, m_ramBankIndex{}
 	, m_modeFlag{}
 	, m_isExternalRamEnabled{}
 {
+	reset();
 }
 
 void CartridgeSlot::reset()
@@ -37,8 +36,7 @@ void CartridgeSlot::reset()
 	m_ramBanks = 0;
 	m_romSize = 0;
 	m_ramSize = 0;
-	m_romBankIndex = 0;
-	m_zeroBankIndex = 0;
+	m_romBankIndex = 1;
 	m_romBankIndexMask = 0;
 	m_ramBankIndex = 0;
 	m_modeFlag = false;
@@ -130,9 +128,14 @@ void CartridgeSlot::loadCartridge(const std::filesystem::path& filePath)
 	initializeRam();
 	if(m_hasBattery) loadSave();
 	m_isValid = true;
+
+	std::cout << "ROM BANKS: " << m_romBanks << '\n'
+		<< "ROM SIZE: " << m_romSize << '\n'
+		<< "RAM BANKS: " << m_ramBanks << '\n'
+		<< "RAM SIZE: " << m_ramSize << '\n';
 }
 
-bool CartridgeSlot::isValid() const
+bool CartridgeSlot::hasCartridge() const
 {
 	return m_isValid;
 }
@@ -140,6 +143,8 @@ bool CartridgeSlot::isValid() const
 uint8 CartridgeSlot::readRom(const uint16 addr) const
 {
 	constexpr unsigned int ROM_BANK_0_END{0x3FFF};
+	constexpr unsigned int ROM_BANK_1_END{0x7FFF};
+	if(addr > 0x7FFF) __debugbreak();
 	switch(m_mbc)
 	{
 	case NONE: return m_rom[addr];
@@ -147,10 +152,22 @@ uint8 CartridgeSlot::readRom(const uint16 addr) const
 	{
 		if(addr <= ROM_BANK_0_END)
 		{
-			if(m_modeFlag) return m_rom[KB_16 * m_zeroBankIndex + addr];
+			uint8 zeroBankIndex{};
+			if(m_romBanks <= 32);
+			else if(m_romBanks == 64) zeroBankIndex = (m_ramBankIndex & 1) << 5;
+			else zeroBankIndex = m_ramBankIndex << 5;
+
+			if(m_modeFlag) return m_rom[KB_16 * zeroBankIndex + addr];
 			else return m_rom[addr];
 		}
-		else return m_rom[KB_16 * m_highBankIndex + (addr - KB_16)];//so rom bank 1
+		else
+		{
+			uint8 highBankIndex{};
+			if(m_romBanks <= 32) highBankIndex = m_romBankIndex & m_romBankIndexMask;
+			else if(m_romBanks == 64) highBankIndex = ((m_romBankIndex & m_romBankIndexMask) & ~0b100000) | ((m_ramBankIndex & 1) << 5);
+			else highBankIndex = ((m_romBankIndex & m_romBankIndexMask) & ~0b110'0000) | (m_ramBankIndex << 5);
+			return m_rom[KB_16 * highBankIndex + (addr - 0x4000)]; //so rom bank 1
+		}
 	}
 	break;
 	case MBC2:
@@ -174,32 +191,17 @@ void CartridgeSlot::writeRom(const uint16 addr, const uint8 value)
 		constexpr int MODE_SELECT_END{0x7FFF};
 		if(addr <= ENABLE_RAM_END)
 		{
-			if((value & 0xF) == 0xA) m_isExternalRamEnabled = true;
+			if((value & 0xF) == 0xA && m_hasRam) m_isExternalRamEnabled = true;
 			else m_isExternalRamEnabled = false;
 		}
 		else if(addr <= ROM_BANK_END)
 		{
-			if(value == 0) m_romBankIndex = 1;
+			if((value & 0x1F) == 0) m_romBankIndex = 1; //mask first 5 bits because the rom bank index internally is a 5 bit unsigned number
 			else m_romBankIndex = value & m_romBankIndexMask;
-
-			if(m_romBanks <= 32) m_highBankIndex = m_romBankIndex & m_romBankIndexMask;
-			else if(m_romBanks == 64) m_highBankIndex = ((m_romBankIndex & m_romBankIndexMask) & ~0b100000) | ((m_ramBankIndex & 1) << 5);
-			else m_highBankIndex = ((m_romBankIndex & m_romBankIndexMask) & ~0b110'0000) | (m_ramBankIndex << 5); //always 128 for mbc1
 		}
 		else if(addr <= RAM_BANK_END)
 		{
 			m_ramBankIndex = value & 0b11;
-			if(m_romBanks <= 32);
-			else if(m_romBanks == 64) 
-			{
-				m_zeroBankIndex = m_ramBankIndex & 1 << 5;
-				m_highBankIndex = ((m_romBankIndex & m_romBankIndexMask) & ~0b100000) | ((m_ramBankIndex & 1) << 5);
-			}
-			else 
-			{
-				m_zeroBankIndex = m_ramBankIndex << 5;
-				m_highBankIndex = ((m_romBankIndex & m_romBankIndexMask) & ~0b110'0000) | (m_ramBankIndex << 5);
-			}
 		}
 		else m_modeFlag = value & 1; //so mode select
 	}
@@ -317,6 +319,7 @@ void CartridgeSlot::initializeRam()
 		default: m_ramBanks = 0; break;
 		}
 	}
+	else m_ramBanks = 0;
 	if(m_ramSize != KB_2) m_ramSize = m_ramBanks * KB_8;
 
 	m_ram.resize(m_ramSize);
@@ -334,7 +337,7 @@ void CartridgeSlot::loadSave()
 	std::ifstream saveFile(m_cartridgePath.replace_extension(".sav"), std::ios::binary);
 	if(saveFile.fail())
 	{
-		std::cout << "No save file found or couldn't open it";
+		std::cout << "No save file found or couldn't open it\n";
 		return;
 	}
 	saveFile.read(reinterpret_cast<char*>(m_ram.data()), m_ram.size());

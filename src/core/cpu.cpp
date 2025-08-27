@@ -503,10 +503,9 @@ void CPU::LD_r_r2()
 {
 	m_iState.x = (m_ir >> 3) & 0b111; //r
 	m_iState.y = m_ir & 0b111; //r2
-	//if(m_iState.x == 1 && m_iState.y == 7) __debugbreak();
 
 	m_registers[m_iState.x] = m_registers[m_iState.y];
-	endInstruction(); //reset cycles counter at the end of each instruction
+	m_cycleCounter = 0;
 }
 
 void CPU::LD_r_n()
@@ -947,7 +946,7 @@ void CPU::ADD_r()
 	setFC(m_iState.xx & 0x100);
 
 	m_registers[A] = static_cast<uint8>(m_iState.xx);
-	endInstruction();
+	m_cycleCounter = 0;
 }
 
 void CPU::ADD_HL()
@@ -1005,7 +1004,7 @@ void CPU::ADC_r()
 	setFC(m_iState.xx & 0x100);
 
 	m_registers[A] = static_cast<uint8>(m_iState.xx);
-	endInstruction();
+	m_cycleCounter = 0;
 }
 
 void CPU::ADC_HL()
@@ -1063,7 +1062,7 @@ void CPU::SUB_r()
 	setFC(m_iState.xx & 0x100);
 
 	m_registers[A] = static_cast<uint8>(m_iState.xx);
-	endInstruction();
+	m_cycleCounter = 0;
 }
 
 void CPU::SUB_HL()
@@ -1121,7 +1120,7 @@ void CPU::SBC_r()
 	setFC(m_iState.xx & 0x100);
 
 	m_registers[A] = static_cast<uint8>(m_iState.xx);
-	endInstruction();
+	m_cycleCounter = 0;
 }
 
 void CPU::SBC_HL()
@@ -1177,7 +1176,7 @@ void CPU::CP_r()
 	setFN(true);
 	setFH(((m_registers[A] & 0xF) - (m_registers[m_iState.x] & 0xF)) & 0x10);
 	setFC(m_iState.xx & 0x100);
-	endInstruction();
+	m_cycleCounter = 0;
 }
 
 void CPU::CP_HL()
@@ -1231,7 +1230,7 @@ void CPU::INC_r()
 	setFH((m_registers[m_iState.x] & 0xF) == 0xF);
 
 	++m_registers[m_iState.x];
-	endInstruction();
+	m_cycleCounter = 0;
 }
 
 void CPU::INC_HL()
@@ -1265,7 +1264,7 @@ void CPU::DEC_r()
 	setFH(((m_registers[m_iState.x] & 0xF) - 1) & 0x10);
 
 	--m_registers[m_iState.x];
-	endInstruction();
+	m_cycleCounter = 0;
 }
 
 void CPU::DEC_HL()
@@ -1300,7 +1299,7 @@ void CPU::AND_r()
 	setFN(false);
 	setFH(true);
 	setFC(false);
-	endInstruction();
+	m_cycleCounter = 0;
 }
 
 void CPU::AND_HL()
@@ -1357,7 +1356,7 @@ void CPU::OR_r()
 	setFN(false);
 	setFH(false);
 	setFC(false);
-	endInstruction();
+	m_cycleCounter = 0;
 }
 
 void CPU::OR_HL()
@@ -1414,7 +1413,7 @@ void CPU::XOR_r()
 	setFN(false);
 	setFH(false);
 	setFC(false);
-	endInstruction();
+	m_cycleCounter = 0;
 }
 
 void CPU::XOR_HL()
@@ -1483,7 +1482,7 @@ void CPU::DAA()
 	m_registers[A] = m_iState.x;
 	setFZ(m_registers[A] == 0);
 	setFH(false);
-	endInstruction();
+	m_cycleCounter = 0;
 }
 
 void CPU::CPL()
@@ -1491,7 +1490,7 @@ void CPU::CPL()
 	m_registers[A] = ~m_registers[A];
 	setFN(true);
 	setFH(true);
-	endInstruction();
+	m_cycleCounter = 0;
 }
 
 void CPU::CCF()
@@ -1499,7 +1498,7 @@ void CPU::CCF()
 	setFN(false);
 	setFH(false);
 	setFC(!getFC());
-	endInstruction();
+	m_cycleCounter = 0;
 }
 
 void CPU::SCF()
@@ -1507,7 +1506,7 @@ void CPU::SCF()
 	setFN(false);
 	setFH(false);
 	setFC(true);
-	endInstruction();
+	m_cycleCounter = 0;
 }
 
 void CPU::INC_rr()
@@ -1616,7 +1615,7 @@ void CPU::RLCA()
 	setFN(false);
 	setFH(false);
 	setFC(m_iState.x);
-	endInstruction();
+	m_cycleCounter = 0;
 }
 
 void CPU::RRCA()
@@ -1629,7 +1628,7 @@ void CPU::RRCA()
 	setFN(false);
 	setFH(false);
 	setFC(m_iState.x);
-	endInstruction();
+	m_cycleCounter = 0;
 }
 
 void CPU::RLA()
@@ -1642,7 +1641,7 @@ void CPU::RLA()
 	setFN(false);
 	setFH(false);
 	setFC(m_iState.x);
-	endInstruction();
+	m_cycleCounter = 0;
 }
 
 void CPU::RRA()
@@ -1655,7 +1654,7 @@ void CPU::RRA()
 	setFN(false);
 	setFH(false);
 	setFC(m_iState.x);
-	endInstruction();
+	m_cycleCounter = 0;
 }
 
 void CPU::RLC_r()
@@ -2184,7 +2183,7 @@ void CPU::JP_nn()
 void CPU::JP_HL()
 {
 	m_pc = getHL();
-	endInstruction();
+	m_cycleCounter = 0;
 }
 
 void CPU::JP_cc_nn()
@@ -2423,29 +2422,29 @@ void CPU::HALT()
 {
 	m_isHalted = true;
 	//if(!m_ime && (m_bus.read(hardwareReg::IF) & m_bus.read(hardwareReg::IE)) != 0) ++m_pc; //HALT bug(its not correct)
-	endInstruction();
+	m_cycleCounter = 0;
 }
 
 void CPU::STOP()
 {
 	//TODO
-	endInstruction();
+	m_cycleCounter = 0;
 }
 
 void CPU::DI()
 {
 	m_ime = false;
 	m_imeEnableNextCycle = false;
-	endInstruction();
+	m_cycleCounter = 0;
 }
 
 void CPU::EI()
 {
 	if(!m_imeEnableNextCycle && !m_ime) m_imeEnableNextCycle = true;
-	endInstruction();
+	m_cycleCounter = 0;
 }
 
 void CPU::NOP()
 {
-	endInstruction(); //nop
+	m_cycleCounter = 0; //nop
 }

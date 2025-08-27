@@ -14,6 +14,7 @@ class Gameboy
 {
 public:
 	Gameboy();
+	~Gameboy();
 	void cycle();
 	void reset();
 	bool hasRom() const;

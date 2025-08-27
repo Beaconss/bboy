@@ -12,9 +12,9 @@ Bus::Bus(Gameboy& gb)
 	, m_dmaTransferEnableNextCycle{}
 {
 	constexpr unsigned int KB_64{0x10000};
-	m_memory.resize(KB_64); //32 kbs are not even used but I think its ok to have less overhead
+	m_memory.resize(KB_64); //32 kbs are not used but its ok to have less overhead
 	reset();
-	m_cartridgeSlot.loadCartridge("test/acceptance/ppu/stat_lyc_onoff.gb");
+	m_cartridgeSlot.loadCartridge("");
 }
 
 void Bus::reset()
@@ -66,7 +66,7 @@ void Bus::cycle()
 
 bool Bus::hasRom() const
 {
-	return m_cartridgeSlot.isValid();
+	return m_cartridgeSlot.hasCartridge();
 }
 
 uint8 Bus::read(const uint16 addr, const Component component) const
@@ -104,6 +104,9 @@ uint8 Bus::read(const uint16 addr, const Component component) const
 			if(addrInOam || (m_isVramBusBlocked && addrInVram) || (m_isExternalBusBlocked && isInExternalBus(addr))) return 0xFF;
 		}
 
+		if(addr <= ROM_BANK_1.second) return m_cartridgeSlot.readRom(addr);
+		else if(addr >= EXTERNAL_RAM.first && addr <= EXTERNAL_RAM.second) return m_cartridgeSlot.readRam(addr);
+
 		if(component == Component::CPU)
 		{
 			const bool addrInOam{addr >= OAM.first && addr <= OAM.second};
@@ -112,9 +115,6 @@ uint8 Bus::read(const uint16 addr, const Component component) const
 			if((ppuMode == PPU::OAM_SCAN && addrInOam) || (ppuMode == PPU::DRAWING && (addrInOam || addrInVram))) return 0xFF;
 		}
 
-		if(addr <= ROM_BANK_1.second) return m_cartridgeSlot.readRom(addr);
-		else if(addr >= EXTERNAL_RAM.first && addr <= EXTERNAL_RAM.second) return m_cartridgeSlot.readRam(addr);
-		
 		return m_memory[addr];
 	}
 	}
@@ -158,15 +158,7 @@ void Bus::write(const uint16 addr, const uint8 value, const Component component)
 			if(addrInOam || (m_isVramBusBlocked && addrInVram) || (m_isExternalBusBlocked && isInExternalBus(addr))) return;
 		}
 
-		if(component == Component::CPU && m_gameboy.m_ppu.isEnabled())
-		{
-			const PPU::Mode ppuMode{m_gameboy.m_ppu.getCurrentMode()};
-			const bool addrInOam{addr >= OAM.first && addr <= OAM.second};
-			const bool addrInVram{addr >= VRAM.first && addr <= VRAM.second};
-			if((ppuMode == PPU::OAM_SCAN && addrInOam) || (ppuMode == PPU::DRAWING && (addrInOam || addrInVram))) return;
-		}
-
-		if(addr <= ROM_BANK_1.second) 
+		if(addr <= ROM_BANK_1.second)
 		{
 			m_cartridgeSlot.writeRom(addr, value);
 			return;
@@ -175,6 +167,14 @@ void Bus::write(const uint16 addr, const uint8 value, const Component component)
 		{
 			m_cartridgeSlot.writeRam(addr, value);
 			return;
+		}
+
+		if(component == Component::CPU && m_gameboy.m_ppu.isEnabled())
+		{
+			const PPU::Mode ppuMode{m_gameboy.m_ppu.getCurrentMode()};
+			const bool addrInOam{addr >= OAM.first && addr <= OAM.second};
+			const bool addrInVram{addr >= VRAM.first && addr <= VRAM.second};
+			if((ppuMode == PPU::OAM_SCAN && addrInOam) || (ppuMode == PPU::DRAWING && (addrInOam || addrInVram))) return;
 		}
 
 		m_memory[addr] = value;

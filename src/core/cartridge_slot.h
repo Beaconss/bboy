@@ -13,7 +13,7 @@ public:
 	
 	void reset();
 	void loadCartridge(const std::filesystem::path& filePath);
-	bool isValid() const;
+	bool hasCartridge() const;
 	uint8 readRom(const uint16 addr) const;
 	void writeRom(const uint16 addr, const uint8 value);
 	uint8 readRam(const uint16 addr) const;
@@ -57,9 +57,7 @@ private:
 	uint32 m_ramSize;
 
 	uint8 m_romBankIndex;
-	uint16 m_zeroBankIndex;
-	uint16 m_highBankIndex;
-	uint16 m_romBankIndexMask;
+	uint8 m_romBankIndexMask;
 	uint8 m_ramBankIndex;
 	bool m_modeFlag;
 	bool m_isExternalRamEnabled;

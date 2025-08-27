@@ -96,8 +96,7 @@ private:
 	void pushToLcd();
 	bool shouldPushSpritePixel() const;
 
-	void clearBackgroundFifo();
-	void clearSpriteFifo();
+	void clearFifos();
 
 	void requestStatInterrupt() const;
 	void requestVBlankInterrupt() const;
@@ -128,8 +127,8 @@ private:
 	std::vector<Sprite> m_spriteBuffer;
 	uint16 m_spriteAddress;
 
-	std::queue<Pixel> m_pixelFifoBackground;
-	std::queue<Pixel> m_pixelFifoSprite;
+	std::deque<Pixel> m_pixelFifoBackground;
+	std::deque<Pixel> m_pixelFifoSprite;
 	
 	uint8 m_lcdc; //LCD control
 	uint8 m_stat; //LDC status

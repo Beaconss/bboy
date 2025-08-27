@@ -28,6 +28,7 @@ private:
 	void checkForSprite();
 	void pushToBackgroundFifo();
 	void pushToSpriteFifo();
+	uint8 flipByte(uint8 byte) const;
 
 	PPU& m_ppu;
 	T* m_spriteBeingFetched;

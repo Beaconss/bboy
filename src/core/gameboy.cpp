@@ -9,6 +9,11 @@ Gameboy::Gameboy()
 {
 }
 
+Gameboy::~Gameboy()
+{
+	reset();
+}
+
 void Gameboy::cycle() //1 machine cycle
 {
 	m_bus.cycle();

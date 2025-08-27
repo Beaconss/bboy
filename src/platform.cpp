@@ -42,23 +42,16 @@ void Platform::mainLoop(Gameboy& gameboy)
             if(m_event.type == SDL_EVENT_QUIT) 
             {
                 m_running = false;
-                gameboy.reset();
             }
             else if(m_event.type == SDL_EVENT_KEY_DOWN && m_event.key.scancode == SDL_SCANCODE_SPACE)
             {
                 static bool a{};
-                if(a)
-                {
-                    SDL_SetRenderVSync(m_renderer, 0);
-                }
-                else
-                {
-                    SDL_SetRenderVSync(m_renderer, 1);
-                }
-                a = !a;
+                if(a) SDL_SetRenderVSync(m_renderer, 0);
+                else SDL_SetRenderVSync(m_renderer, 1);
+                a ^= 1;
             }
         }
-
+     
         if(gameboy.hasRom())
         {
             for(int i{}; i < CYCLES_PER_FRAME; ++i)
