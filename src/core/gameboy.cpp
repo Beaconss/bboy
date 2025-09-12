@@ -16,7 +16,7 @@ Gameboy::~Gameboy()
 
 void Gameboy::cycle() //1 machine cycle
 {
-	m_bus.cycle();
+	m_bus.handleDmaTransfer();
 	m_cpu.cycle(); 
 	for(int i{0}; i < 4; ++i)  //both timers and ppu works with t-cycles, so 4 for machine cycle
 	{

@@ -10,7 +10,7 @@ PPU::PPU(Bus& bus)
 	, m_lcdBuffer{}
 	, m_lcdPixels{}
 	, m_xPosition{}
-	, m_backgroundPixelsToDiscard{}
+	, m_pixelsToDiscard{}
 	, m_spriteBuffer{}
 	, m_spriteAddress{OAM_MEMORY_START}
 	, m_pixelFifoBackground{}
@@ -41,7 +41,7 @@ void PPU::reset()
 	std::ranges::fill(m_lcdBuffer, 0);
 	std::ranges::fill(m_lcdPixels, Pixel{});
 	m_xPosition = 0;
-	m_backgroundPixelsToDiscard = 0;
+	m_pixelsToDiscard = 0;
 	m_spriteBuffer.clear();
 	m_spriteAddress = OAM_MEMORY_START;
 	clearFifos();
@@ -60,13 +60,10 @@ void PPU::reset()
 
 void PPU::cycle()
 {
-	if(!(m_lcdc & 0x80))
-	{
-		return;
-	}
+	if(!(m_lcdc & 0x80)) return;
 
 	++m_tCycleCounter;
-	if(m_tCycleCounter % 4 == 1) //every m-cycle
+	if(m_tCycleCounter % 4 == 0) //every m-cycle
 	{
 		if(m_ly == 153) m_ly = 0;
 		m_stat = (m_stat & 0b11111100) | m_mode; //bits 1-0 of stat store the current mode
@@ -114,7 +111,7 @@ void PPU::cycle()
 	case DRAWING:
 	{
 		constexpr uint8 FIRST_DRAWING_CYCLE{81};
-		if(m_tCycleCounter == FIRST_DRAWING_CYCLE) m_backgroundPixelsToDiscard = m_scx & 7;
+		if(m_tCycleCounter == FIRST_DRAWING_CYCLE) m_pixelsToDiscard = m_scx & 7;
 		m_fetcher.cycle();
 		pushToLcd();
 
@@ -261,7 +258,7 @@ void PPU::pushToLcd()
 	if(!m_pixelFifoBackground.empty() && !m_fetcher.m_spriteBeingFetched)
 	{
 		Pixel pixel{};
-		if(m_backgroundPixelsToDiscard == 0 || m_fetcher.m_isFetchingWindow)
+		if(m_pixelsToDiscard == 0)
 		{
 			bool pushSpritePixel{shouldPushSpritePixel()};
 			if(pushSpritePixel)
@@ -287,7 +284,7 @@ void PPU::pushToLcd()
 			}
 			++m_xPosition;
 		}
-		else --m_backgroundPixelsToDiscard;
+		else --m_pixelsToDiscard;
 
 		m_pixelFifoBackground.pop_front();
 		if(!m_pixelFifoSprite.empty()) m_pixelFifoSprite.pop_front();

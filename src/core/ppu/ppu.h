@@ -41,7 +41,7 @@ public:
 
 	struct Sprite
 	{
-		uint8 yPosition{}; //byte 0 
+		uint8 yPosition{0xFF}; //byte 0(0xFF is offscreen) 
 		uint8 xPosition{}; //byte 1
 		uint8 tileNumber{}; //byte 2
 		uint8 flags{}; //byte 3
@@ -122,7 +122,7 @@ private:
 	std::array<uint16, SCREEN_WIDTH * SCREEN_HEIGHT> m_lcdBuffer;
 	std::array<Pixel, SCREEN_WIDTH* SCREEN_HEIGHT> m_lcdPixels;
 	int m_xPosition; //x position of the pixel to output
-	int m_backgroundPixelsToDiscard;
+	int m_pixelsToDiscard;
 
 	std::vector<Sprite> m_spriteBuffer;
 	uint16 m_spriteAddress;

@@ -24,7 +24,7 @@ CartridgeSlot::CartridgeSlot()
 
 void CartridgeSlot::reset()
 {
-	if(m_hasBattery) saveRam();
+	if(m_hasRam && m_hasBattery) saveRam();
 	m_isValid = false;
 	std::ranges::fill(m_rom, 0);
 	std::ranges::fill(m_ram, 0);
@@ -115,24 +115,31 @@ void CartridgeSlot::loadCartridge(const std::filesystem::path& filePath)
 		m_hasBattery = true;
 	case 0x1C:
 		m_mbc = MBC5;
+		m_hasRumble = true;
 	case 0x1D:
 		m_mbc = MBC5;
 		m_hasRam = true;
+		m_hasRumble = true;
 	case 0x1E:
 		m_mbc = MBC5;
 		m_hasRam = true;
 		m_hasBattery = true;
+		m_hasRumble = true;
 	}
 
 	initializeRom();
 	initializeRam();
-	if(m_hasBattery) loadSave();
+	if(m_hasRam && m_hasBattery) loadSave();
 	m_isValid = true;
 
-	std::cout << "ROM BANKS: " << m_romBanks << '\n'
-		<< "ROM SIZE: " << m_romSize << '\n'
-		<< "RAM BANKS: " << m_ramBanks << '\n'
-		<< "RAM SIZE: " << m_ramSize << '\n';
+	std::cout << "Rom banks: " << m_romBanks << '\n'
+		<< "Rom size: " << m_romSize << '\n'
+		<< "Ram banks: " << m_ramBanks << '\n'
+		<< "Ram size: " << m_ramSize << '\n'
+		<< "Has ram: " << (m_hasRam ? "Yes\n" : "No\n")
+		<< "Has battery: " << (m_hasBattery ? "Yes\n" : "No\n")
+		<< "Has rumble: " << (m_hasRumble ? "Yes\n" : "No\n")
+		<< "Mbc type: " << MBC_TYPES[m_mbc] << '\n';
 }
 
 bool CartridgeSlot::hasCartridge() const
@@ -142,15 +149,13 @@ bool CartridgeSlot::hasCartridge() const
 
 uint8 CartridgeSlot::readRom(const uint16 addr) const
 {
-	constexpr unsigned int ROM_BANK_0_END{0x3FFF};
-	constexpr unsigned int ROM_BANK_1_END{0x7FFF};
-	if(addr > 0x7FFF) __debugbreak();
+	using namespace MemoryRegions;
 	switch(m_mbc)
 	{
 	case NONE: return m_rom[addr];
 	case MBC1:
 	{
-		if(addr <= ROM_BANK_0_END)
+		if(addr <= ROM_BANK_0.second)
 		{
 			uint8 zeroBankIndex{};
 			if(m_romBanks <= 32);
@@ -170,8 +175,10 @@ uint8 CartridgeSlot::readRom(const uint16 addr) const
 		}
 	}
 	break;
-	case MBC2:
+	case MBC5:
 	{
+		if(addr <= ROM_BANK_0.second) return m_rom[addr];
+		else return m_rom[0x4000 * m_romBankIndex +(addr - 0x4000)];
 	}
 	break;
 	}
@@ -180,34 +187,52 @@ uint8 CartridgeSlot::readRom(const uint16 addr) const
 
 void CartridgeSlot::writeRom(const uint16 addr, const uint8 value)
 {
+	using namespace MemoryRegions;
 	switch(m_mbc)
 	{
 	case NONE: return;
 	case MBC1:
 	{
 		constexpr int ENABLE_RAM_END{0x1FFF};
-		constexpr int ROM_BANK_END{0x3FFF};
 		constexpr int RAM_BANK_END{0x5FFF};
-		constexpr int MODE_SELECT_END{0x7FFF};
 		if(addr <= ENABLE_RAM_END)
 		{
 			if((value & 0xF) == 0xA && m_hasRam) m_isExternalRamEnabled = true;
 			else m_isExternalRamEnabled = false;
 		}
-		else if(addr <= ROM_BANK_END)
+		else if(addr <= ROM_BANK_0.second)
 		{
-			if((value & 0x1F) == 0) m_romBankIndex = 1; //mask first 5 bits because the rom bank index internally is a 5 bit unsigned number
+			if((value & 0x1F) == 0) m_romBankIndex = 1; //the rom bank index is a 5 bit unsigned number
 			else m_romBankIndex = value & m_romBankIndexMask;
 		}
-		else if(addr <= RAM_BANK_END)
-		{
-			m_ramBankIndex = value & 0b11;
-		}
+		else if(addr <= RAM_BANK_END) m_ramBankIndex = value & 0b11;
 		else m_modeFlag = value & 1; //so mode select
 	}
 	break;
-	case MBC2:
+	case MBC5:
 	{
+		constexpr int ENABLE_RAM_END{0x1FFF};
+		constexpr int ROM_BANK_LOW_END{0x2FFF};
+		constexpr int RAM_BANK_END{0x5FFF};
+		if(addr <= ENABLE_RAM_END)
+		{
+			if((value & 0xF) == 0xA && m_hasRam && m_ramBanks > 0) m_isExternalRamEnabled = true;
+			else m_isExternalRamEnabled = false;
+		}
+		else if(addr <= ROM_BANK_LOW_END) 
+		{
+			m_romBankIndex = (m_romBankIndex & 0b1'0000'0000) | value;
+			m_romBankIndex &= m_romBanks - 1;
+		}
+		else if(addr <= ROM_BANK_0.second) 
+		{
+			m_romBankIndex = (m_romBankIndex & 0b0'1111'1111) | ((value & 1) << 8);
+			m_romBankIndex &= m_romBanks - 1;
+		}
+		else if(addr <= RAM_BANK_END) 
+		{
+			m_ramBankIndex = value & (m_hasRumble ? 0b111 : 0xF);
+		}
 	}
 	break;
 	}
@@ -217,21 +242,17 @@ uint8 CartridgeSlot::readRam(const uint16 addr) const
 {
 	if(!m_isExternalRamEnabled) return 0xFF;
 
+	using namespace MemoryRegions;
 	switch(m_mbc)
 	{
 	case NONE: return 0xFF;
 	case MBC1:
 	{
-		constexpr unsigned int EXTERNAL_RAM_START{0xA000};
-		if(m_ramBanks == 1) return m_ram[(addr - EXTERNAL_RAM_START) % m_ramSize];
-		else return m_ram[m_modeFlag ? KB_8 * m_ramBankIndex + (addr - EXTERNAL_RAM_START) : addr - EXTERNAL_RAM_START]; //always 4 on mbc1(assuming its not a faulty rom)
-
+		if(m_ramBanks == 1) return m_ram[(addr - EXTERNAL_RAM.first) % m_ramSize];
+		else return m_ram[m_modeFlag ? KB_8 * m_ramBankIndex + (addr - EXTERNAL_RAM.first) : addr - EXTERNAL_RAM.first]; //always 4 on mbc1(assuming its not a faulty rom)
 	}
 	break;
-	case MBC2:
-	{
-	}
-	break;
+	case MBC5: return m_ram[KB_8 * m_ramBankIndex + (addr - EXTERNAL_RAM.first)];
 	}
 	return 0xFF;
 }
@@ -240,20 +261,19 @@ void CartridgeSlot::writeRam(const uint16 addr, const uint8 value)
 {
 	if(!m_isExternalRamEnabled) return;
 
+	constexpr unsigned int EXTERNAL_RAM_START{0xA000};
 	switch(m_mbc)
 	{
 	case NONE: return;
 	case MBC1:
 	{
-		constexpr unsigned int EXTERNAL_RAM_START{0xA000};
 		if(m_ramBanks == 1) m_ram[(addr - EXTERNAL_RAM_START) % m_ramSize] = value;
 		else m_ram[m_modeFlag ? KB_8 * m_ramBankIndex + (addr - EXTERNAL_RAM_START) : addr - EXTERNAL_RAM_START] = value; //always 4 on mbc1(assuming its not a faulty rom)
 	}
 	break;
-	case MBC2:
-	{
-	}
-	break;
+	case MBC5:
+		m_ram[KB_8 * m_ramBankIndex + (addr - EXTERNAL_RAM_START)] = value;
+		break;
 	}
 }
 
@@ -298,8 +318,11 @@ void CartridgeSlot::initializeRom()
 	m_romBanks = romBanks;
 
 	m_romSize = romBanks * KB_16;
-	m_romBankIndexMask = std::min(m_romSize / KB_32, 0b1'0000u);
-	m_romBankIndexMask |= m_romBankIndexMask - 1; //fill every less significant bit
+	if(m_mbc == MBC1)
+	{
+		m_romBankIndexMask = std::min(m_romSize / KB_32, 0b1'0000u);
+		m_romBankIndexMask |= m_romBankIndexMask - 1; //fill every less significant bit
+	}
 	m_rom.resize(m_romSize);
 }
 
@@ -316,10 +339,14 @@ void CartridgeSlot::initializeRam()
 		case 0x3: m_ramBanks = 4; break;
 		case 0x4: m_ramBanks = 16; break;
 		case 0x5: m_ramBanks = 8; break;
-		default: m_ramBanks = 0; break;
+		default:
+			m_ramBanks = 0; 
+			m_hasRam = false;
+			break;
 		}
 	}
 	else m_ramBanks = 0;
+
 	if(m_ramSize != KB_2) m_ramSize = m_ramBanks * KB_8;
 
 	m_ram.resize(m_ramSize);

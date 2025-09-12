@@ -1,6 +1,8 @@
 #pragma once
 #include "../type_alias.h"
+#include "../memory_regions.h"
 
+#include <array>
 #include <vector>
 #include <fstream>
 #include <algorithm>
@@ -29,6 +31,15 @@ private:
 		MBC5,
 	};
 
+	static constexpr std::array<const char*, 5> MBC_TYPES
+	{
+		"None",
+		"Mbc1",
+		"Mbc2",
+		"Mbc3",
+		"Mbc5",
+	};
+
 	static constexpr unsigned int KB_2{0x800};
 	static constexpr unsigned int KB_8{0x2000};
 	static constexpr unsigned int KB_16{0x4000};
@@ -50,14 +61,15 @@ private:
 	bool m_hasRam;
 	bool m_hasBattery;
 	bool m_hasClock;
+	bool m_hasRumble;
 
 	uint16 m_romBanks;
 	uint16 m_ramBanks;
 	uint32 m_romSize;
 	uint32 m_ramSize;
 
-	uint8 m_romBankIndex;
-	uint8 m_romBankIndexMask;
+	uint16 m_romBankIndex;
+	uint16 m_romBankIndexMask;
 	uint8 m_ramBankIndex;
 	bool m_modeFlag;
 	bool m_isExternalRamEnabled;

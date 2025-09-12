@@ -5,7 +5,6 @@
 #include <iostream>
 #include <array>
 #include <string>
-#include <chrono>
 #include <thread>
 
 constexpr int SCREEN_WIDTH{160};

@@ -62,6 +62,7 @@ void CPU::cycle()
 	else
 	{
 		fetch();
+		//if(m_pc == 0x4bd8 || m_pc == 0x1b1) __debugbreak();
 		execute();
 	}
 }
@@ -102,7 +103,6 @@ void CPU::interruptRoutine()
 		m_bus.write(--m_sp, getMSB(m_pc), Bus::Component::CPU);
 		//here if the interrupt currently dispatching gets disabled it checks if 
 		//there's another one to continue the dispatching with and if not it cancels the dispatching
-		//(im not sure about this but it pass the test)
 		if(m_sp == hardwareReg::IE && !(getMSB(m_pc) & (1 << m_interruptIndex))) 
 		{
 			bool anotherInterruptPending{false};
@@ -119,7 +119,6 @@ void CPU::interruptRoutine()
 			{
 				m_pc = 0;
 				endInstruction();
-				
 			}
 		}
 		break;
@@ -1621,7 +1620,6 @@ void CPU::RLCA()
 void CPU::RRCA()
 {
 	m_iState.x = (m_registers[A] & 1) << 7; //bit out
-
 	m_registers[A] = (m_registers[A] >> 1) | m_iState.x;
 
 	setFZ(false);
@@ -1634,7 +1632,6 @@ void CPU::RRCA()
 void CPU::RLA()
 {
 	m_iState.x = m_registers[A] >> 7; //bit out
-
 	m_registers[A] = (m_registers[A] << 1) | static_cast<uint8>(getFC());
 
 	setFZ(false);
@@ -1647,7 +1644,6 @@ void CPU::RLA()
 void CPU::RRA()
 {
 	m_iState.x = m_registers[A] & 1; //bit out
-
 	m_registers[A] = (m_registers[A] >> 1) | (static_cast<uint8>(getFC()) << 7);
 
 	setFZ(false);
@@ -1852,7 +1848,7 @@ void CPU::RR_HL()
 	}
 }
 
-void CPU::SLA_r() //for some reason this doesnt actually do an arithmetic shift
+void CPU::SLA_r()
 {
 	switch(m_cycleCounter)
 	{
@@ -1901,7 +1897,7 @@ void CPU::SLA_HL()
 	}
 }
 
-void CPU::SRA_r() //this actually does an arithmetic shift
+void CPU::SRA_r()
 {
 	switch(m_cycleCounter)
 	{

@@ -59,7 +59,6 @@ void PixelFetcher<PPU::Sprite>::cycle()
 	constexpr uint16 TILEMAP_SIZE{0x3FF};
 	constexpr uint8 PIXELS_PER_TILE{8};
 	constexpr uint8 TILES_PER_ROW{32};
-	if(m_ppu.m_wy == m_ppu.m_ly) m_wyLyCondition = true;
 	
 	checkForWindow();
 	checkForSprite();
@@ -71,13 +70,14 @@ void PixelFetcher<PPU::Sprite>::cycle()
 		{
 		case FETCH_TILE_NO:
 		{
-			const uint16 offset{m_isFetchingWindow ? static_cast<uint16>((((m_tileX) & 0x1F)
-													  + (TILES_PER_ROW * (m_windowLineCounter / PIXELS_PER_TILE)))
-													  & TILEMAP_SIZE)
-													  :
-													  static_cast<uint16>(((((m_tileX + (m_ppu.m_scx / PIXELS_PER_TILE)) & 0x1F)
-													  + (TILES_PER_ROW * (((m_ppu.m_ly + m_ppu.m_scy) & 0xFF) / PIXELS_PER_TILE)))
-													  & TILEMAP_SIZE))};
+			const uint16 offset{m_isFetchingWindow ? 
+							static_cast<uint16>((m_tileX
+							+ (TILES_PER_ROW * (m_windowLineCounter / PIXELS_PER_TILE)))
+							& TILEMAP_SIZE)
+							:
+							static_cast<uint16>(((((m_tileX + (m_ppu.m_scx / PIXELS_PER_TILE)) & 0x1F)
+							+ (TILES_PER_ROW * ((m_ppu.m_ly + m_ppu.m_scy) / PIXELS_PER_TILE)))
+							& TILEMAP_SIZE))};
 
 			m_tileNumber = m_ppu.m_bus.read(m_tilemap + offset, Bus::Component::PPU);
 		}
@@ -88,24 +88,22 @@ void PixelFetcher<PPU::Sprite>::cycle()
 			{
 				//8000 method
 				m_tileAddress = m_isFetchingWindow ?
-					0x8000 + (m_tileNumber * 16)
-					+ (2 * (m_windowLineCounter % 8))
-					:
-					0x8000 + (m_tileNumber * 16)
-					+ (2 * ((m_ppu.m_ly + m_ppu.m_scy) % 8));
-
+							0x8000 + (m_tileNumber * 16)
+							+ (2 * (m_windowLineCounter & 7))
+							:
+							0x8000 + (m_tileNumber * 16)
+							+ (2 * ((m_ppu.m_ly + m_ppu.m_scy) & 7));
 				m_tileDataLow = m_ppu.m_bus.read(m_tileAddress, Bus::Component::PPU);
 			}
 			else
 			{
 				//8800 method
 				m_tileAddress = m_isFetchingWindow ?
-					0x9000 + (static_cast<int8>(m_tileNumber) * 16)
-					+ (2 * (m_windowLineCounter % 8))
-					:
-					0x9000 + (static_cast<int8>(m_tileNumber) * 16)
-					+ (2 * ((m_ppu.m_ly + m_ppu.m_scy) % 8));
-
+							0x9000 + (static_cast<int8>(m_tileNumber) * 16)
+							+ (2 * (m_windowLineCounter & 7))
+							:
+							0x9000 + (static_cast<int8>(m_tileNumber) * 16)
+							+ (2 * ((m_ppu.m_ly + m_ppu.m_scy) & 7));
 				m_tileDataLow = m_ppu.m_bus.read(m_tileAddress, Bus::Component::PPU);
 			}
 		}
@@ -182,8 +180,6 @@ void PixelFetcher<PPU::Sprite>::pushToBackgroundFifo()
 template <>
 void PixelFetcher<PPU::Sprite>::pushToSpriteFifo()
 {
-	//int pixelsOffScreenLeft{8 - (m_spriteBeingFetched->xPosition > 8 ? 8 : m_spriteBeingFetched->xPosition)}; //cap to 8
-	//int pixelsOffScreenRight{((SCREEN_WIDTH + 8) - m_spriteBeingFetched->xPosition) ^ 7};
 	constexpr uint8 X_FLIP_FLAG{0b10'0000};
 	if(m_spriteBeingFetched->flags & X_FLIP_FLAG)
 	{
@@ -191,10 +187,17 @@ void PixelFetcher<PPU::Sprite>::pushToSpriteFifo()
 		m_tileDataHigh = flipByte(m_tileDataHigh);
 	}
 
-	uint8 pixelsAlreadyInFifo{static_cast<uint8>(m_ppu.m_pixelFifoSprite.size())};
+	int pixelsOffScreenLeft{8 - (m_spriteBeingFetched->xPosition > 8 ? 8 : m_spriteBeingFetched->xPosition)}; //cap to 8
+	int pixelsAlreadyInFifo{static_cast<uint8>(m_ppu.m_pixelFifoSprite.size())};
 	PPU::Pixel pixel{};
 	for(int i{7}; i >= 0; --i) //normal rendering
 	{
+		if(pixelsOffScreenLeft)
+		{
+			--pixelsOffScreenLeft;
+			continue;
+		}
+		
 		constexpr uint8 PALETTE_FLAG{0b1'0000};
 		constexpr uint8 BACKGROUND_PRIORITY_FLAG{0x80};
 		pixel.colorIndex = static_cast<uint8>(((m_tileDataLow >> i) & 0b1) | (((m_tileDataHigh >> i) & 0b1) << 1));
@@ -202,7 +205,8 @@ void PixelFetcher<PPU::Sprite>::pushToSpriteFifo()
 		pixel.backgroundPriority = m_spriteBeingFetched->flags & BACKGROUND_PRIORITY_FLAG;
 
 		if(pixelsAlreadyInFifo == 0) m_ppu.m_pixelFifoSprite.push_back(pixel);
-		else if(const int realIndex{i ^ 7}; m_ppu.m_pixelFifoSprite[realIndex].colorIndex == 0 || m_ppu.m_pixelFifoSprite[realIndex].backgroundPriority)
+		else if(const int realIndex{i ^ 7}; (realIndex < m_ppu.m_pixelFifoSprite.size())
+				&& (m_ppu.m_pixelFifoSprite[realIndex].colorIndex == 0 || m_ppu.m_pixelFifoSprite[realIndex].backgroundPriority))
 		{
 			m_ppu.m_pixelFifoSprite[realIndex] = pixel;
 			--pixelsAlreadyInFifo;
@@ -224,11 +228,12 @@ uint8 PixelFetcher<PPU::Sprite>::flipByte(uint8 byte) const
 
 template <>
 void PixelFetcher<PPU::Sprite>::checkForWindow()
-{	
+{
+	if(m_ppu.m_wy == m_ppu.m_ly) m_wyLyCondition = true;
 	if((m_ppu.m_xPosition >= (m_ppu.m_wx - 7))
-		&& !m_isFetchingWindow
 		&& m_wyLyCondition
-		&& m_ppu.m_lcdc & 0b100000)
+		&& m_ppu.m_lcdc & 0b100000
+		&& !m_isFetchingWindow)
 	{
 		++m_windowLineCounter;
 		m_isFetchingWindow = true;
@@ -236,6 +241,7 @@ void PixelFetcher<PPU::Sprite>::checkForWindow()
 		m_backgroundCycleCounter = 0;
 		m_tileX = 0;
 		m_ppu.clearFifos();
+		m_ppu.m_pixelsToDiscard = m_tileX == 0 ? std::min(m_ppu.m_wx - 7, 0) * -1 : 0;
 	}
 }
 

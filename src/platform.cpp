@@ -10,7 +10,7 @@ Platform::Platform()
 {
     if(!SDL_InitSubSystem(SDL_INIT_VIDEO)) std::cerr << "SDL failed to initialize " << SDL_GetError();
 
-    m_window = SDL_CreateWindow("std-boy", 160 * 4, 144 * 4, SDL_WINDOW_RESIZABLE);
+    m_window = SDL_CreateWindow("std-boy", 160 * 5, 144 * 5, SDL_WINDOW_RESIZABLE);
     if(!m_window) std::cerr << "SDL window failed to initialize " << SDL_GetError() << '\n';
     m_renderer = SDL_CreateRenderer(m_window, "opengl");
     if(!m_renderer) std::cerr << "SDL renderer failed to initialize " << SDL_GetError() << '\n';
@@ -26,17 +26,14 @@ Platform::Platform()
 void Platform::mainLoop(Gameboy& gameboy)
 {
     constexpr int CYCLES_PER_FRAME{17556};
-
-    using clock = std::chrono::steady_clock;
-    using seconds = std::chrono::duration<double>;
-
-    auto last_fps_print = clock::now();
-    int frame_count = 0;
-
+    constexpr float cappedFrameTime{static_cast<float>(1000. / 59.7)};
+    
+    bool fpsLimit{true};
+    uint64_t start{};
+    uint64_t end{};
+    float elapsedMs{};
     while(m_running)
     {
-        auto start = clock::now();
-
         while(SDL_PollEvent(&m_event))
         {
             if(m_event.type == SDL_EVENT_QUIT) 
@@ -45,12 +42,11 @@ void Platform::mainLoop(Gameboy& gameboy)
             }
             else if(m_event.type == SDL_EVENT_KEY_DOWN && m_event.key.scancode == SDL_SCANCODE_SPACE)
             {
-                static bool a{};
-                if(a) SDL_SetRenderVSync(m_renderer, 0);
-                else SDL_SetRenderVSync(m_renderer, 1);
-                a ^= 1;
+                fpsLimit ^= 1;
             }
         }
+
+        start = SDL_GetPerformanceCounter();
      
         if(gameboy.hasRom())
         {
@@ -62,15 +58,11 @@ void Platform::mainLoop(Gameboy& gameboy)
         updateScreen(gameboy.getLcdBuffer());
         render();
 
-        frame_count++;
-        auto finish = clock::now();
-        auto elapsed = std::chrono::duration_cast<seconds>(finish - last_fps_print).count();
-        if(elapsed >= .4)
+        if(fpsLimit)
         {
-            double fps = frame_count / elapsed;
-            SDL_SetWindowTitle(m_window, std::to_string(fps).c_str());
-            frame_count = 0;
-            last_fps_print = finish;
+            end = SDL_GetPerformanceCounter();
+            elapsedMs = (end - start) / static_cast<float>(SDL_GetPerformanceFrequency()) * 1000.0f;
+            SDL_Delay(static_cast<uint32>(floor(cappedFrameTime - elapsedMs)));
         }
     }
     
