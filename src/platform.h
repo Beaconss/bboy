@@ -6,6 +6,7 @@
 #include <array>
 #include <string>
 #include <thread>
+#include <fstream>
 
 constexpr int SCREEN_WIDTH{160};
 constexpr int SCREEN_HEIGHT{144};

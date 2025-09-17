@@ -27,22 +27,24 @@ void Platform::mainLoop(Gameboy& gameboy)
 {
     constexpr int CYCLES_PER_FRAME{17556};
     constexpr float cappedFrameTime{static_cast<float>(1000. / 59.7)};
-    
-    bool fpsLimit{true};
+
+    bool fpsLimit{false};
     uint64_t start{};
     uint64_t end{};
     float elapsedMs{};
+
     while(m_running)
     {
         while(SDL_PollEvent(&m_event))
         {
-            if(m_event.type == SDL_EVENT_QUIT) 
+            switch(m_event.type)
             {
+            case SDL_EVENT_QUIT:
                 m_running = false;
-            }
-            else if(m_event.type == SDL_EVENT_KEY_DOWN && m_event.key.scancode == SDL_SCANCODE_SPACE)
-            {
-                fpsLimit ^= 1;
+                break;
+            case SDL_EVENT_KEY_DOWN:
+                if(m_event.key.scancode == SDL_SCANCODE_SPACE) fpsLimit = !fpsLimit;
+                else if(m_event.key.scancode == SDL_SCANCODE_N) gameboy.nextTest();
             }
         }
 
@@ -55,6 +57,7 @@ void Platform::mainLoop(Gameboy& gameboy)
                 gameboy.cycle();
             }
         }
+
         updateScreen(gameboy.getLcdBuffer());
         render();
 

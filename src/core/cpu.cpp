@@ -22,7 +22,6 @@ CPU::CPU(Bus& bus)
 void CPU::reset()
 {
 	m_iState = IState{};
-	
 	endInstruction();
 	m_ime = false;
 	m_imeEnableNextCycle = false;
@@ -31,7 +30,7 @@ void CPU::reset()
 	m_interruptIndex = 0;
 	m_pc = 0x100;
 	m_sp = 0xFFFE;
-	m_f = 0x80;
+	m_f = 0xB0;
 	m_ir = 0;
 	m_registers[B] = 0x00;
 	m_registers[C] = 0x13;
@@ -62,7 +61,6 @@ void CPU::cycle()
 	else
 	{
 		fetch();
-		//if(m_pc == 0x4bd8 || m_pc == 0x1b1) __debugbreak();
 		execute();
 	}
 }

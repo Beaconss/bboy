@@ -42,9 +42,6 @@ private:
 		256 >> 1
 	};
 
-	static constexpr uint8 TIMA_RESET_START_CYCLE{1};
-	static constexpr uint8 TIMA_RESET_END_CYCLE{5};
-
 	void requestTimerInterrupt() const;
 
 	Bus& m_bus;
@@ -56,5 +53,6 @@ private:
 	uint8 m_tima; //timer counter
 	uint8 m_tma; //timer modulo
 	uint8 m_tac; //timer control
+	uint8 m_oldTma;
 };
 

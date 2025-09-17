@@ -132,14 +132,15 @@ void CartridgeSlot::loadCartridge(const std::filesystem::path& filePath)
 	if(m_hasRam && m_hasBattery) loadSave();
 	m_isValid = true;
 
-	std::cout << "Rom banks: " << m_romBanks << '\n'
+	std::cout << "File name: " << filePath.filename() << '\n'
+		<< "Rom banks: " << m_romBanks << '\n'
 		<< "Rom size: " << m_romSize << '\n'
 		<< "Ram banks: " << m_ramBanks << '\n'
 		<< "Ram size: " << m_ramSize << '\n'
 		<< "Has ram: " << (m_hasRam ? "Yes\n" : "No\n")
 		<< "Has battery: " << (m_hasBattery ? "Yes\n" : "No\n")
 		<< "Has rumble: " << (m_hasRumble ? "Yes\n" : "No\n")
-		<< "Mbc type: " << MBC_TYPES[m_mbc] << '\n';
+		<< "Mbc type: " << MBC_TYPES[m_mbc] << "\n\n";
 }
 
 bool CartridgeSlot::hasCartridge() const

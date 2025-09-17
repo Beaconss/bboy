@@ -25,25 +25,24 @@ void Timers::reset()
 void Timers::cycle()
 {
 	++m_div;
-	if(m_timaResetCounter >= TIMA_RESET_START_CYCLE)
+	if(m_timaResetCounter > 0)
 	{
-		if(++m_timaResetCounter == TIMA_RESET_END_CYCLE) //when 4 t-cycles passed(and not aborted) 
+		if(--m_timaResetCounter == 0)
 		{
 			m_tima = m_tma;
 			requestTimerInterrupt();
-			m_timaResetCounter = 0;
 		}
 	}
 	
 	const uint16 divBit{static_cast<uint16>(m_div & ((timaBitPositions[m_tac & 0b11])))}; //formula to extract the right bit based on the tima frequency
-	const bool result{static_cast<bool>(divBit && (m_tac & 0b100))}; //bit 2 is the enable bit
-
-	if(m_lastAndResult && !result) //falling edge 
+	const bool andResult{static_cast<bool>(divBit && (m_tac & 0b100))}; //bit 2 is the enable bit
+	if(m_lastAndResult && !andResult) //falling edge 
 	{
-		if(++m_tima == 0) m_timaResetCounter = TIMA_RESET_START_CYCLE;
+		constexpr int TIMA_RESET_DELAY{4};
+		if(++m_tima == 0) m_timaResetCounter = TIMA_RESET_DELAY;
 	}
 	
-	m_lastAndResult = result;
+	m_lastAndResult = andResult;
 }
 
 uint8 Timers::read(const Index index) const
@@ -64,13 +63,12 @@ void Timers::write(Index index, uint8 value)
 	{
 	case DIV: m_div = 0; break;
 	case TIMA:
-		if(!(m_timaResetCounter == TIMA_RESET_END_CYCLE))
-		{
-			m_tima = value;
-			m_timaResetCounter = 0;
-		}
+		m_tima = value;
+		m_timaResetCounter = 0;
 		break;
-	case TMA: m_tma = value; break;
+	case TMA: 
+		m_tma = value;
+		break;
 	case TAC: m_tac = value & 0x0F; break;
 	}
 }

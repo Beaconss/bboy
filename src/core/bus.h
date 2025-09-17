@@ -28,6 +28,7 @@ public:
 	void reset();
 	void handleDmaTransfer();
 	bool hasRom() const;
+	void nextTest();
 	uint8 read(const uint16 addr, const Component component) const;
 	void write(const uint16 addr, const uint8 value, const Component component);
 
@@ -45,5 +46,5 @@ private:
 	bool m_vramBusBlocked;
 	uint16 m_dmaTransferCurrentAddress;
 	bool m_dmaTransferInProcess;
-	bool m_dmaTransferEnableNextCycle;
+	int m_dmaTransferEnableDelay;
 };

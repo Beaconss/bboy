@@ -4,6 +4,7 @@
 #include "bus.h"
 
 #include <iostream>
+
 #include <array>
 
 class Bus;

@@ -9,6 +9,7 @@
 
 #include <array>
 #include <fstream>
+#include <windows.h>
 
 class Gameboy
 {
@@ -16,6 +17,7 @@ public:
 	Gameboy();
 	~Gameboy();
 	void cycle();
+	void nextTest();
 	void reset();
 	bool hasRom() const;
 	const uint16* getLcdBuffer() const;

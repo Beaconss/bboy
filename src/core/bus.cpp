@@ -1,6 +1,19 @@
 #include "bus.h"
 #include "gameboy.h"
 
+static std::vector<std::filesystem::path> fillTests()
+{
+	namespace fs = std::filesystem;
+	std::vector<fs::path> tests{};
+	for(const auto& entry : fs::recursive_directory_iterator(fs::current_path() / "test/acceptance/ppu"))
+	{
+		if(entry.path().extension() == ".gb") tests.emplace_back(entry);
+	}
+	return tests;
+}
+
+std::vector<std::filesystem::path> TESTS{fillTests()};
+
 Bus::Bus(Gameboy& gb)
 	: m_gameboy{gb}
 	, m_memory{}
@@ -9,12 +22,13 @@ Bus::Bus(Gameboy& gb)
 	, m_vramBusBlocked{}
 	, m_dmaTransferCurrentAddress{}
 	, m_dmaTransferInProcess{}
-	, m_dmaTransferEnableNextCycle{}
+	, m_dmaTransferEnableDelay{}
 {
 	constexpr unsigned int KB_64{0x10000};
 	m_memory.resize(KB_64); //32 kbs are not used but its ok to have less overhead
 	reset();
-	m_cartridgeSlot.loadCartridge("Super Mario Land 2 - 6 Golden Coins (USA, Europe) (Rev 2).gb");
+	m_cartridgeSlot.loadCartridge("test/acceptance/ppu/lcdon_timing-GS.gb");
+	//nextTest();
 }
 
 void Bus::reset()
@@ -25,7 +39,7 @@ void Bus::reset()
 	m_vramBusBlocked = 0;
 	m_dmaTransferCurrentAddress = 0;
 	m_dmaTransferInProcess = false;
-	m_dmaTransferEnableNextCycle = false;
+	m_dmaTransferEnableDelay = 0;
 	m_memory[hardwareReg::IF] = 0xE1;
 	m_memory[hardwareReg::IE] = 0xE0;
 	m_memory[hardwareReg::DMA] = 0xFF;
@@ -33,15 +47,24 @@ void Bus::reset()
 
 void Bus::handleDmaTransfer()
 {
-	if((m_dmaTransferCurrentAddress & 0xFF) == 0xA0) 
+	using namespace MemoryRegions;
+
+	if(m_dmaTransferEnableDelay > 0)
+	{
+		if(--m_dmaTransferEnableDelay == 0)
+		{
+			m_dmaTransferInProcess = true;
+			m_dmaTransferCurrentAddress = m_memory[hardwareReg::DMA] >= 0xFE ? (0xDE00 + ((m_memory[hardwareReg::DMA] - 0xFE) << 8)) : (m_memory[hardwareReg::DMA] << 8);
+		}
+	}
+
+	if((m_dmaTransferCurrentAddress & 0xFF) == 0xA0)
 	{
 		m_externalBusBlocked = false;
 		m_vramBusBlocked = false;
 		m_dmaTransferInProcess = false;
 		m_dmaTransferCurrentAddress = 0;
 	}
-
-	using namespace MemoryRegions;
 	if(m_dmaTransferInProcess)
 	{
 		const uint16 destinationAddr{static_cast<uint16>(0xFE00 | m_dmaTransferCurrentAddress & 0xFF)};
@@ -56,17 +79,17 @@ void Bus::handleDmaTransfer()
 			m_externalBusBlocked = true;
 		}
 	}
-	if(m_dmaTransferEnableNextCycle)
-	{
-		m_dmaTransferCurrentAddress = (m_memory[hardwareReg::DMA] << 8);
-		m_dmaTransferInProcess = true;
-		m_dmaTransferEnableNextCycle = false;
-	}
 }
 
 bool Bus::hasRom() const
 {
 	return m_cartridgeSlot.hasCartridge();
+}
+
+void Bus::nextTest()
+{
+	static int next{};
+	m_cartridgeSlot.loadCartridge(TESTS[next++]);
 }
 
 uint8 Bus::read(const uint16 addr, const Component component) const
@@ -99,24 +122,14 @@ uint8 Bus::read(const uint16 addr, const Component component) const
 	{
 		const bool addrInOam{addr >= OAM.first && addr <= OAM.second};
 		const bool addrInVram{addr >= VRAM.first && addr <= VRAM.second};
-		if(m_dmaTransferInProcess && component != Component::BUS && (addrInOam || (m_vramBusBlocked && addrInVram) || (m_externalBusBlocked && isInExternalBus(addr))))
-		{
-			return 0xFF;
-		}
+		if(m_dmaTransferInProcess && component != Component::BUS && (addrInOam || (m_vramBusBlocked && addrInVram) || (m_externalBusBlocked && isInExternalBus(addr))))	return 0xFF;
 
 		if(addr <= ROM_BANK_1.second) return m_cartridgeSlot.readRom(addr);
 		else if(addr >= EXTERNAL_RAM.first && addr <= EXTERNAL_RAM.second) return m_cartridgeSlot.readRam(addr);
-		else if(addr >= ECHO_RAM.first && addr <= ECHO_RAM.second) 
-		{
-			constexpr int ECHO_RAM_OFFSET{ECHO_RAM.first - WORK_RAM_0.first};
-			return m_memory[addr - ECHO_RAM_OFFSET];
-		}
+		else if(constexpr int ECHO_RAM_OFFSET{ECHO_RAM.first - WORK_RAM_0.first}; addr >= ECHO_RAM.first && addr <= ECHO_RAM.second) return m_memory[addr - ECHO_RAM_OFFSET];
 		
 		const PPU::Mode ppuMode{m_gameboy.m_ppu.getCurrentMode()};
-		if(component == Component::CPU && ((ppuMode == PPU::OAM_SCAN && addrInOam) || (ppuMode == PPU::DRAWING && (addrInOam || addrInVram))))
-		{
-			return 0xFF;
-		}
+		if(component == Component::CPU && ((ppuMode == PPU::OAM_SCAN && addrInOam) || (ppuMode == PPU::DRAWING && (addrInOam || addrInVram)))) return 0xFF;
 
 		return m_memory[addr];
 	}
@@ -142,9 +155,12 @@ void Bus::write(const uint16 addr, const uint8 value, const Component component)
 	case LY: m_gameboy.m_ppu.write(PPU::LY, value); break;
 	case LYC: m_gameboy.m_ppu.write(PPU::LYC, value); break;
 	case DMA:
+	{
 		m_memory[DMA] = value;
-		m_dmaTransferEnableNextCycle = true;
-		break;
+		constexpr int DMA_TRANSFER_ENABLE_DELAY = 2;
+		m_dmaTransferEnableDelay = DMA_TRANSFER_ENABLE_DELAY;
+	}
+	break;
 	case BGP: m_gameboy.m_ppu.write(PPU::BGP, value); break;
 	case OBP0: m_gameboy.m_ppu.write(PPU::OBP0, value); break;
 	case OBP1: m_gameboy.m_ppu.write(PPU::OBP1, value); break;
@@ -155,10 +171,7 @@ void Bus::write(const uint16 addr, const uint8 value, const Component component)
 	{
 		const bool addrInOam{addr >= OAM.first && addr <= OAM.second};
 		const bool addrInVram{addr >= VRAM.first && addr <= VRAM.second};
-		if(m_dmaTransferInProcess && component != Component::BUS && (addrInOam || (m_vramBusBlocked && addrInVram) || (m_externalBusBlocked && isInExternalBus(addr))))
-		{
-			return;
-		}
+		if(m_dmaTransferInProcess && component != Component::BUS && (addrInOam || (m_vramBusBlocked && addrInVram) || (m_externalBusBlocked && isInExternalBus(addr)))) return;
 
 		if(addr <= ROM_BANK_1.second)
 		{
@@ -178,10 +191,7 @@ void Bus::write(const uint16 addr, const uint8 value, const Component component)
 		}
 
 		const PPU::Mode ppuMode{m_gameboy.m_ppu.getCurrentMode()};
-		if(component == Component::CPU && m_gameboy.m_ppu.isEnabled() && ((ppuMode == PPU::OAM_SCAN && addrInOam) || (ppuMode == PPU::DRAWING && (addrInOam || addrInVram))))
-		{
-			return;
-		}
+		if(component == Component::CPU && m_gameboy.m_ppu.isEnabled() && ((ppuMode == PPU::OAM_SCAN && addrInOam) || (ppuMode == PPU::DRAWING && (addrInOam || addrInVram)))) return;
 
 		m_memory[addr] = value;
 		break;

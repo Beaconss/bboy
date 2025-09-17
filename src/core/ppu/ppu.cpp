@@ -5,8 +5,10 @@ PPU::PPU(Bus& bus)
 	, m_fetcher{*this}
 	, m_statInterrupt{}
 	, m_mode{}
-	, m_tCycleCounter{}
+	, m_cycleCounter{}
+	, m_reEnableDelay{}
 	, m_vblankInterruptNextCycle{}
+	, m_firstDrawingCycleDone{}
 	, m_lcdBuffer{}
 	, m_lcdPixels{}
 	, m_xPosition{}
@@ -36,8 +38,10 @@ void PPU::reset()
 	m_fetcher.reset();
 	m_statInterrupt = StatInterrupt{};
 	m_mode = V_BLANK;
-	m_tCycleCounter = 0;
+	m_cycleCounter = 0;
+	m_reEnableDelay = 0;
 	m_vblankInterruptNextCycle = false;
+	m_firstDrawingCycleDone = false;
 	std::ranges::fill(m_lcdBuffer, 0);
 	std::ranges::fill(m_lcdPixels, Pixel{});
 	m_xPosition = 0;
@@ -60,49 +64,60 @@ void PPU::reset()
 
 void PPU::cycle()
 {
+	//updateCoincidenceFlag();
 	if(!(m_lcdc & 0x80)) return;
 
-	++m_tCycleCounter;
-	if(m_tCycleCounter % 4 == 0) //every m-cycle
+	if(m_ly == 153) m_ly = 0;
+	m_stat = (m_stat & 0b11111100) | m_mode; //bits 1-0 of stat store the current mode
+	updateCoincidenceFlag();
+	handleStatInterrupt();
+	if(m_vblankInterruptNextCycle)
 	{
-		if(m_ly == 153) m_ly = 0;
-		m_stat = (m_stat & 0b11111100) | m_mode; //bits 1-0 of stat store the current mode
-		updateCoincidenceFlag();
-		handleStatInterrupt();
+		requestVBlankInterrupt();
+		m_statInterrupt.sources[OAM_SCAN] = false; //reset this in case it was briefly true
+		m_vblankInterruptNextCycle = false;
+	}
 
-		if(m_vblankInterruptNextCycle)
+	if(m_reEnableDelay > 0)
+	{
+		if(--m_reEnableDelay > 0) return;
+		else
 		{
-			requestVBlankInterrupt();
-			m_statInterrupt.sources[OAM_SCAN] = false; //reset this in case it was briefly true
-			m_vblankInterruptNextCycle = false;
+			updateMode(DRAWING);
+			constexpr int DRAWING_START_CYCLE{21};
+			m_cycleCounter = DRAWING_START_CYCLE;
+			return;
 		}
 	}
 
-	constexpr uint16 SCANLINE_END_CYCLE{456};
+	++m_cycleCounter;
+	constexpr uint16 SCANLINE_END_CYCLE{114};
 	switch(m_mode)
 	{
 	case OAM_SCAN:
 	{
 		constexpr int SPRITE_BUFFER_MAX_SIZE{10};
 
-		if(m_tCycleCounter % 2 == 0 && m_spriteBuffer.size() < SPRITE_BUFFER_MAX_SIZE) 
+		for(int i{0}; i < 2; ++i)
 		{
-			Sprite sprite{};
-			m_bus.fillSprite(m_spriteAddress, sprite);
-			tryAddSpriteToBuffer(sprite);
-			m_spriteAddress += 4; //go to next sprite
+			if(m_spriteBuffer.size() < SPRITE_BUFFER_MAX_SIZE)
+			{
+				Sprite sprite{};
+				m_bus.fillSprite(m_spriteAddress, sprite);
+				tryAddSpriteToBuffer(sprite);
+				m_spriteAddress += 4; //go to next sprite
+			}
 		}
 
-		constexpr uint16 OAM_SCAN_END_CYCLE{80};
-		if(m_tCycleCounter == OAM_SCAN_END_CYCLE)
+		constexpr int OAM_SCAN_END_CYCLE{20};
+		if(m_cycleCounter == OAM_SCAN_END_CYCLE)
 		{
 			//here if left xPosition is equal to the right's one, 
 			//left goes up because the left one has higher priority
 			std::ranges::sort(m_spriteBuffer, [](Sprite left, Sprite right)
-			{
-				return left.xPosition >= right.xPosition;
-			});
-
+				{
+					return left.xPosition >= right.xPosition;
+				});
 			m_spriteAddress = OAM_MEMORY_START;
 			updateMode(DRAWING);
 		}
@@ -110,28 +125,36 @@ void PPU::cycle()
 	}
 	case DRAWING:
 	{
-		constexpr uint8 FIRST_DRAWING_CYCLE{81};
-		if(m_tCycleCounter == FIRST_DRAWING_CYCLE) m_pixelsToDiscard = m_scx & 7;
-		m_fetcher.cycle();
-		pushToLcd();
-
-		if(m_xPosition == SCREEN_WIDTH) //when the end of the screen is reached
+		for(int i{0}; i < 4; ++i)
 		{
-			m_xPosition = 0;
-			m_fetcher.resetEndScanline();
-			clearFifos();
-			m_spriteBuffer.clear(); 
-			updateMode(H_BLANK);
+			if(!m_firstDrawingCycleDone)
+			{
+				m_pixelsToDiscard = m_scx & 7;
+				m_firstDrawingCycleDone = true;
+			}
+
+			m_fetcher.cycle();
+			pushToLcd();
+			if(m_xPosition == SCREEN_WIDTH) //when the end of the screen is reached
+			{
+				m_xPosition = 0;
+				m_fetcher.resetEndScanline();
+				clearFifos();
+				m_spriteBuffer.clear();
+				updateMode(H_BLANK);
+				m_firstDrawingCycleDone = false;
+				break;
+			}
 		}
 		break;
 	}
 	case H_BLANK:
 	{
-		if(m_tCycleCounter == SCANLINE_END_CYCLE)
+		if(m_cycleCounter == SCANLINE_END_CYCLE)
 		{
 			++m_ly;
 			updateMode(OAM_SCAN);
-			m_tCycleCounter = 0;
+			m_cycleCounter = 0;
 		}
 		constexpr uint16 FIRST_V_BLANK_SCANLINE{144};
 		if(m_ly == FIRST_V_BLANK_SCANLINE) //if this next scanline is the first of V_BLANK, V_BLANK for another 10 scanlines
@@ -145,10 +168,10 @@ void PPU::cycle()
 	}
 	case V_BLANK:
 	{
-		if(m_tCycleCounter == SCANLINE_END_CYCLE)
+		if(m_cycleCounter == SCANLINE_END_CYCLE)
 		{
 			++m_ly;
-			m_tCycleCounter = 0;
+			m_cycleCounter = 0;
 		}
 		constexpr uint16 LAST_VBLANK_SCANLINE{1}; //because at line 153 it goes back to 0 after 4 t-cycles
 		if(m_ly == LAST_VBLANK_SCANLINE)
@@ -201,12 +224,13 @@ void PPU::write(const Index index, const uint8 value)
 	switch(index)
 	{
 	case LCDC: 
+		if(constexpr int RE_ENABLE_DELAY{20}; !(m_lcdc & 0x80) && value & 0x80) m_reEnableDelay = RE_ENABLE_DELAY;
 		m_lcdc = value; 
 		if(!(m_lcdc & 0x80))
 		{
-			m_ly = 0;
 			updateMode(H_BLANK);
-			m_stat = (m_stat & 0b11111100) | m_mode; //manually update stat mode bits because if the ppu is disabled they wont update
+			m_stat = (m_stat & 0b1111'1100) | m_mode; //manually update stat mode bits because if the ppu is disabled they wont update
+			m_ly = 0;
 		}
 		m_fetcher.updateTilemap();
 		break;
@@ -226,7 +250,25 @@ void PPU::write(const Index index, const uint8 value)
 	}
 }
 
-//this sets the sources so that it is done only when needed, regarding the mode, the actual mode bits in the stat register are updated every m-cycle based on this mode
+void PPU::handleStatInterrupt()
+{
+	const bool statResult{m_statInterrupt.sources[StatInterrupt::H_BLANK]
+						 || m_statInterrupt.sources[StatInterrupt::V_BLANK]
+						 || m_statInterrupt.sources[StatInterrupt::OAM_SCAN]
+						 || m_statInterrupt.sources[StatInterrupt::LY_COMPARE]};
+	if(!m_statInterrupt.previousResult && statResult) requestStatInterrupt(); //if there was a rising edge
+	m_statInterrupt.previousResult = statResult;
+}
+
+void PPU::setStatModeSources()
+{
+	for(int i{0}; i < 3; ++i)
+	{
+		if(m_stat & (1 << (3 + i)) && i == m_mode) m_statInterrupt.sources[i] = true;  //at bits 3-4-5 are stored the stat condition enable for mode 0, 1 and 2 respectively
+		else m_statInterrupt.sources[i] = false;
+	}
+}
+
 void PPU::updateMode(const Mode mode)
 {
 	m_mode = mode; 
@@ -315,23 +357,4 @@ void PPU::requestStatInterrupt() const
 void PPU::requestVBlankInterrupt() const
 {
 	m_bus.write(hardwareReg::IF, m_bus.read(hardwareReg::IF, Bus::Component::PPU) | 0b1, Bus::Component::PPU);
-}
-
-void PPU::handleStatInterrupt()
-{
-	const bool statResult{m_statInterrupt.sources[StatInterrupt::H_BLANK]
-						 || m_statInterrupt.sources[StatInterrupt::V_BLANK]
-						 || m_statInterrupt.sources[StatInterrupt::OAM_SCAN]
-						 || m_statInterrupt.sources[StatInterrupt::LY_COMPARE]};
-	if(!m_statInterrupt.previousResult && statResult) requestStatInterrupt(); //if there was a rising edge
-	m_statInterrupt.previousResult = statResult;
-}
-
-void PPU::setStatModeSources()
-{
-	for(int i{0}; i < 3; ++i)
-	{
-		if(m_stat & (1 << (3 + i)) && i == m_mode) m_statInterrupt.sources[i] = true;  //at bits 3-4-5 are stored the stat condition enable for mode 0, 1 and 2 respectively
-		else m_statInterrupt.sources[i] = false;
-	}
 }

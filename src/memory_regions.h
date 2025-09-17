@@ -13,6 +13,7 @@ namespace MemoryRegions //each pair has the start as first and the end as second
 	constexpr std::pair<uint16, uint16> ECHO_RAM{0xE000, 0xFDFF};
 	constexpr std::pair<uint16, uint16> OAM{0xFE00, 0xFE9F};
 	constexpr std::pair<uint16, uint16> NOT_USABLE{0xFEA0, 0xFEFF};
-	//here would be hardware registers which are in a different header
+	constexpr std::pair<uint16, uint16> HARDWARE_REGISTERS{0xFF00, 0xFF7F}; //single registers are in hardware_registers.h
 	constexpr std::pair<uint16, uint16> HIGH_RAM{0xFF80, 0xFFFE};
+	
 }

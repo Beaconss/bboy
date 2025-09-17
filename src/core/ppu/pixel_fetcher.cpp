@@ -160,7 +160,7 @@ void PixelFetcher<PPU::Sprite>::cycle()
 template <>
 void PixelFetcher<PPU::Sprite>::updateTilemap()
 {
-	//which background tilemap is used is stored at bit 6 for window and bit 3 for background
+	//which background tilemap is used is determined at bit 6 for window and bit 3 for background
 	if(m_isFetchingWindow) m_tilemap = m_ppu.m_lcdc & 0b100'0000 ? 0x9C00 : 0x9800; 
 	else m_tilemap = m_ppu.m_lcdc & 0b1000 ? 0x9C00 : 0x9800;
 }
@@ -241,7 +241,7 @@ void PixelFetcher<PPU::Sprite>::checkForWindow()
 		m_backgroundCycleCounter = 0;
 		m_tileX = 0;
 		m_ppu.clearFifos();
-		m_ppu.m_pixelsToDiscard = m_tileX == 0 ? std::min(m_ppu.m_wx - 7, 0) * -1 : 0;
+		m_ppu.m_pixelsToDiscard = std::min(m_ppu.m_wx - 7, 0) * -1;
 	}
 }
 

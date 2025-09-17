@@ -116,8 +116,10 @@ private:
 	StatInterrupt m_statInterrupt;
 	Mode m_mode;
 	
-	int m_tCycleCounter;
+	int m_cycleCounter;
+	int m_reEnableDelay;
 	bool m_vblankInterruptNextCycle;
+	bool m_firstDrawingCycleDone;
 
 	std::array<uint16, SCREEN_WIDTH * SCREEN_HEIGHT> m_lcdBuffer;
 	std::array<Pixel, SCREEN_WIDTH* SCREEN_HEIGHT> m_lcdPixels;
