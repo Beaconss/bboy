@@ -1,7 +1,7 @@
 #pragma once
-#include "../type_alias.h"
-#include "../hardware_registers.h"
-#include "bus.h"
+#include <type_alias.h>
+#include <hardware_registers.h>
+#include <core/bus.h>
 
 #include <array>
 

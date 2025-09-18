@@ -1,4 +1,4 @@
-#include "cartridge_slot.h"
+#include <core/cartridge_slot.h>
 
 CartridgeSlot::CartridgeSlot()
 	: m_isValid{}

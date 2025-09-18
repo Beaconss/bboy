@@ -1,4 +1,4 @@
-#include "gameboy.h"
+#include <core/gameboy.h>
 
 Gameboy::Gameboy()
 	: m_bus{*this}
@@ -22,6 +22,12 @@ void Gameboy::cycle() //1 machine cycle
 	m_bus.handleDmaTransfer();
 	for(int i{0}; i < 4; ++i) m_timers.cycle();
 	m_ppu.cycle();
+}
+
+void Gameboy::loadCartridge(const std::filesystem::path& filePath)
+{
+	reset();
+	m_bus.loadCartridge(filePath);
 }
 
 void Gameboy::nextTest()

@@ -1,4 +1,4 @@
-#include "input.h"
+#include <core/input.h>
 
 Input::Input()
 	: m_p1{0xCF}

@@ -1,5 +1,5 @@
-#include "platform.h"
-#include "Core/gameboy.h"
+#include <platform.h>
+#include <core/gameboy.h>
 
 Platform::Platform()
 	: m_running{true}

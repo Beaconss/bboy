@@ -1,6 +1,6 @@
 #pragma once
-#include "../type_alias.h"
-#include "../memory_regions.h"
+#include <type_alias.h>
+#include <memory_regions.h>
 
 #include <array>
 #include <vector>

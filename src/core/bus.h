@@ -1,8 +1,8 @@
 #pragma once
-#include "../type_alias.h"
-#include "../hardware_registers.h"
-#include "../memory_regions.h"
-#include "cartridge_slot.h"
+#include <type_alias.h>
+#include <hardware_registers.h>
+#include <memory_regions.h>
+#include <core/cartridge_slot.h>
 
 #include <array>
 #include <vector>
@@ -27,6 +27,7 @@ public:
 
 	void reset();
 	void handleDmaTransfer();
+	void loadCartridge(const std::filesystem::path& filePath);
 	bool hasRom() const;
 	void nextTest();
 	uint8 read(const uint16 addr, const Component component) const;

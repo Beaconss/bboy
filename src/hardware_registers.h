@@ -1,10 +1,10 @@
 #pragma once
-#include "type_alias.h"
+#include <type_alias.h>
 
 namespace hardwareReg
 {
 	constexpr uint16 P1 = 0xFF00; //joypad
-
+	
 	//Timers registers
 	constexpr uint16 DIV = 0xFF04; //divider register
 	constexpr uint16 TIMA = 0xFF05; //timer counter

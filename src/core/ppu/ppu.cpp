@@ -1,4 +1,4 @@
-#include "ppu.h"
+#include <core/ppu/ppu.h>
 
 PPU::PPU(Bus& bus)
 	: m_bus{bus}
@@ -6,9 +6,9 @@ PPU::PPU(Bus& bus)
 	, m_statInterrupt{}
 	, m_mode{}
 	, m_cycleCounter{}
-	, m_reEnableDelay{}
 	, m_vblankInterruptNextCycle{}
 	, m_firstDrawingCycleDone{}
+	, m_glitchedOamScan{}
 	, m_lcdBuffer{}
 	, m_lcdPixels{}
 	, m_xPosition{}
@@ -39,7 +39,6 @@ void PPU::reset()
 	m_statInterrupt = StatInterrupt{};
 	m_mode = V_BLANK;
 	m_cycleCounter = 0;
-	m_reEnableDelay = 0;
 	m_vblankInterruptNextCycle = false;
 	m_firstDrawingCycleDone = false;
 	std::ranges::fill(m_lcdBuffer, 0);
@@ -64,11 +63,13 @@ void PPU::reset()
 
 void PPU::cycle()
 {
-	//updateCoincidenceFlag();
 	if(!(m_lcdc & 0x80)) return;
 
 	if(m_ly == 153) m_ly = 0;
-	m_stat = (m_stat & 0b11111100) | m_mode; //bits 1-0 of stat store the current mode
+	if(!m_glitchedOamScan) 
+	{
+		m_stat = (m_stat & 0b11111100) | m_mode; //bits 1-0 of stat store the current mode
+	}
 	updateCoincidenceFlag();
 	handleStatInterrupt();
 	if(m_vblankInterruptNextCycle)
@@ -76,18 +77,6 @@ void PPU::cycle()
 		requestVBlankInterrupt();
 		m_statInterrupt.sources[OAM_SCAN] = false; //reset this in case it was briefly true
 		m_vblankInterruptNextCycle = false;
-	}
-
-	if(m_reEnableDelay > 0)
-	{
-		if(--m_reEnableDelay > 0) return;
-		else
-		{
-			updateMode(DRAWING);
-			constexpr int DRAWING_START_CYCLE{21};
-			m_cycleCounter = DRAWING_START_CYCLE;
-			return;
-		}
 	}
 
 	++m_cycleCounter;
@@ -120,6 +109,7 @@ void PPU::cycle()
 				});
 			m_spriteAddress = OAM_MEMORY_START;
 			updateMode(DRAWING);
+			m_glitchedOamScan = false;
 		}
 		break;
 	}
@@ -153,6 +143,7 @@ void PPU::cycle()
 		if(m_cycleCounter == SCANLINE_END_CYCLE)
 		{
 			++m_ly;
+			updateCoincidenceFlag();
 			updateMode(OAM_SCAN);
 			m_cycleCounter = 0;
 		}
@@ -171,12 +162,14 @@ void PPU::cycle()
 		if(m_cycleCounter == SCANLINE_END_CYCLE)
 		{
 			++m_ly;
+			updateCoincidenceFlag();
 			m_cycleCounter = 0;
 		}
 		constexpr uint16 LAST_VBLANK_SCANLINE{1}; //because at line 153 it goes back to 0 after 4 t-cycles
 		if(m_ly == LAST_VBLANK_SCANLINE)
 		{
 			m_ly = 0;
+			updateCoincidenceFlag();
 			updateMode(OAM_SCAN);
 			m_fetcher.reset();
 		}
@@ -224,13 +217,19 @@ void PPU::write(const Index index, const uint8 value)
 	switch(index)
 	{
 	case LCDC: 
-		if(constexpr int RE_ENABLE_DELAY{20}; !(m_lcdc & 0x80) && value & 0x80) m_reEnableDelay = RE_ENABLE_DELAY;
+		if(!(m_lcdc & 0x80) && value & 0x80)
+		{
+			updateMode(OAM_SCAN);
+			m_glitchedOamScan = true;
+		}
 		m_lcdc = value; 
 		if(!(m_lcdc & 0x80))
 		{
 			updateMode(H_BLANK);
 			m_stat = (m_stat & 0b1111'1100) | m_mode; //manually update stat mode bits because if the ppu is disabled they wont update
 			m_ly = 0;
+			m_cycleCounter = 1;
+			updateCoincidenceFlag();
 		}
 		m_fetcher.updateTilemap();
 		break;
@@ -277,7 +276,7 @@ void PPU::updateMode(const Mode mode)
 
 void PPU::updateCoincidenceFlag()
 {
-	m_stat = (m_stat & ~0b100) | (m_ly == m_lyc ? 0b100 : 0);
+	m_stat = (m_stat & ~0b100) | ((m_ly == m_lyc) << 2);
 	if(m_stat & 0x40 && m_stat & 0b100)
 	{
 		m_statInterrupt.sources[StatInterrupt::LY_COMPARE] = true;

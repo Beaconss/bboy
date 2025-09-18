@@ -1,5 +1,5 @@
 #pragma once
-#include "type_alias.h"
+#include <type_alias.h>
 #include <SDL3/SDL.h>
 
 #include <iostream>

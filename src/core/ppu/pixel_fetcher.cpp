@@ -1,5 +1,5 @@
-#include "pixel_fetcher.h"
-#include "ppu.h"
+#include <core/ppu/pixel_fetcher.h>
+#include <core/ppu/ppu.h>
 
 PixelFetcher<PPU::Sprite>::PixelFetcher(PPU& ppu)
 	: m_ppu{ppu}

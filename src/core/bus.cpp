@@ -1,5 +1,5 @@
-#include "bus.h"
-#include "gameboy.h"
+#include <core/bus.h>
+#include <core/gameboy.h>
 
 static std::vector<std::filesystem::path> fillTests()
 {
@@ -27,7 +27,7 @@ Bus::Bus(Gameboy& gb)
 	constexpr unsigned int KB_64{0x10000};
 	m_memory.resize(KB_64); //32 kbs are not used but its ok to have less overhead
 	reset();
-	m_cartridgeSlot.loadCartridge("test/acceptance/ppu/lcdon_timing-GS.gb");
+	//m_cartridgeSlot.loadCartridge("Pokemon - Versione Blu (Italy) (SGB Enhanced).gb");
 	//nextTest();
 }
 
@@ -79,6 +79,11 @@ void Bus::handleDmaTransfer()
 			m_externalBusBlocked = true;
 		}
 	}
+}
+
+void Bus::loadCartridge(const std::filesystem::path& filePath)
+{
+	m_cartridgeSlot.loadCartridge(filePath);
 }
 
 bool Bus::hasRom() const

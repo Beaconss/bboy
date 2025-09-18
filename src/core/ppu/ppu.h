@@ -1,9 +1,9 @@
 #pragma once 
-#include "../../type_alias.h"
-#include "../../hardware_registers.h"
-#include "../../platform.h"
-#include "../bus.h"
-#include "pixel_fetcher.h"
+#include <type_alias.h>
+#include <hardware_registers.h>
+#include <platform.h>
+#include <core/bus.h>
+#include <core/ppu/pixel_fetcher.h>
 
 #include <vector>
 #include <array>
@@ -117,9 +117,9 @@ private:
 	Mode m_mode;
 	
 	int m_cycleCounter;
-	int m_reEnableDelay;
 	bool m_vblankInterruptNextCycle;
 	bool m_firstDrawingCycleDone;
+	bool m_glitchedOamScan;
 
 	std::array<uint16, SCREEN_WIDTH * SCREEN_HEIGHT> m_lcdBuffer;
 	std::array<Pixel, SCREEN_WIDTH* SCREEN_HEIGHT> m_lcdPixels;

@@ -1,6 +1,6 @@
 #pragma once
+#include <type_alias.h>
 #include <iostream>
-#include "type_alias.h"
 
 namespace MemoryRegions //each pair has the start as first and the end as second
 {

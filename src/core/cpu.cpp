@@ -1,4 +1,4 @@
-#include "cpu.h"
+#include <core/cpu.h>
 
 CPU::CPU(Bus& bus)
 	: m_bus{bus}

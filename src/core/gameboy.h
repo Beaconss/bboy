@@ -1,15 +1,14 @@
 #pragma once
-#include "../type_alias.h"
-#include "../hardware_registers.h"
-#include "bus.h"
-#include "cpu.h"
-#include "ppu/ppu.h"
-#include "timers.h"
-#include "input.h"
+#include <type_alias.h>
+#include <hardware_registers.h>
+#include <core/bus.h>
+#include <core/cpu.h>
+#include <core/ppu/ppu.h>
+#include <core/timers.h>
+#include <core/input.h>
 
 #include <array>
 #include <fstream>
-#include <windows.h>
 
 class Gameboy
 {
@@ -17,6 +16,7 @@ public:
 	Gameboy();
 	~Gameboy();
 	void cycle();
+	void loadCartridge(const std::filesystem::path& filePath);
 	void nextTest();
 	void reset();
 	bool hasRom() const;
