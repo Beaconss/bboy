@@ -1,15 +1,13 @@
 #pragma once
 #include <type_alias.h>
+#include <core/gameboy.h>
 #include <SDL3/SDL.h>
 
 #include <iostream>
 #include <array>
-#include <string>
+#include <cmath>
 #include <thread>
 #include <fstream>
-
-constexpr int SCREEN_WIDTH{160};
-constexpr int SCREEN_HEIGHT{144};
 
 class Gameboy;
 

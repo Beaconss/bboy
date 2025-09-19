@@ -5,9 +5,17 @@ static std::vector<std::filesystem::path> fillTests()
 {
 	namespace fs = std::filesystem;
 	std::vector<fs::path> tests{};
-	for(const auto& entry : fs::recursive_directory_iterator(fs::current_path() / "test/acceptance/ppu"))
+	try
 	{
-		if(entry.path().extension() == ".gb") tests.emplace_back(entry);
+		for(const auto& entry : fs::recursive_directory_iterator(fs::current_path() / "test/acceptance/ppu"))
+		{
+			if(entry.path().extension() == ".gb") tests.emplace_back(entry);
+		}
+	}
+	catch(const fs::filesystem_error& ex)
+	{
+		std::cout << ex.what() << '\n'
+			<< ex.path1() << '\n';
 	}
 	return tests;
 }
@@ -27,7 +35,7 @@ Bus::Bus(Gameboy& gb)
 	constexpr unsigned int KB_64{0x10000};
 	m_memory.resize(KB_64); //32 kbs are not used but its ok to have less overhead
 	reset();
-	//m_cartridgeSlot.loadCartridge("Pokemon - Versione Blu (Italy) (SGB Enhanced).gb");
+	m_cartridgeSlot.loadCartridge("test/acceptance/ppu/lcdon_write_timing-GS.gb");
 	//nextTest();
 }
 
@@ -133,8 +141,11 @@ uint8 Bus::read(const uint16 addr, const Component component) const
 		else if(addr >= EXTERNAL_RAM.first && addr <= EXTERNAL_RAM.second) return m_cartridgeSlot.readRam(addr);
 		else if(constexpr int ECHO_RAM_OFFSET{ECHO_RAM.first - WORK_RAM_0.first}; addr >= ECHO_RAM.first && addr <= ECHO_RAM.second) return m_memory[addr - ECHO_RAM_OFFSET];
 		
-		const PPU::Mode ppuMode{m_gameboy.m_ppu.getCurrentMode()};
-		if(component == Component::CPU && ((ppuMode == PPU::OAM_SCAN && addrInOam) || (ppuMode == PPU::DRAWING && (addrInOam || addrInVram)))) return 0xFF;
+		if(m_gameboy.m_ppu.isEnabled())
+		{
+			const PPU::Mode ppuMode{m_gameboy.m_ppu.getMode()};
+			if(component == Component::CPU && ((addrInOam && (ppuMode == PPU::OAM_SCAN || ppuMode == PPU::DRAWING)) || (addrInVram && ppuMode == PPU::DRAWING))) return 0xFF;
+		}
 
 		return m_memory[addr];
 	}
@@ -195,8 +206,11 @@ void Bus::write(const uint16 addr, const uint8 value, const Component component)
 			return;
 		}
 
-		const PPU::Mode ppuMode{m_gameboy.m_ppu.getCurrentMode()};
-		if(component == Component::CPU && m_gameboy.m_ppu.isEnabled() && ((ppuMode == PPU::OAM_SCAN && addrInOam) || (ppuMode == PPU::DRAWING && (addrInOam || addrInVram)))) return;
+		if(m_gameboy.m_ppu.isEnabled())
+		{
+			const PPU::Mode ppuMode{m_gameboy.m_ppu.getMode()};
+			if(component == Component::CPU && ((addrInOam && (ppuMode == PPU::OAM_SCAN || ppuMode == PPU::DRAWING)) || (addrInVram && ppuMode == PPU::DRAWING))) return;
+		}
 
 		m_memory[addr] = value;
 		break;

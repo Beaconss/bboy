@@ -1,7 +1,6 @@
 #pragma once 
 #include <type_alias.h>
 #include <hardware_registers.h>
-#include <platform.h>
 #include <core/bus.h>
 #include <core/ppu/pixel_fetcher.h>
 
@@ -10,6 +9,9 @@
 #include <queue>
 #include <ranges>
 #include <algorithm>
+
+constexpr int SCREEN_WIDTH{160};
+constexpr int SCREEN_HEIGHT{144};
 
 class PPU
 {
@@ -55,7 +57,7 @@ public:
 	void reset();
 	void cycle();
 
-	PPU::Mode getCurrentMode() const;
+	PPU::Mode getMode() const;
 	bool isEnabled() const;
 	
 	const uint16* getLcdBuffer() const;
@@ -90,11 +92,16 @@ private:
 	void setStatModeSources();
 
 	void updateMode(const Mode mode);
-	void updateCoincidenceFlag();
+	void updateCoincidenceFlag(bool set = true);
 
+	void oamScanCycle();
 	void tryAddSpriteToBuffer(const Sprite sprite);
+
 	void pushToLcd();
 	bool shouldPushSpritePixel() const;
+
+	void hBlankCycle();
+	void vBlankCycle();
 
 	void clearFifos();
 
@@ -120,6 +127,8 @@ private:
 	bool m_vblankInterruptNextCycle;
 	bool m_firstDrawingCycleDone;
 	bool m_glitchedOamScan;
+	bool m_justPassedToOamScan;
+	bool m_justPassedToDrawing;
 
 	std::array<uint16, SCREEN_WIDTH * SCREEN_HEIGHT> m_lcdBuffer;
 	std::array<Pixel, SCREEN_WIDTH* SCREEN_HEIGHT> m_lcdPixels;

@@ -9,6 +9,8 @@ PPU::PPU(Bus& bus)
 	, m_vblankInterruptNextCycle{}
 	, m_firstDrawingCycleDone{}
 	, m_glitchedOamScan{}
+	, m_justPassedToOamScan{}
+	, m_justPassedToDrawing{}
 	, m_lcdBuffer{}
 	, m_lcdPixels{}
 	, m_xPosition{}
@@ -41,6 +43,9 @@ void PPU::reset()
 	m_cycleCounter = 0;
 	m_vblankInterruptNextCycle = false;
 	m_firstDrawingCycleDone = false;
+	m_glitchedOamScan = false;
+	m_justPassedToOamScan = false;
+	m_justPassedToDrawing = false;
 	std::ranges::fill(m_lcdBuffer, 0);
 	std::ranges::fill(m_lcdPixels, Pixel{});
 	m_xPosition = 0;
@@ -66,11 +71,8 @@ void PPU::cycle()
 	if(!(m_lcdc & 0x80)) return;
 
 	if(m_ly == 153) m_ly = 0;
-	if(!m_glitchedOamScan) 
-	{
-		m_stat = (m_stat & 0b11111100) | m_mode; //bits 1-0 of stat store the current mode
-	}
 	updateCoincidenceFlag();
+	if(!m_glitchedOamScan) m_stat = (m_stat & 0b11111100) | m_mode; //bits 1-0 of stat store the current mode
 	handleStatInterrupt();
 	if(m_vblankInterruptNextCycle)
 	{
@@ -80,41 +82,14 @@ void PPU::cycle()
 	}
 
 	++m_cycleCounter;
-	constexpr uint16 SCANLINE_END_CYCLE{114};
 	switch(m_mode)
 	{
 	case OAM_SCAN:
-	{
-		constexpr int SPRITE_BUFFER_MAX_SIZE{10};
-
-		for(int i{0}; i < 2; ++i)
-		{
-			if(m_spriteBuffer.size() < SPRITE_BUFFER_MAX_SIZE)
-			{
-				Sprite sprite{};
-				m_bus.fillSprite(m_spriteAddress, sprite);
-				tryAddSpriteToBuffer(sprite);
-				m_spriteAddress += 4; //go to next sprite
-			}
-		}
-
-		constexpr int OAM_SCAN_END_CYCLE{20};
-		if(m_cycleCounter == OAM_SCAN_END_CYCLE)
-		{
-			//here if left xPosition is equal to the right's one, 
-			//left goes up because the left one has higher priority
-			std::ranges::sort(m_spriteBuffer, [](Sprite left, Sprite right)
-				{
-					return left.xPosition >= right.xPosition;
-				});
-			m_spriteAddress = OAM_MEMORY_START;
-			updateMode(DRAWING);
-			m_glitchedOamScan = false;
-		}
+		oamScanCycle();
 		break;
-	}
 	case DRAWING:
 	{
+		m_justPassedToDrawing = false;
 		for(int i{0}; i < 4; ++i)
 		{
 			if(!m_firstDrawingCycleDone)
@@ -125,7 +100,7 @@ void PPU::cycle()
 
 			m_fetcher.cycle();
 			pushToLcd();
-			if(m_xPosition == SCREEN_WIDTH) //when the end of the screen is reached
+			if(m_xPosition == SCREEN_WIDTH)
 			{
 				m_xPosition = 0;
 				m_fetcher.resetEndScanline();
@@ -139,48 +114,17 @@ void PPU::cycle()
 		break;
 	}
 	case H_BLANK:
-	{
-		if(m_cycleCounter == SCANLINE_END_CYCLE)
-		{
-			++m_ly;
-			updateCoincidenceFlag();
-			updateMode(OAM_SCAN);
-			m_cycleCounter = 0;
-		}
-		constexpr uint16 FIRST_V_BLANK_SCANLINE{144};
-		if(m_ly == FIRST_V_BLANK_SCANLINE) //if this next scanline is the first of V_BLANK, V_BLANK for another 10 scanlines
-		{
-			m_vblankInterruptNextCycle = true;
-			updateMode(V_BLANK);
-			constexpr uint8 STAT_OAM_SOURCE_ENABLE{0b10'0000};
-			if(m_stat & STAT_OAM_SOURCE_ENABLE) m_statInterrupt.sources[OAM_SCAN] = true; //re enable oam scan source if the corresponding stat bit is active as updateMode(V_BLANK) cleared it
-		}
+		hBlankCycle();
 		break;
-	}
 	case V_BLANK:
-	{
-		if(m_cycleCounter == SCANLINE_END_CYCLE)
-		{
-			++m_ly;
-			updateCoincidenceFlag();
-			m_cycleCounter = 0;
-		}
-		constexpr uint16 LAST_VBLANK_SCANLINE{1}; //because at line 153 it goes back to 0 after 4 t-cycles
-		if(m_ly == LAST_VBLANK_SCANLINE)
-		{
-			m_ly = 0;
-			updateCoincidenceFlag();
-			updateMode(OAM_SCAN);
-			m_fetcher.reset();
-		}
+		vBlankCycle();
 		break;
-	}
 	}
 }
 
-PPU::Mode PPU::getCurrentMode() const
+PPU::Mode PPU::getMode() const
 {
-	return static_cast<Mode>(m_stat & 0b11);
+	return m_justPassedToOamScan ? OAM_SCAN : m_justPassedToDrawing ? DRAWING : static_cast<Mode>(m_stat & 0b11);
 }
 
 bool PPU::isEnabled() const
@@ -229,7 +173,6 @@ void PPU::write(const Index index, const uint8 value)
 			m_stat = (m_stat & 0b1111'1100) | m_mode; //manually update stat mode bits because if the ppu is disabled they wont update
 			m_ly = 0;
 			m_cycleCounter = 1;
-			updateCoincidenceFlag();
 		}
 		m_fetcher.updateTilemap();
 		break;
@@ -272,16 +215,50 @@ void PPU::updateMode(const Mode mode)
 {
 	m_mode = mode; 
 	setStatModeSources();
+	if(m_mode == OAM_SCAN) m_justPassedToOamScan = true;
+	else if(m_mode == DRAWING && !m_glitchedOamScan) m_justPassedToDrawing = true;
 }
 
-void PPU::updateCoincidenceFlag()
+void PPU::updateCoincidenceFlag(bool set)
 {
-	m_stat = (m_stat & ~0b100) | ((m_ly == m_lyc) << 2);
+	m_stat = (m_stat & ~0b100) | (set ? ((m_ly == m_lyc) << 2) : 0);
+	
 	if(m_stat & 0x40 && m_stat & 0b100)
 	{
 		m_statInterrupt.sources[StatInterrupt::LY_COMPARE] = true;
 	}
 	else m_statInterrupt.sources[StatInterrupt::LY_COMPARE] = false;
+}
+
+void PPU::oamScanCycle()
+{
+	constexpr int SPRITE_BUFFER_MAX_SIZE{10};
+
+	m_justPassedToOamScan = false;
+	for(int i{0}; i < 2; ++i)
+	{
+		if(m_spriteBuffer.size() < SPRITE_BUFFER_MAX_SIZE)
+		{
+			Sprite sprite{};
+			m_bus.fillSprite(m_spriteAddress, sprite);
+			tryAddSpriteToBuffer(sprite);
+			m_spriteAddress += 4; //go to next sprite
+		}
+	}
+
+	constexpr int OAM_SCAN_END_CYCLE{20};
+	if(m_cycleCounter == OAM_SCAN_END_CYCLE)
+	{
+		//here if left xPosition is equal to the right's one, 
+		//left goes up because the left one has higher priority
+		std::ranges::sort(m_spriteBuffer, [](Sprite left, Sprite right)
+			{
+				return left.xPosition >= right.xPosition;
+			});
+		m_spriteAddress = OAM_MEMORY_START;
+		updateMode(DRAWING);
+		m_glitchedOamScan = false;
+	}
 }
 
 void PPU::tryAddSpriteToBuffer(const Sprite sprite)
@@ -340,6 +317,44 @@ bool PPU::shouldPushSpritePixel() const
 			&& m_pixelFifoSprite.front().colorIndex != 0
 			&& (!m_pixelFifoSprite.front().backgroundPriority
 			|| m_pixelFifoBackground.front().colorIndex == 0));
+}
+
+void PPU::hBlankCycle()
+{
+	constexpr int SCANLINE_END_CYCLE{114};
+	if(m_cycleCounter == SCANLINE_END_CYCLE)
+	{
+		++m_ly;
+		updateCoincidenceFlag(false);
+		updateMode(OAM_SCAN);
+		m_cycleCounter = 0;
+	}
+	constexpr uint16 FIRST_V_BLANK_SCANLINE{144};
+	if(m_ly == FIRST_V_BLANK_SCANLINE) //if this next scanline is the first of V_BLANK, V_BLANK for another 10 scanlines
+	{
+		m_vblankInterruptNextCycle = true;
+		updateMode(V_BLANK);
+		constexpr uint8 STAT_OAM_SOURCE_ENABLE{0b10'0000};
+		if(m_stat & STAT_OAM_SOURCE_ENABLE) m_statInterrupt.sources[OAM_SCAN] = true; //re enable oam scan source if the corresponding stat bit is active as updateMode(V_BLANK) cleared it
+	}
+}
+
+void PPU::vBlankCycle()
+{
+	constexpr int SCANLINE_END_CYCLE{114};
+	if(m_cycleCounter == SCANLINE_END_CYCLE)
+	{
+		++m_ly;
+		updateCoincidenceFlag(false);
+		m_cycleCounter = 0;
+	}
+	constexpr uint16 LAST_VBLANK_SCANLINE{1}; //because at line 153 it goes back to 0 after 4 t-cycles
+	if(m_ly == LAST_VBLANK_SCANLINE)
+	{
+		m_ly = 0;
+		updateMode(OAM_SCAN);
+		m_fetcher.reset();
+	}
 }
 
 void PPU::clearFifos()

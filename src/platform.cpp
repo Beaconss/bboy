@@ -1,5 +1,4 @@
 #include <platform.h>
-#include <core/gameboy.h>
 
 Platform::Platform()
 	: m_running{true}
@@ -28,7 +27,7 @@ void Platform::mainLoop(Gameboy& gameboy)
     constexpr int CYCLES_PER_FRAME{17556};
     constexpr float cappedFrameTime{static_cast<float>(1000. / 59.7)};
 
-    bool fpsLimit{false};
+    bool fpsLimit{true};
     uint64_t start{};
     uint64_t end{};
     float elapsedMs{};

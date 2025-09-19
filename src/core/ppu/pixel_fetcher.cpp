@@ -1,6 +1,7 @@
-#include <core/ppu/pixel_fetcher.h>
 #include <core/ppu/ppu.h>
+#include <core/ppu/pixel_fetcher.h>
 
+template<>
 PixelFetcher<PPU::Sprite>::PixelFetcher(PPU& ppu)
 	: m_ppu{ppu}
 	, m_spriteBeingFetched{}
@@ -20,8 +21,8 @@ PixelFetcher<PPU::Sprite>::PixelFetcher(PPU& ppu)
 	reset();
 }
 
-template <>
-void PixelFetcher<PPU::Sprite>::reset()
+template<typename T>
+void PixelFetcher<T>::reset()
 {
 	m_spriteBeingFetched = nullptr;
 	m_firstFetchCompleted = false;
@@ -38,7 +39,7 @@ void PixelFetcher<PPU::Sprite>::reset()
 	m_wyLyCondition = false;
 }
 
-template <>
+template<>
 void PixelFetcher<PPU::Sprite>::resetEndScanline()
 {
 	m_firstFetchCompleted = false;
@@ -53,7 +54,7 @@ void PixelFetcher<PPU::Sprite>::resetEndScanline()
 	m_tileAddress = 0;
 }
 
-template <>
+template<>
 void PixelFetcher<PPU::Sprite>::cycle()
 {
 	constexpr uint16 TILEMAP_SIZE{0x3FF};
@@ -157,16 +158,16 @@ void PixelFetcher<PPU::Sprite>::cycle()
 	}
 }
 
-template <>
-void PixelFetcher<PPU::Sprite>::updateTilemap()
+template<typename T>
+void PixelFetcher<T>::updateTilemap()
 {
 	//which background tilemap is used is determined at bit 6 for window and bit 3 for background
 	if(m_isFetchingWindow) m_tilemap = m_ppu.m_lcdc & 0b100'0000 ? 0x9C00 : 0x9800; 
 	else m_tilemap = m_ppu.m_lcdc & 0b1000 ? 0x9C00 : 0x9800;
 }
 
-template <>
-void PixelFetcher<PPU::Sprite>::pushToBackgroundFifo()
+template<typename T>
+void PixelFetcher<T>::pushToBackgroundFifo()
 {
 	PPU::Pixel pixel{};
 	for(int i{7}; i >= 0; --i)
@@ -177,8 +178,8 @@ void PixelFetcher<PPU::Sprite>::pushToBackgroundFifo()
 	++m_tileX;
 }
 
-template <>
-void PixelFetcher<PPU::Sprite>::pushToSpriteFifo()
+template<typename T>
+void PixelFetcher<T>::pushToSpriteFifo()
 {
 	constexpr uint8 X_FLIP_FLAG{0b10'0000};
 	if(m_spriteBeingFetched->flags & X_FLIP_FLAG)
@@ -217,8 +218,8 @@ void PixelFetcher<PPU::Sprite>::pushToSpriteFifo()
 	m_ppu.m_spriteBuffer.pop_back();
 }
 
-template<>
-uint8 PixelFetcher<PPU::Sprite>::flipByte(uint8 byte) const
+template<typename T>
+uint8 PixelFetcher<T>::flipByte(uint8 byte) const
 {
 	byte = (byte & 0xF0) >> 4 | (byte & 0x0F) << 4;
 	byte = (byte & 0xCC) >> 2 | (byte & 0x33) << 2;
@@ -226,8 +227,8 @@ uint8 PixelFetcher<PPU::Sprite>::flipByte(uint8 byte) const
 	return byte;
 }
 
-template <>
-void PixelFetcher<PPU::Sprite>::checkForWindow()
+template<typename T>
+void PixelFetcher<T>::checkForWindow()
 {
 	if(m_ppu.m_wy == m_ppu.m_ly) m_wyLyCondition = true;
 	if((m_ppu.m_xPosition >= (m_ppu.m_wx - 7))
@@ -245,8 +246,8 @@ void PixelFetcher<PPU::Sprite>::checkForWindow()
 	}
 }
 
-template <>
-void PixelFetcher<PPU::Sprite>::checkForSprite()
+template<typename T>
+void PixelFetcher<T>::checkForSprite()
 {
 	//since the sprite buffer is sorted in descending order the last element is the one with the lowest x
 	if(m_ppu.m_lcdc & 0b10 && !m_ppu.m_spriteBuffer.empty() && !m_spriteBeingFetched && m_ppu.m_spriteBuffer.back().xPosition <= (m_ppu.m_xPosition + 8))
