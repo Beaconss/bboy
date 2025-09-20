@@ -3,9 +3,10 @@
 
 #include <iostream>
 
+constexpr uint8 flipByte(uint8 byte);
+
 class PPU;
 
-template <typename T>
 class PixelFetcher
 {
 private:
@@ -27,15 +28,15 @@ private:
 	void checkForWindow();
 	void checkForSprite();
 	void pushToBackgroundFifo();
-	void pushToSpriteFifo();
-	uint8 flipByte(uint8 byte) const;
+
+	template<typename T>
+	void pushToSpriteFifo(const T sprite);
 
 	PPU& m_ppu;
-	T* m_spriteBeingFetched;
 	bool m_isFetchingWindow;
 	bool m_firstFetchCompleted;
 	int m_backgroundCycleCounter;
-	int m_spriteCycleCounter;
+	int m_spriteFetchDelay;
 
 	int m_tileX;
 	uint16 m_tilemap;

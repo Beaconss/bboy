@@ -8,9 +8,8 @@ PPU::PPU(Bus& bus)
 	, m_cycleCounter{}
 	, m_vblankInterruptNextCycle{}
 	, m_firstDrawingCycleDone{}
-	, m_glitchedOamScan{}
-	, m_justPassedToOamScan{}
-	, m_justPassedToDrawing{}
+	, m_reEnabling{}
+	, m_reEnableDelay{}
 	, m_lcdBuffer{}
 	, m_lcdPixels{}
 	, m_xPosition{}
@@ -43,9 +42,8 @@ void PPU::reset()
 	m_cycleCounter = 0;
 	m_vblankInterruptNextCycle = false;
 	m_firstDrawingCycleDone = false;
-	m_glitchedOamScan = false;
-	m_justPassedToOamScan = false;
-	m_justPassedToDrawing = false;
+	m_reEnabling = false;
+	m_reEnableDelay = 0;
 	std::ranges::fill(m_lcdBuffer, 0);
 	std::ranges::fill(m_lcdPixels, Pixel{});
 	m_xPosition = 0;
@@ -72,13 +70,19 @@ void PPU::cycle()
 
 	if(m_ly == 153) m_ly = 0;
 	updateCoincidenceFlag();
-	if(!m_glitchedOamScan) m_stat = (m_stat & 0b11111100) | m_mode; //bits 1-0 of stat store the current mode
+	m_stat = (m_stat & 0b11111100) | m_mode; //bits 1-0 of stat store the current mode
 	handleStatInterrupt();
 	if(m_vblankInterruptNextCycle)
 	{
 		requestVBlankInterrupt();
 		m_statInterrupt.sources[OAM_SCAN] = false; //reset this in case it was briefly true
 		m_vblankInterruptNextCycle = false;
+	}
+
+	if(m_reEnableDelay > 0)
+	{
+		if(--m_reEnableDelay == 0) updateMode(DRAWING);
+		return;
 	}
 
 	++m_cycleCounter;
@@ -89,7 +93,7 @@ void PPU::cycle()
 		break;
 	case DRAWING:
 	{
-		m_justPassedToDrawing = false;
+		m_reEnabling = false;
 		for(int i{0}; i < 4; ++i)
 		{
 			if(!m_firstDrawingCycleDone)
@@ -124,12 +128,8 @@ void PPU::cycle()
 
 PPU::Mode PPU::getMode() const
 {
-	return m_justPassedToOamScan ? OAM_SCAN : m_justPassedToDrawing ? DRAWING : static_cast<Mode>(m_stat & 0b11);
-}
-
-bool PPU::isEnabled() const
-{
-	return m_lcdc & 0x80;
+	if((m_mode == DRAWING || m_mode == OAM_SCAN) && !m_reEnabling) return m_mode;
+	else return static_cast<Mode>(m_stat & 0b11);
 }
 
 const uint16* PPU::getLcdBuffer() const
@@ -161,10 +161,10 @@ void PPU::write(const Index index, const uint8 value)
 	switch(index)
 	{
 	case LCDC: 
-		if(!(m_lcdc & 0x80) && value & 0x80)
+		if(constexpr int RE_ENABLE_DELAY{19}; !(m_lcdc & 0x80) && value & 0x80) 
 		{
-			updateMode(OAM_SCAN);
-			m_glitchedOamScan = true;
+			m_reEnabling = true;
+			m_reEnableDelay = RE_ENABLE_DELAY;
 		}
 		m_lcdc = value; 
 		if(!(m_lcdc & 0x80))
@@ -172,7 +172,7 @@ void PPU::write(const Index index, const uint8 value)
 			updateMode(H_BLANK);
 			m_stat = (m_stat & 0b1111'1100) | m_mode; //manually update stat mode bits because if the ppu is disabled they wont update
 			m_ly = 0;
-			m_cycleCounter = 1;
+			m_cycleCounter = 20;
 		}
 		m_fetcher.updateTilemap();
 		break;
@@ -215,8 +215,6 @@ void PPU::updateMode(const Mode mode)
 {
 	m_mode = mode; 
 	setStatModeSources();
-	if(m_mode == OAM_SCAN) m_justPassedToOamScan = true;
-	else if(m_mode == DRAWING && !m_glitchedOamScan) m_justPassedToDrawing = true;
 }
 
 void PPU::updateCoincidenceFlag(bool set)
@@ -234,7 +232,6 @@ void PPU::oamScanCycle()
 {
 	constexpr int SPRITE_BUFFER_MAX_SIZE{10};
 
-	m_justPassedToOamScan = false;
 	for(int i{0}; i < 2; ++i)
 	{
 		if(m_spriteBuffer.size() < SPRITE_BUFFER_MAX_SIZE)
@@ -257,7 +254,6 @@ void PPU::oamScanCycle()
 			});
 		m_spriteAddress = OAM_MEMORY_START;
 		updateMode(DRAWING);
-		m_glitchedOamScan = false;
 	}
 }
 
@@ -273,7 +269,7 @@ void PPU::tryAddSpriteToBuffer(const Sprite sprite)
 
 void PPU::pushToLcd()
 {
-	if(!m_pixelFifoBackground.empty() && !m_fetcher.m_spriteBeingFetched)
+	if(!m_pixelFifoBackground.empty() && m_fetcher.m_spriteFetchDelay == 0)
 	{
 		Pixel pixel{};
 		if(m_pixelsToDiscard == 0)

@@ -27,7 +27,7 @@ void Platform::mainLoop(Gameboy& gameboy)
     constexpr int CYCLES_PER_FRAME{17556};
     constexpr float cappedFrameTime{static_cast<float>(1000. / 59.7)};
 
-    bool fpsLimit{true};
+    bool fpsLimit{};
     uint64_t start{};
     uint64_t end{};
     float elapsedMs{};

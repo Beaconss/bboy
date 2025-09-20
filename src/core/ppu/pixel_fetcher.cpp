@@ -1,14 +1,20 @@
 #include <core/ppu/ppu.h>
 #include <core/ppu/pixel_fetcher.h>
 
-template<>
-PixelFetcher<PPU::Sprite>::PixelFetcher(PPU& ppu)
+constexpr uint8 flipByte(uint8 byte)
+{
+	byte = (byte & 0xF0) >> 4 | (byte & 0x0F) << 4;
+	byte = (byte & 0xCC) >> 2 | (byte & 0x33) << 2;
+	byte = (byte & 0xAA) >> 1 | (byte & 0x55) << 1;
+	return byte;
+}
+
+PixelFetcher::PixelFetcher(PPU& ppu)
 	: m_ppu{ppu}
-	, m_spriteBeingFetched{}
 	, m_isFetchingWindow{}
 	, m_firstFetchCompleted{}
 	, m_backgroundCycleCounter{}
-	, m_spriteCycleCounter{}
+	, m_spriteFetchDelay{}
 	, m_tileX{}
 	, m_tilemap{}
 	, m_tileNumber{}
@@ -21,15 +27,13 @@ PixelFetcher<PPU::Sprite>::PixelFetcher(PPU& ppu)
 	reset();
 }
 
-template<typename T>
-void PixelFetcher<T>::reset()
+void PixelFetcher::reset()
 {
-	m_spriteBeingFetched = nullptr;
 	m_firstFetchCompleted = false;
 	m_isFetchingWindow = false;
 	updateTilemap();
 	m_backgroundCycleCounter = 0;
-	m_spriteCycleCounter = 0;
+	m_spriteFetchDelay = 0;
 	m_tileX = 0;
 	m_tileNumber = 0;
 	m_tileDataLow = 0;
@@ -39,14 +43,13 @@ void PixelFetcher<T>::reset()
 	m_wyLyCondition = false;
 }
 
-template<>
-void PixelFetcher<PPU::Sprite>::resetEndScanline()
+void PixelFetcher::resetEndScanline()
 {
 	m_firstFetchCompleted = false;
 	m_isFetchingWindow = false;
 	updateTilemap();
 	m_backgroundCycleCounter = 0;
-	m_spriteCycleCounter = 0;
+	m_spriteFetchDelay = 0;
 	m_tileX = 0;
 	m_tileNumber = 0;
 	m_tileDataLow = 0;
@@ -55,7 +58,46 @@ void PixelFetcher<PPU::Sprite>::resetEndScanline()
 }
 
 template<>
-void PixelFetcher<PPU::Sprite>::cycle()
+void PixelFetcher::pushToSpriteFifo(const PPU::Sprite sprite) //this has to be here because since it gets used in cycle it needs to be instantiated before that
+{
+	constexpr uint8 X_FLIP_FLAG{0b10'0000};
+	if(sprite.flags & X_FLIP_FLAG)
+	{
+		m_tileDataLow = flipByte(m_tileDataLow);
+		m_tileDataHigh = flipByte(m_tileDataHigh);
+	}
+
+	int pixelsOffScreenLeft{8 - (sprite.xPosition > 8 ? 8 : sprite.xPosition)}; //cap to 8
+	int pixelsAlreadyInFifo{static_cast<uint8>(m_ppu.m_pixelFifoSprite.size())};
+	PPU::Pixel pixel{};
+	for(int i{7}; i >= 0; --i) //normal rendering
+	{
+		if(pixelsOffScreenLeft > 0)
+		{
+			--pixelsOffScreenLeft;
+			continue;
+		}
+
+		constexpr uint8 PALETTE_FLAG{0b1'0000};
+		constexpr uint8 BACKGROUND_PRIORITY_FLAG{0x80};
+		pixel.colorIndex = static_cast<uint8>(((m_tileDataLow >> i) & 0b1) | (((m_tileDataHigh >> i) & 0b1) << 1));
+		pixel.spritePalette = sprite.flags & PALETTE_FLAG;
+		pixel.backgroundPriority = sprite.flags & BACKGROUND_PRIORITY_FLAG;
+
+		if(pixelsAlreadyInFifo == 0) m_ppu.m_pixelFifoSprite.push_back(pixel);
+		else if(const int realIndex{i ^ 7}; (realIndex < m_ppu.m_pixelFifoSprite.size())
+			&& (m_ppu.m_pixelFifoSprite[realIndex].colorIndex == 0 || m_ppu.m_pixelFifoSprite[realIndex].backgroundPriority))
+		{
+			m_ppu.m_pixelFifoSprite[realIndex] = pixel;
+			--pixelsAlreadyInFifo;
+		}
+		else --pixelsAlreadyInFifo;
+	}
+
+	m_ppu.m_spriteBuffer.pop_back();
+}
+
+void PixelFetcher::cycle()
 {
 	constexpr uint16 TILEMAP_SIZE{0x3FF};
 	constexpr uint8 PIXELS_PER_TILE{8};
@@ -64,14 +106,37 @@ void PixelFetcher<PPU::Sprite>::cycle()
 	checkForWindow();
 	checkForSprite();
 
-	if(!m_spriteBeingFetched)
+	if(m_spriteFetchDelay > 0)
+	{
+		if(--m_spriteFetchDelay == 0)
+		{
+			const PPU::Sprite sprite{m_ppu.m_spriteBuffer.back()};
+
+			constexpr uint8 TALL_SPRITE_MODE{0b100};
+			const bool tallSprite{static_cast<bool>(m_ppu.m_lcdc & TALL_SPRITE_MODE)};
+
+			uint8 row = (m_ppu.m_ly - sprite.yPosition) & (tallSprite ? 15 : 7);
+			constexpr uint8 Y_FLIP_FLAG{0b100'0000};
+			if(sprite.flags & Y_FLIP_FLAG) row ^= tallSprite ? 15 : 7;
+			
+			const uint16 m_tileNumber = tallSprite ? sprite.tileNumber & 0xFE : sprite.tileNumber;
+
+			const uint16 tileAddr = 0x8000 + (m_tileNumber * 16) + (2 * row);
+			m_tileDataLow = m_ppu.m_bus.read(tileAddr, Bus::Component::PPU);
+			m_tileDataHigh = m_ppu.m_bus.read(tileAddr + 1, Bus::Component::PPU);
+
+			pushToSpriteFifo(sprite);
+			checkForSprite();
+		}
+	}
+	else
 	{
 		if(m_backgroundCycleCounter < PUSH_TO_FIFO) ++m_backgroundCycleCounter;
 		switch(m_backgroundCycleCounter)
 		{
 		case FETCH_TILE_NO:
 		{
-			const uint16 offset{m_isFetchingWindow ? 
+			const uint16 offset{m_isFetchingWindow ?
 							static_cast<uint16>((m_tileX
 							+ (TILES_PER_ROW * (m_windowLineCounter / PIXELS_PER_TILE)))
 							& TILEMAP_SIZE)
@@ -89,22 +154,22 @@ void PixelFetcher<PPU::Sprite>::cycle()
 			{
 				//8000 method
 				m_tileAddress = m_isFetchingWindow ?
-							0x8000 + (m_tileNumber * 16)
-							+ (2 * (m_windowLineCounter & 7))
-							:
-							0x8000 + (m_tileNumber * 16)
-							+ (2 * ((m_ppu.m_ly + m_ppu.m_scy) & 7));
+					0x8000 + (m_tileNumber * 16)
+					+ (2 * (m_windowLineCounter & 7))
+					:
+					0x8000 + (m_tileNumber * 16)
+					+ (2 * ((m_ppu.m_ly + m_ppu.m_scy) & 7));
 				m_tileDataLow = m_ppu.m_bus.read(m_tileAddress, Bus::Component::PPU);
 			}
 			else
 			{
 				//8800 method
 				m_tileAddress = m_isFetchingWindow ?
-							0x9000 + (static_cast<int8>(m_tileNumber) * 16)
-							+ (2 * (m_windowLineCounter & 7))
-							:
-							0x9000 + (static_cast<int8>(m_tileNumber) * 16)
-							+ (2 * ((m_ppu.m_ly + m_ppu.m_scy) & 7));
+					0x9000 + (static_cast<int8>(m_tileNumber) * 16)
+					+ (2 * (m_windowLineCounter & 7))
+					:
+					0x9000 + (static_cast<int8>(m_tileNumber) * 16)
+					+ (2 * ((m_ppu.m_ly + m_ppu.m_scy) & 7));
 				m_tileDataLow = m_ppu.m_bus.read(m_tileAddress, Bus::Component::PPU);
 			}
 		}
@@ -125,49 +190,16 @@ void PixelFetcher<PPU::Sprite>::cycle()
 		default: break;
 		}
 	}
-	else
-	{
-		++m_spriteCycleCounter;
-		switch(m_spriteCycleCounter)
-		{
-		case FETCH_TILE_DATA_LOW:
-		{
-			constexpr uint8 TALL_SPRITE_MODE{0b100};
-			bool tallSprite{static_cast<bool>(m_ppu.m_lcdc & TALL_SPRITE_MODE)};
-			
-			m_tileNumber = tallSprite ? m_spriteBeingFetched->tileNumber & 0xFE : m_spriteBeingFetched->tileNumber;
-			
-			uint8 row = (m_ppu.m_ly - m_spriteBeingFetched->yPosition) & (tallSprite ? 15 : 7);
-			constexpr uint8 Y_FLIP_FLAG{0b100'0000};
-			if(m_spriteBeingFetched->flags & Y_FLIP_FLAG) row ^= tallSprite ? 15 : 7;
-			
-			m_tileAddress = 0x8000 + (m_tileNumber * 16) + (2 * row);
-			m_tileDataLow = m_ppu.m_bus.read(m_tileAddress, Bus::Component::PPU);
-		}
-		break;
-		case FETCH_TILE_DATA_HIGH:
-			m_tileDataHigh = m_ppu.m_bus.read(m_tileAddress + 1, Bus::Component::PPU);
-			break;
-		case PUSH_TO_FIFO:
-			pushToSpriteFifo();
-			m_spriteCycleCounter = 0;
-			checkForSprite();
-			break;
-		default: break;
-		}
-	}
 }
 
-template<typename T>
-void PixelFetcher<T>::updateTilemap()
+void PixelFetcher::updateTilemap()
 {
 	//which background tilemap is used is determined at bit 6 for window and bit 3 for background
 	if(m_isFetchingWindow) m_tilemap = m_ppu.m_lcdc & 0b100'0000 ? 0x9C00 : 0x9800; 
 	else m_tilemap = m_ppu.m_lcdc & 0b1000 ? 0x9C00 : 0x9800;
 }
 
-template<typename T>
-void PixelFetcher<T>::pushToBackgroundFifo()
+void PixelFetcher::pushToBackgroundFifo()
 {
 	PPU::Pixel pixel{};
 	for(int i{7}; i >= 0; --i)
@@ -178,57 +210,7 @@ void PixelFetcher<T>::pushToBackgroundFifo()
 	++m_tileX;
 }
 
-template<typename T>
-void PixelFetcher<T>::pushToSpriteFifo()
-{
-	constexpr uint8 X_FLIP_FLAG{0b10'0000};
-	if(m_spriteBeingFetched->flags & X_FLIP_FLAG)
-	{
-		m_tileDataLow = flipByte(m_tileDataLow);
-		m_tileDataHigh = flipByte(m_tileDataHigh);
-	}
-
-	int pixelsOffScreenLeft{8 - (m_spriteBeingFetched->xPosition > 8 ? 8 : m_spriteBeingFetched->xPosition)}; //cap to 8
-	int pixelsAlreadyInFifo{static_cast<uint8>(m_ppu.m_pixelFifoSprite.size())};
-	PPU::Pixel pixel{};
-	for(int i{7}; i >= 0; --i) //normal rendering
-	{
-		if(pixelsOffScreenLeft)
-		{
-			--pixelsOffScreenLeft;
-			continue;
-		}
-		
-		constexpr uint8 PALETTE_FLAG{0b1'0000};
-		constexpr uint8 BACKGROUND_PRIORITY_FLAG{0x80};
-		pixel.colorIndex = static_cast<uint8>(((m_tileDataLow >> i) & 0b1) | (((m_tileDataHigh >> i) & 0b1) << 1));
-		pixel.spritePalette = m_spriteBeingFetched->flags & PALETTE_FLAG;
-		pixel.backgroundPriority = m_spriteBeingFetched->flags & BACKGROUND_PRIORITY_FLAG;
-
-		if(pixelsAlreadyInFifo == 0) m_ppu.m_pixelFifoSprite.push_back(pixel);
-		else if(const int realIndex{i ^ 7}; (realIndex < m_ppu.m_pixelFifoSprite.size())
-				&& (m_ppu.m_pixelFifoSprite[realIndex].colorIndex == 0 || m_ppu.m_pixelFifoSprite[realIndex].backgroundPriority))
-		{
-			m_ppu.m_pixelFifoSprite[realIndex] = pixel;
-			--pixelsAlreadyInFifo;
-		}
-		else --pixelsAlreadyInFifo;
-	}
-	m_spriteBeingFetched = nullptr;
-	m_ppu.m_spriteBuffer.pop_back();
-}
-
-template<typename T>
-uint8 PixelFetcher<T>::flipByte(uint8 byte) const
-{
-	byte = (byte & 0xF0) >> 4 | (byte & 0x0F) << 4;
-	byte = (byte & 0xCC) >> 2 | (byte & 0x33) << 2;
-	byte = (byte & 0xAA) >> 1 | (byte & 0x55) << 1;
-	return byte;
-}
-
-template<typename T>
-void PixelFetcher<T>::checkForWindow()
+void PixelFetcher::checkForWindow()
 {
 	if(m_ppu.m_wy == m_ppu.m_ly) m_wyLyCondition = true;
 	if((m_ppu.m_xPosition >= (m_ppu.m_wx - 7))
@@ -246,14 +228,15 @@ void PixelFetcher<T>::checkForWindow()
 	}
 }
 
-template<typename T>
-void PixelFetcher<T>::checkForSprite()
+void PixelFetcher::checkForSprite()
 {
 	//since the sprite buffer is sorted in descending order the last element is the one with the lowest x
-	if(m_ppu.m_lcdc & 0b10 && !m_ppu.m_spriteBuffer.empty() && !m_spriteBeingFetched && m_ppu.m_spriteBuffer.back().xPosition <= (m_ppu.m_xPosition + 8))
+	constexpr int SPRITE_ENABLE{0b10};
+	if(m_ppu.m_lcdc & SPRITE_ENABLE && m_spriteFetchDelay == 0 && !m_ppu.m_spriteBuffer.empty() && m_ppu.m_spriteBuffer.back().xPosition <= (m_ppu.m_xPosition + 8))
 	{
-		//once the pipeline finishes the sprite gets popped
-		m_spriteBeingFetched = &m_ppu.m_spriteBuffer.back();
+		//once it gets fetched the sprite gets popped
+		constexpr int SPRITE_FETCH_DELAY{8};
+		m_spriteFetchDelay = SPRITE_FETCH_DELAY;
 		m_backgroundCycleCounter = 0;
 	}
 }

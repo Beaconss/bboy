@@ -58,14 +58,12 @@ public:
 	void cycle();
 
 	PPU::Mode getMode() const;
-	bool isEnabled() const;
-	
 	const uint16* getLcdBuffer() const;
 	
 	uint8 read(const Index index) const;
 	void write(const Index index, const uint8 value);
 private:
-	friend class PixelFetcher<Sprite>;
+	friend class PixelFetcher;
 
 	struct Pixel
 	{
@@ -119,16 +117,15 @@ private:
 	static constexpr uint16 OAM_MEMORY_START{0xFE00};
 
 	Bus& m_bus;
-	PixelFetcher<Sprite> m_fetcher;
+	PixelFetcher m_fetcher;
 	StatInterrupt m_statInterrupt;
 	Mode m_mode;
 	
 	int m_cycleCounter;
 	bool m_vblankInterruptNextCycle;
 	bool m_firstDrawingCycleDone;
-	bool m_glitchedOamScan;
-	bool m_justPassedToOamScan;
-	bool m_justPassedToDrawing;
+	bool m_reEnabling;
+	int m_reEnableDelay;
 
 	std::array<uint16, SCREEN_WIDTH * SCREEN_HEIGHT> m_lcdBuffer;
 	std::array<Pixel, SCREEN_WIDTH* SCREEN_HEIGHT> m_lcdPixels;
@@ -153,4 +150,3 @@ private:
 	uint8 m_wy; //window y position
 	uint8 m_wx; //window x position plus 7
 };
-
