@@ -1,14 +1,6 @@
 #include <core/ppu/ppu.h>
 #include <core/ppu/pixel_fetcher.h>
 
-constexpr uint8 flipByte(uint8 byte)
-{
-	byte = (byte & 0xF0) >> 4 | (byte & 0x0F) << 4;
-	byte = (byte & 0xCC) >> 2 | (byte & 0x33) << 2;
-	byte = (byte & 0xAA) >> 1 | (byte & 0x55) << 1;
-	return byte;
-}
-
 PixelFetcher::PixelFetcher(PPU& ppu)
 	: m_ppu{ppu}
 	, m_isFetchingWindow{}
@@ -62,7 +54,14 @@ void PixelFetcher::pushToSpriteFifo(const PPU::Sprite sprite) //this has to be h
 {
 	constexpr uint8 X_FLIP_FLAG{0b10'0000};
 	if(sprite.flags & X_FLIP_FLAG)
-	{
+	{		
+		auto flipByte{[](uint8 byte) 
+				{
+					byte = (byte & 0xF0) >> 4 | (byte & 0x0F) << 4;
+					byte = (byte & 0xCC) >> 2 | (byte & 0x33) << 2;
+					byte = (byte & 0xAA) >> 1 | (byte & 0x55) << 1;
+					return byte;
+				}};
 		m_tileDataLow = flipByte(m_tileDataLow);
 		m_tileDataHigh = flipByte(m_tileDataHigh);
 	}
@@ -102,6 +101,8 @@ void PixelFetcher::cycle()
 	constexpr uint16 TILEMAP_SIZE{0x3FF};
 	constexpr uint8 PIXELS_PER_TILE{8};
 	constexpr uint8 TILES_PER_ROW{32};
+
+	//drawingLog << "fetcher state:\n";
 	
 	checkForWindow();
 	checkForSprite();
@@ -146,6 +147,7 @@ void PixelFetcher::cycle()
 							& TILEMAP_SIZE))};
 
 			m_tileNumber = m_ppu.m_bus.read(m_tilemap + offset, Bus::Component::PPU);
+			//drawingLog << "	fetched tile number\n";
 		}
 		break;
 		case FETCH_TILE_DATA_LOW:
@@ -172,6 +174,7 @@ void PixelFetcher::cycle()
 					+ (2 * ((m_ppu.m_ly + m_ppu.m_scy) & 7));
 				m_tileDataLow = m_ppu.m_bus.read(m_tileAddress, Bus::Component::PPU);
 			}
+			//drawingLog << "	fetched tile data low\n";
 		}
 		break;
 		case FETCH_TILE_DATA_HIGH:
@@ -181,13 +184,23 @@ void PixelFetcher::cycle()
 				m_backgroundCycleCounter = 0;
 				m_firstFetchCompleted = true;
 			}
+			//drawingLog << "	fetched tile data high\n";
 			break;
 		case PUSH_TO_FIFO:
-			if(!m_ppu.m_pixelFifoBackground.empty()) break; //if its not empty repeat this step until it is
+		{
+			if(!m_ppu.m_pixelFifoBackground.empty()) //if its not empty repeat this step until it is
+			{
+				//drawingLog << "	waiting for fifo to be empty\n";
+				break;
+			}
 			pushToBackgroundFifo();
 			m_backgroundCycleCounter = 0;
+			//drawingLog << "	pixels pushed to background fifo\n";
 			break;
-		default: break;
+		}
+		default: 
+			//drawingLog << "	sleeping\n";
+			break;
 		}
 	}
 }

@@ -21,8 +21,6 @@ public:
 	}
 
 	void mainLoop(Gameboy& gameboy);
-	void updateScreen(const uint16* data);
-	void render() const;
 
 private:
 	Platform();
@@ -30,6 +28,8 @@ private:
 	Platform(const Platform&) = delete;
 	Platform& operator=(const Platform&) = delete;
 
+	void updateScreen(const uint16* data);
+	void render() const;
 	bool m_running;
 	SDL_Window* m_window;
 	SDL_Event m_event;

@@ -31,6 +31,18 @@ private:
 		MBC5,
 	};
 
+	struct CartridgeInfo
+	{
+		std::filesystem::path path{};
+		MbcType mbc{};
+		bool hasRam{};
+		bool hasBattery{};
+		bool hasClock{};
+		bool hasRumble{};
+		uint16 romBanks{};
+		uint16 ramBanks{};
+	};
+
 	static constexpr std::array<const char*, 5> MBC_TYPES
 	{
 		"None",
@@ -52,19 +64,11 @@ private:
 	void saveRam();
 	void loadSave();
 
-	bool m_isValid;
-	std::filesystem::path m_cartridgePath;
-
+	bool m_hasCartridge;
+	CartridgeInfo m_cartridgeInfo;
 	std::vector<uint8> m_rom;
 	std::vector<uint8> m_ram;
-	MbcType m_mbc;
-	bool m_hasRam;
-	bool m_hasBattery;
-	bool m_hasClock;
-	bool m_hasRumble;
 
-	uint16 m_romBanks;
-	uint16 m_ramBanks;
 	uint32 m_romSize;
 	uint32 m_ramSize;
 

@@ -67,8 +67,7 @@ private:
 
 	struct Pixel
 	{
-		//default to 0xFF because its not a valid color index, so when resetting the lcd pixel buffer each pixel is invalidated
-		uint8 colorIndex{0xFF}; 
+		uint8 colorIndex{}; 
 		bool spritePalette{}; //obp1 if true, obp0 if false
 		bool backgroundPriority{};
 		uint8 paletteValue{};
@@ -97,11 +96,11 @@ private:
 
 	void pushToLcd();
 	bool shouldPushSpritePixel() const;
+	void clearFifos();
 
 	void hBlankCycle();
 	void vBlankCycle();
 
-	void clearFifos();
 
 	void requestStatInterrupt() const;
 	void requestVBlankInterrupt() const;
@@ -128,7 +127,6 @@ private:
 	int m_reEnableDelay;
 
 	std::array<uint16, SCREEN_WIDTH * SCREEN_HEIGHT> m_lcdBuffer;
-	std::array<Pixel, SCREEN_WIDTH* SCREEN_HEIGHT> m_lcdPixels;
 	int m_xPosition; //x position of the pixel to output
 	int m_pixelsToDiscard;
 
@@ -145,6 +143,7 @@ private:
 	uint8 m_ly; //LCD y coordinate (current scanline number)
 	uint8 m_lyc; //LY compare
 	uint8 m_bgp; //background palette data
+	uint8 m_oldBgp{};
 	uint8 m_obp0; //sprite palette data 0
 	uint8 m_obp1; //sprite palette data 1
 	uint8 m_wy; //window y position

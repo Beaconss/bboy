@@ -4,9 +4,12 @@ Gameboy::Gameboy()
 	: m_bus{*this}
 	, m_cpu{m_bus}
 	, m_ppu{m_bus}
+	, m_apu{}
 	, m_timers{m_bus}
 	, m_input{}
 {
+	//std::thread audioThread(a);
+	//audioThread.detach();
 }
 
 Gameboy::~Gameboy()
@@ -14,7 +17,11 @@ Gameboy::~Gameboy()
 	reset();
 }
 
-//static std::ofstream logFile("out.txt");
+void Gameboy::frame()
+{
+	constexpr int CYCLES_PER_FRAME{17556};
+	for(int i{}; i < CYCLES_PER_FRAME; ++i) cycle();
+}
 
 void Gameboy::cycle() //1 machine cycle
 {
@@ -41,6 +48,7 @@ void Gameboy::reset()
 	m_bus.reset();
 	m_cpu.reset();
 	m_ppu.reset();
+	m_apu.reset();
 	m_timers.reset();
 }
 

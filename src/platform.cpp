@@ -24,7 +24,6 @@ Platform::Platform()
 
 void Platform::mainLoop(Gameboy& gameboy)
 {
-    constexpr int CYCLES_PER_FRAME{17556};
     constexpr float cappedFrameTime{static_cast<float>(1000. / 59.7)};
 
     bool fpsLimit{};
@@ -49,13 +48,7 @@ void Platform::mainLoop(Gameboy& gameboy)
 
         start = SDL_GetPerformanceCounter();
      
-        if(gameboy.hasRom())
-        {
-            for(int i{}; i < CYCLES_PER_FRAME; ++i)
-            {
-                gameboy.cycle();
-            }
-        }
+        if(gameboy.hasRom()) gameboy.frame();
 
         updateScreen(gameboy.getLcdBuffer());
         render();
@@ -74,14 +67,14 @@ void Platform::mainLoop(Gameboy& gameboy)
     SDL_Quit();
 }
 
+void Platform::updateScreen(const uint16* data)
+{
+    SDL_UpdateTexture(m_screenTexture, nullptr, data, SCREEN_WIDTH * 2);
+}
+
 void Platform::render() const
 {
     SDL_RenderClear(m_renderer);
     SDL_RenderTexture(m_renderer, m_screenTexture, nullptr, nullptr);
     SDL_RenderPresent(m_renderer);
-}
-
-void Platform::updateScreen(const uint16* data)
-{
-    SDL_UpdateTexture(m_screenTexture, nullptr, data, SCREEN_WIDTH * 2);
 }

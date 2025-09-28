@@ -7,7 +7,7 @@ static std::vector<std::filesystem::path> fillTests()
 	std::vector<fs::path> tests{};
 	try
 	{
-		for(const auto& entry : fs::recursive_directory_iterator(fs::current_path() / "test/acceptance/ppu"))
+		for(const auto& entry : fs::recursive_directory_iterator(fs::current_path() / "roms"))
 		{
 			if(entry.path().extension() == ".gb") tests.emplace_back(entry);
 		}
@@ -35,7 +35,7 @@ Bus::Bus(Gameboy& gb)
 	constexpr unsigned int KB_64{0x10000};
 	m_memory.resize(KB_64); //32 kbs are not used but its ok to have less overhead
 	reset();
-	m_cartridgeSlot.loadCartridge("test/dmg-acid2.gb");
+	m_cartridgeSlot.loadCartridge("roms/Pacman.gb");
 	//nextTest();
 }
 
@@ -73,8 +73,10 @@ void Bus::handleDmaTransfer()
 		m_dmaTransferInProcess = false;
 		m_dmaTransferCurrentAddress = 0;
 	}
+
 	if(m_dmaTransferInProcess)
 	{
+		
 		const uint16 destinationAddr{static_cast<uint16>(0xFE00 | m_dmaTransferCurrentAddress & 0xFF)};
 		write(destinationAddr, read(m_dmaTransferCurrentAddress++, Component::BUS), Component::BUS);
 	
@@ -118,6 +120,32 @@ uint8 Bus::read(const uint16 addr, const Component component) const
 	case TMA: return m_gameboy.m_timers.read(Timers::TMA);
 	case TAC: return m_gameboy.m_timers.read(Timers::TAC);
 	case IF: return m_memory[IF];
+	case CH1_SW: return m_gameboy.m_apu.read(APU::CH1_SW);
+	case CH1_TIM_DUTY: return m_gameboy.m_apu.read(APU::CH1_TIM_DUTY);
+	case CH1_VOL_ENV: return m_gameboy.m_apu.read(APU::CH1_VOL_ENV);
+	case CH1_PE_LOW: return m_gameboy.m_apu.read(APU::CH1_PE_LOW);
+	case CH1_PE_HI_CTRL: return m_gameboy.m_apu.read(APU::CH1_PE_HI_CTRL);
+	case CH2_TIM_DUTY: return m_gameboy.m_apu.read(APU::CH2_TIM_DUTY);
+	case CH2_VOL_ENV: return m_gameboy.m_apu.read(APU::CH2_VOL_ENV);
+	case CH2_PE_LOW: return m_gameboy.m_apu.read(APU::CH2_PE_LOW);
+	case CH2_PE_HI_CTRL: return m_gameboy.m_apu.read(APU::CH2_PE_HI_CTRL);
+	case CH3_DAC_EN: return m_gameboy.m_apu.read(APU::CH3_DAC_EN);
+	case CH3_TIM: return m_gameboy.m_apu.read(APU::CH3_TIM);
+	case CH3_VOL: return m_gameboy.m_apu.read(APU::CH3_VOL);
+	case CH3_PE_LOW: return m_gameboy.m_apu.read(APU::CH3_PE_LOW);
+	case CH3_PE_HI_CTRL: return m_gameboy.m_apu.read(APU::CH3_PE_HI_CTRL);
+	case CH4_TIM: return m_gameboy.m_apu.read(APU::CH4_TIM);
+	case CH4_VOL_ENV: return m_gameboy.m_apu.read(APU::CH4_VOL_ENV);
+	case CH4_FRE_RAND: return m_gameboy.m_apu.read(APU::CH4_FRE_RAND);
+	case CH4_CTRL: return m_gameboy.m_apu.read(APU::CH4_CTRL);
+	case AU_VOL: return m_gameboy.m_apu.read(APU::AU_VOL);
+	case AU_PAN: return m_gameboy.m_apu.read(APU::AU_PAN);
+	case AU_CTRL: return m_gameboy.m_apu.read(APU::AU_CTRL);
+	case WAVE_RAM[0]:case WAVE_RAM[1]:case WAVE_RAM[2]:case WAVE_RAM[3]:
+	case WAVE_RAM[4]:case WAVE_RAM[5]:case WAVE_RAM[6]:case WAVE_RAM[7]:
+	case WAVE_RAM[8]:case WAVE_RAM[9]:case WAVE_RAM[10]:case WAVE_RAM[11]:
+	case WAVE_RAM[12]:case WAVE_RAM[13]:case WAVE_RAM[14]:case WAVE_RAM[15]:
+		return m_gameboy.m_apu.read(APU::WAVE_RAM, addr & 0xF);
 	case LCDC: return m_gameboy.m_ppu.read(PPU::LCDC);
 	case STAT: return m_gameboy.m_ppu.read(PPU::STAT);
 	case SCY: return m_gameboy.m_ppu.read(PPU::SCY);
@@ -131,7 +159,7 @@ uint8 Bus::read(const uint16 addr, const Component component) const
 	case WY: return m_gameboy.m_ppu.read(PPU::WY);
 	case WX: return m_gameboy.m_ppu.read(PPU::WX);
 	case IE: return m_memory[IE];
-	default: 
+	default:
 	{
 		const bool addrInOam{addr >= OAM.first && addr <= OAM.second};
 		const bool addrInVram{addr >= VRAM.first && addr <= VRAM.second};
@@ -161,6 +189,32 @@ void Bus::write(const uint16 addr, const uint8 value, const Component component)
 	case TMA: m_gameboy.m_timers.write(Timers::TMA, value); break;
 	case TAC: m_gameboy.m_timers.write(Timers::TAC, value); break;
 	case IF: m_memory[IF] = value | 0b1110'0000; break;
+	case CH1_SW: m_gameboy.m_apu.write(APU::CH1_SW, value); break;
+	case CH1_TIM_DUTY: m_gameboy.m_apu.write(APU::CH1_TIM_DUTY, value); break;
+	case CH1_VOL_ENV: m_gameboy.m_apu.write(APU::CH1_VOL_ENV, value);	break;
+	case CH1_PE_LOW: m_gameboy.m_apu.write(APU::CH1_PE_LOW, value); break;
+	case CH1_PE_HI_CTRL: m_gameboy.m_apu.write(APU::CH1_PE_HI_CTRL, value); break;
+	case CH2_TIM_DUTY: m_gameboy.m_apu.write(APU::CH2_TIM_DUTY, value); break;
+	case CH2_VOL_ENV: m_gameboy.m_apu.write(APU::CH2_VOL_ENV, value); break;
+	case CH2_PE_LOW: m_gameboy.m_apu.write(APU::CH2_PE_LOW, value); break;
+	case CH2_PE_HI_CTRL: m_gameboy.m_apu.write(APU::CH2_PE_HI_CTRL, value); break;
+	case CH3_DAC_EN: m_gameboy.m_apu.write(APU::CH3_DAC_EN, value); break;
+	case CH3_TIM: m_gameboy.m_apu.write(APU::CH3_TIM, value); break;
+	case CH3_VOL: m_gameboy.m_apu.write(APU::CH3_VOL, value); break;
+	case CH3_PE_LOW: m_gameboy.m_apu.write(APU::CH3_PE_LOW, value); break;
+	case CH3_PE_HI_CTRL: m_gameboy.m_apu.write(APU::CH3_PE_HI_CTRL, value); break;
+	case CH4_TIM: m_gameboy.m_apu.write(APU::CH4_TIM, value); break;
+	case CH4_VOL_ENV: m_gameboy.m_apu.write(APU::CH4_VOL_ENV, value); break;
+	case CH4_FRE_RAND: m_gameboy.m_apu.write(APU::CH4_FRE_RAND, value); break;
+	case CH4_CTRL: m_gameboy.m_apu.write(APU::CH4_CTRL, value); break;
+	case AU_VOL: m_gameboy.m_apu.write(APU::AU_VOL, value); break;
+	case AU_PAN: m_gameboy.m_apu.write(APU::AU_PAN, value); break;
+	case AU_CTRL: m_gameboy.m_apu.write(APU::AU_CTRL, value); break;
+	case WAVE_RAM[0]:case WAVE_RAM[1]:case WAVE_RAM[2]:case WAVE_RAM[3]: break;
+	case WAVE_RAM[4]:case WAVE_RAM[5]:case WAVE_RAM[6]:case WAVE_RAM[7]: break;
+	case WAVE_RAM[8]:case WAVE_RAM[9]:case WAVE_RAM[10]:case WAVE_RAM[11]: break;
+	case WAVE_RAM[12]:case WAVE_RAM[13]:case WAVE_RAM[14]:case WAVE_RAM[15]: break;
+		 m_gameboy.m_apu.write(APU::WAVE_RAM, value, addr & 0xF);
 	case LCDC: m_gameboy.m_ppu.write(PPU::LCDC, value); break;
 	case STAT: m_gameboy.m_ppu.write(PPU::STAT, value); break;
 	case SCY: m_gameboy.m_ppu.write(PPU::SCY, value); break;

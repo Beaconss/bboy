@@ -2,8 +2,7 @@
 #include <type_alias.h>
 
 #include <iostream>
-
-constexpr uint8 flipByte(uint8 byte);
+#include <future>
 
 class PPU;
 

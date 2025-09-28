@@ -1,16 +1,10 @@
 #include <core/cartridge_slot.h>
 
 CartridgeSlot::CartridgeSlot()
-	: m_isValid{}
-	, m_cartridgePath{}
+	: m_hasCartridge{}
+	, m_cartridgeInfo{}
 	, m_rom{}
 	, m_ram{}
-	, m_mbc{}
-	, m_hasRam{}
-	, m_hasBattery{}
-	, m_hasClock{}
-	, m_romBanks{}
-	, m_ramBanks{}
 	, m_romSize{}
 	, m_ramSize{}
 	, m_romBankIndex{}
@@ -24,16 +18,16 @@ CartridgeSlot::CartridgeSlot()
 
 void CartridgeSlot::reset()
 {
-	if(m_hasRam && m_hasBattery) saveRam();
-	m_isValid = false;
+	if(m_cartridgeInfo.hasRam && m_cartridgeInfo.hasBattery) saveRam();
+	m_hasCartridge = false;
 	std::ranges::fill(m_rom, 0);
 	std::ranges::fill(m_ram, 0);
-	m_mbc = NONE;
-	m_hasRam = false;
-	m_hasBattery = false;
-	m_hasClock = false;
-	m_romBanks = 0;
-	m_ramBanks = 0;
+	m_cartridgeInfo.mbc = NONE;
+	m_cartridgeInfo.hasRam = false;
+	m_cartridgeInfo.hasBattery = false;
+	m_cartridgeInfo.hasClock = false;
+	m_cartridgeInfo.romBanks = 0;
+	m_cartridgeInfo.ramBanks = 0;
 	m_romSize = 0;
 	m_ramSize = 0;
 	m_romBankIndex = 1;
@@ -44,10 +38,10 @@ void CartridgeSlot::reset()
 
 void CartridgeSlot::loadCartridge(const std::filesystem::path& filePath)
 {
-	m_cartridgePath = std::filesystem::absolute(filePath);
+	m_cartridgeInfo.path = std::filesystem::absolute(filePath);
 	if(!loadRom())
 	{
-		m_isValid = false;
+		m_hasCartridge = false;
 		return;
 	}
 
@@ -56,102 +50,113 @@ void CartridgeSlot::loadCartridge(const std::filesystem::path& filePath)
 	switch(mbcValue)
 	{
 	case 0x00:
-		m_mbc = NONE;
+		m_cartridgeInfo.mbc = NONE;
 		break;
 	case 0x08:
-		m_mbc = NONE;
-		m_hasRam = true;
+		m_cartridgeInfo.mbc = NONE;
+		m_cartridgeInfo.hasRam = true;
 		break;
 	case 0x09:
-		m_mbc = NONE;
-		m_hasRam = true;
-		m_hasBattery = true;
+		m_cartridgeInfo.mbc = NONE;
+		m_cartridgeInfo.hasRam = true;
+		m_cartridgeInfo.hasBattery = true;
 		break;
 	case 0x01:
-		m_mbc = MBC1;
+		m_cartridgeInfo.mbc = MBC1;
 		break;
 	case 0x02:
-		m_mbc = MBC1;
-		m_hasRam = true;
+		m_cartridgeInfo.mbc = MBC1;
+		m_cartridgeInfo.hasRam = true;
 		break;
 	case 0x03:
-		m_mbc = MBC1;
-		m_hasRam = true;
-		m_hasBattery = true;
+		m_cartridgeInfo.mbc = MBC1;
+		m_cartridgeInfo.hasRam = true;
+		m_cartridgeInfo.hasBattery = true;
 		break;
 	case 0x05:
-		m_mbc = MBC2;
+		m_cartridgeInfo.mbc = MBC2;
 		break;
 	case 0x06:
-		m_mbc = MBC2;
-		m_hasRam = true;
-		m_hasBattery = true;
+		m_cartridgeInfo.mbc = MBC2;
+		m_cartridgeInfo.hasRam = true;
+		m_cartridgeInfo.hasBattery = true;
 		break;
 	case 0x0f:
-		m_mbc = MBC3;
-		m_hasClock = true;
+		m_cartridgeInfo.mbc = MBC3;
+		m_cartridgeInfo.hasClock = true;
+		break;
 	case 0x10:
-		m_mbc = MBC3;
-		m_hasClock = true;
-		m_hasRam = true;
-		m_hasBattery = true;
+		m_cartridgeInfo.mbc = MBC3;
+		m_cartridgeInfo.hasClock = true;
+		m_cartridgeInfo.hasRam = true;
+		m_cartridgeInfo.hasBattery = true;
+		break;
 	case 0x11:
-		m_mbc = MBC3;
+		m_cartridgeInfo.mbc = MBC3;
+		break;
 	case 0x12:
-		m_mbc = MBC3;
-		m_hasRam = true;
+		m_cartridgeInfo.mbc = MBC3;
+		m_cartridgeInfo.hasRam = true;
+		break;
 	case 0x13:
-		m_mbc = MBC3;
-		m_hasRam = true;
-		m_hasBattery = true;
+		m_cartridgeInfo.mbc = MBC3;
+		m_cartridgeInfo.hasRam = true;
+		m_cartridgeInfo.hasBattery = true;
+		break;
 	case 0x19:
-		m_mbc = MBC5;
+		m_cartridgeInfo.mbc = MBC5;
+		break;
 	case 0x1A:
-		m_mbc = MBC5;
-		m_hasRam = true;
+		m_cartridgeInfo.mbc = MBC5;
+		m_cartridgeInfo.hasRam = true;
+		break;
 	case 0x1B:
-		m_mbc = MBC5;
-		m_hasRam = true;
-		m_hasBattery = true;
+		m_cartridgeInfo.mbc = MBC5;
+		m_cartridgeInfo.hasRam = true;
+		m_cartridgeInfo.hasBattery = true;
+		break;
 	case 0x1C:
-		m_mbc = MBC5;
-		m_hasRumble = true;
+		m_cartridgeInfo.mbc = MBC5;
+		m_cartridgeInfo.hasRumble = true;
+		break;
 	case 0x1D:
-		m_mbc = MBC5;
-		m_hasRam = true;
-		m_hasRumble = true;
+		m_cartridgeInfo.mbc = MBC5;
+		m_cartridgeInfo.hasRam = true;
+		m_cartridgeInfo.hasRumble = true;
+		break;
 	case 0x1E:
-		m_mbc = MBC5;
-		m_hasRam = true;
-		m_hasBattery = true;
-		m_hasRumble = true;
+		m_cartridgeInfo.mbc = MBC5;
+		m_cartridgeInfo.hasRam = true;
+		m_cartridgeInfo.hasBattery = true;
+		m_cartridgeInfo.hasRumble = true;
+		break;
 	}
 
 	initializeRom();
 	initializeRam();
-	if(m_hasRam && m_hasBattery) loadSave();
-	m_isValid = true;
+	if(m_cartridgeInfo.hasRam && m_cartridgeInfo.hasBattery) loadSave();
+	m_hasCartridge = true;
 
 	std::cout << "File name: " << filePath.filename() << '\n'
-		<< "Rom banks: " << m_romBanks << '\n'
+		<< "Rom banks: " << m_cartridgeInfo.romBanks << '\n'
 		<< "Rom size: " << m_romSize << '\n'
-		<< "Ram banks: " << m_ramBanks << '\n'
+		<< "Ram banks: " << m_cartridgeInfo.ramBanks << '\n'
 		<< "Ram size: " << m_ramSize << '\n'
-		<< "Has ram: " << (m_hasRam ? "Yes\n" : "No\n")
-		<< "Has battery: " << (m_hasBattery ? "Yes\n" : "No\n")
-		<< "Has rumble: " << (m_hasRumble ? "Yes\n" : "No\n")
-		<< "Mbc type: " << MBC_TYPES[m_mbc] << "\n\n";
+		<< "Has ram: " << (m_cartridgeInfo.hasRam ? "Yes\n" : "No\n")
+		<< "Has battery: " << (m_cartridgeInfo.hasBattery ? "Yes\n" : "No\n")
+		<< "Has rumble: " << (m_cartridgeInfo.hasRumble ? "Yes\n" : "No\n")
+		<< "Mbc type: " << MBC_TYPES[m_cartridgeInfo.mbc] << "\n\n";
 }
 
 bool CartridgeSlot::hasCartridge() const
 {
-	return m_isValid;
+	return m_hasCartridge;
 }
 
 uint8 CartridgeSlot::readRom(const uint16 addr) const
 {
 	using namespace MemoryRegions;
-	switch(m_mbc)
+	switch(m_cartridgeInfo.mbc)
 	{
 	case NONE: return m_rom[addr];
 	case MBC1:
@@ -159,8 +164,8 @@ uint8 CartridgeSlot::readRom(const uint16 addr) const
 		if(addr <= ROM_BANK_0.second)
 		{
 			uint8 zeroBankIndex{};
-			if(m_romBanks <= 32);
-			else if(m_romBanks == 64) zeroBankIndex = (m_ramBankIndex & 1) << 5;
+			if(m_cartridgeInfo.romBanks <= 32);
+			else if(m_cartridgeInfo.romBanks == 64) zeroBankIndex = (m_ramBankIndex & 1) << 5;
 			else zeroBankIndex = m_ramBankIndex << 5;
 
 			if(m_modeFlag) return m_rom[KB_16 * zeroBankIndex + addr];
@@ -169,8 +174,8 @@ uint8 CartridgeSlot::readRom(const uint16 addr) const
 		else
 		{
 			uint8 highBankIndex{};
-			if(m_romBanks <= 32) highBankIndex = m_romBankIndex & m_romBankIndexMask;
-			else if(m_romBanks == 64) highBankIndex = ((m_romBankIndex & m_romBankIndexMask) & ~0b100000) | ((m_ramBankIndex & 1) << 5);
+			if(m_cartridgeInfo.romBanks <= 32) highBankIndex = m_romBankIndex & m_romBankIndexMask;
+			else if(m_cartridgeInfo.romBanks == 64) highBankIndex = ((m_romBankIndex & m_romBankIndexMask) & ~0b100000) | ((m_ramBankIndex & 1) << 5);
 			else highBankIndex = ((m_romBankIndex & m_romBankIndexMask) & ~0b110'0000) | (m_ramBankIndex << 5);
 			return m_rom[KB_16 * highBankIndex + (addr - 0x4000)]; //so rom bank 1
 		}
@@ -189,7 +194,7 @@ uint8 CartridgeSlot::readRom(const uint16 addr) const
 void CartridgeSlot::writeRom(const uint16 addr, const uint8 value)
 {
 	using namespace MemoryRegions;
-	switch(m_mbc)
+	switch(m_cartridgeInfo.mbc)
 	{
 	case NONE: return;
 	case MBC1:
@@ -198,7 +203,7 @@ void CartridgeSlot::writeRom(const uint16 addr, const uint8 value)
 		constexpr int RAM_BANK_END{0x5FFF};
 		if(addr <= ENABLE_RAM_END)
 		{
-			if((value & 0xF) == 0xA && m_hasRam) m_isExternalRamEnabled = true;
+			if((value & 0xF) == 0xA && m_cartridgeInfo.hasRam) m_isExternalRamEnabled = true;
 			else m_isExternalRamEnabled = false;
 		}
 		else if(addr <= ROM_BANK_0.second)
@@ -217,22 +222,22 @@ void CartridgeSlot::writeRom(const uint16 addr, const uint8 value)
 		constexpr int RAM_BANK_END{0x5FFF};
 		if(addr <= ENABLE_RAM_END)
 		{
-			if((value & 0xF) == 0xA && m_hasRam && m_ramBanks > 0) m_isExternalRamEnabled = true;
+			if((value & 0xF) == 0xA && m_cartridgeInfo.hasRam && m_cartridgeInfo.ramBanks > 0) m_isExternalRamEnabled = true;
 			else m_isExternalRamEnabled = false;
 		}
 		else if(addr <= ROM_BANK_LOW_END) 
 		{
 			m_romBankIndex = (m_romBankIndex & 0b1'0000'0000) | value;
-			m_romBankIndex &= m_romBanks - 1;
+			m_romBankIndex &= m_cartridgeInfo.romBanks - 1;
 		}
 		else if(addr <= ROM_BANK_0.second) 
 		{
 			m_romBankIndex = (m_romBankIndex & 0b0'1111'1111) | ((value & 1) << 8);
-			m_romBankIndex &= m_romBanks - 1;
+			m_romBankIndex &= m_cartridgeInfo.romBanks - 1;
 		}
 		else if(addr <= RAM_BANK_END) 
 		{
-			m_ramBankIndex = value & (m_hasRumble ? 0b111 : 0xF);
+			m_ramBankIndex = value & (m_cartridgeInfo.hasRumble ? 0b111 : 0xF);
 		}
 	}
 	break;
@@ -244,12 +249,12 @@ uint8 CartridgeSlot::readRam(const uint16 addr) const
 	if(!m_isExternalRamEnabled) return 0xFF;
 
 	using namespace MemoryRegions;
-	switch(m_mbc)
+	switch(m_cartridgeInfo.mbc)
 	{
 	case NONE: return 0xFF;
 	case MBC1:
 	{
-		if(m_ramBanks == 1) return m_ram[(addr - EXTERNAL_RAM.first) % m_ramSize];
+		if(m_cartridgeInfo.ramBanks == 1) return m_ram[(addr - EXTERNAL_RAM.first) % m_ramSize];
 		else return m_ram[m_modeFlag ? KB_8 * m_ramBankIndex + (addr - EXTERNAL_RAM.first) : addr - EXTERNAL_RAM.first]; //always 4 on mbc1(assuming its not a faulty rom)
 	}
 	break;
@@ -263,12 +268,12 @@ void CartridgeSlot::writeRam(const uint16 addr, const uint8 value)
 	if(!m_isExternalRamEnabled) return;
 
 	constexpr unsigned int EXTERNAL_RAM_START{0xA000};
-	switch(m_mbc)
+	switch(m_cartridgeInfo.mbc)
 	{
 	case NONE: return;
 	case MBC1:
 	{
-		if(m_ramBanks == 1) m_ram[(addr - EXTERNAL_RAM_START) % m_ramSize] = value;
+		if(m_cartridgeInfo.ramBanks == 1) m_ram[(addr - EXTERNAL_RAM_START) % m_ramSize] = value;
 		else m_ram[m_modeFlag ? KB_8 * m_ramBankIndex + (addr - EXTERNAL_RAM_START) : addr - EXTERNAL_RAM_START] = value; //always 4 on mbc1(assuming its not a faulty rom)
 	}
 	break;
@@ -280,7 +285,7 @@ void CartridgeSlot::writeRam(const uint16 addr, const uint8 value)
 
 bool CartridgeSlot::loadRom()
 {
-	std::ifstream rom(m_cartridgePath, std::ios::binary | std::ios::ate);
+	std::ifstream rom(m_cartridgeInfo.path, std::ios::binary | std::ios::ate);
 
 	if(rom.fail())
 	{
@@ -305,7 +310,7 @@ bool CartridgeSlot::loadRom()
 void CartridgeSlot::initializeRom()
 {
 	int romBanks{2};
-	if(m_mbc != NONE)
+	if(m_cartridgeInfo.mbc != NONE)
 	{
 		constexpr uint16 ROM_SIZE_ADDRESS{0x148};
 		uint8 romSize{m_rom[ROM_SIZE_ADDRESS]};
@@ -316,10 +321,10 @@ void CartridgeSlot::initializeRom()
 		else if(romSize == 0x53) romBanks = 80;
 		else if(romSize == 0x54) romBanks = 96;
 	}
-	m_romBanks = romBanks;
+	m_cartridgeInfo.romBanks = romBanks;
 
 	m_romSize = romBanks * KB_16;
-	if(m_mbc == MBC1)
+	if(m_cartridgeInfo.mbc == MBC1)
 	{
 		m_romBankIndexMask = std::min(m_romSize / KB_32, 0b1'0000u);
 		m_romBankIndexMask |= m_romBankIndexMask - 1; //fill every less significant bit
@@ -329,40 +334,40 @@ void CartridgeSlot::initializeRom()
 
 void CartridgeSlot::initializeRam()
 {
-	if(m_hasRam)
+	if(m_cartridgeInfo.hasRam)
 	{
 		constexpr uint16 RAM_SIZE_ADDRESS{0x149};
 		uint8 ramSize{m_rom[RAM_SIZE_ADDRESS]};
 		switch(ramSize)
 		{
-		case 0x1: m_ramBanks = 1; m_ramSize = KB_2; break; //special case
-		case 0x2: m_ramBanks = 1; break;
-		case 0x3: m_ramBanks = 4; break;
-		case 0x4: m_ramBanks = 16; break;
-		case 0x5: m_ramBanks = 8; break;
+		case 0x1: m_cartridgeInfo.ramBanks = 1; m_ramSize = KB_2; break; //special case
+		case 0x2: m_cartridgeInfo.ramBanks = 1; break;
+		case 0x3: m_cartridgeInfo.ramBanks = 4; break;
+		case 0x4: m_cartridgeInfo.ramBanks = 16; break;
+		case 0x5: m_cartridgeInfo.ramBanks = 8; break;
 		default:
-			m_ramBanks = 0; 
-			m_hasRam = false;
+			m_cartridgeInfo.ramBanks = 0; 
+			m_cartridgeInfo.hasRam = false;
 			break;
 		}
 	}
-	else m_ramBanks = 0;
+	else m_cartridgeInfo.ramBanks = 0;
 
-	if(m_ramSize != KB_2) m_ramSize = m_ramBanks * KB_8;
+	if(m_ramSize != KB_2) m_ramSize = m_cartridgeInfo.ramBanks * KB_8;
 
 	m_ram.resize(m_ramSize);
 }
 
 void CartridgeSlot::saveRam()
 {
-	std::ofstream saveFile(m_cartridgePath.replace_extension(".sav"), std::ios::binary);
+	std::ofstream saveFile(m_cartridgeInfo.path.replace_extension(".sav"), std::ios::binary);
 	if(saveFile.fail()) std::cerr << "Couldn't open save file\n";
 	saveFile.write(reinterpret_cast<char*>(m_ram.data()), m_ram.size());
 }
 
 void CartridgeSlot::loadSave()
 {
-	std::ifstream saveFile(m_cartridgePath.replace_extension(".sav"), std::ios::binary);
+	std::ifstream saveFile(m_cartridgeInfo.path.replace_extension(".sav"), std::ios::binary);
 	if(saveFile.fail())
 	{
 		std::cout << "No save file found or couldn't open it\n";
