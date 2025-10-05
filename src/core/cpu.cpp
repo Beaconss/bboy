@@ -41,7 +41,7 @@ void CPU::reset()
 	m_registers[A] = 0x01;
 }
 
-void CPU::cycle()
+void CPU::mCycle()
 {
 	++m_cycleCounter;//since instructions reset m_cycleCounter to 0 increment before the cpu cycle so its 1, then if the instruction is multi-cycle 2, 3...
 	if(!m_currentInstr) handleInterrupts();

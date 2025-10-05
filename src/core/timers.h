@@ -21,7 +21,7 @@ public:
 	};
 
 	void reset();
-	void cycle();
+	void mCycle();
 	uint8 read(const Index index) const;
 	void write(const Index index, const uint8 value);
 

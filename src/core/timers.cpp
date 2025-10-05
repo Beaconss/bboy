@@ -22,27 +22,30 @@ void Timers::reset()
 	m_tac = 0xF8;
 }
 
-void Timers::cycle()
+void Timers::mCycle()
 {
-	++m_div;
-	if(m_timaResetCounter > 0)
+	for(int i{}; i < 4; ++i)
 	{
-		if(--m_timaResetCounter == 0)
+		++m_div;
+		if(m_timaResetCounter > 0)
 		{
-			m_tima = m_tma;
-			requestTimerInterrupt();
+			if(--m_timaResetCounter == 0)
+			{
+				m_tima = m_tma;
+				requestTimerInterrupt();
+			}
 		}
+		
+		const uint16 divBit{static_cast<uint16>(m_div & ((timaBitPositions[m_tac & 0b11])))}; //formula to extract the right bit based on the tima frequency
+		const bool andResult{static_cast<bool>(divBit && (m_tac & 0b100))}; //bit 2 is the enable bit
+		if(m_lastAndResult && !andResult) //falling edge 
+		{
+			constexpr int TIMA_RESET_DELAY{4};
+			if(++m_tima == 0) m_timaResetCounter = TIMA_RESET_DELAY;
+		}
+		
+		m_lastAndResult = andResult;
 	}
-	
-	const uint16 divBit{static_cast<uint16>(m_div & ((timaBitPositions[m_tac & 0b11])))}; //formula to extract the right bit based on the tima frequency
-	const bool andResult{static_cast<bool>(divBit && (m_tac & 0b100))}; //bit 2 is the enable bit
-	if(m_lastAndResult && !andResult) //falling edge 
-	{
-		constexpr int TIMA_RESET_DELAY{4};
-		if(++m_tima == 0) m_timaResetCounter = TIMA_RESET_DELAY;
-	}
-	
-	m_lastAndResult = andResult;
 }
 
 uint8 Timers::read(const Index index) const

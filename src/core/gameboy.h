@@ -17,7 +17,7 @@ public:
 	Gameboy();
 	~Gameboy();
 	void frame();
-	void cycle();
+	void mCycle();
 	void loadCartridge(const std::filesystem::path& filePath);
 	void nextTest();
 	void reset();

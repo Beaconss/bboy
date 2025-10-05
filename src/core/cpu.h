@@ -14,7 +14,7 @@ class CPU
 public:
 	CPU(Bus& bus);
 	void reset();
-	void cycle();
+	void mCycle();
 
 private:
 	using InstructionHandler = void (CPU::*)(); //pointer to a instruction function

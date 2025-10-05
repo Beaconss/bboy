@@ -32,15 +32,15 @@ Bus::Bus(Gameboy& gb)
 	, m_dmaTransferInProcess{}
 	, m_dmaTransferEnableDelay{}
 {
-	constexpr unsigned int KB_64{0x10000};
-	m_memory.resize(KB_64); //32 kbs are not used but its ok to have less overhead
 	reset();
-	m_cartridgeSlot.loadCartridge("roms/Pacman.gb");
+	m_cartridgeSlot.loadCartridge("roms/Kirby's Dream Land (USA, Europe).gb");
 	//nextTest();
 }
 
 void Bus::reset()
 {
+	constexpr unsigned int KB_64{0x10000};
+	m_memory.resize(KB_64); //32 kbs are not used but its ok to have less overhead
 	std::ranges::fill(m_memory, 0);
 	m_cartridgeSlot.reset();
 	m_externalBusBlocked = 0;

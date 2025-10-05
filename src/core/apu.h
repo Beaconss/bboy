@@ -4,6 +4,8 @@
 #include <array>
 #include <algorithm>
 #include <vector>
+#include <thread>
+#include <iostream>
 
 class APU
 {
@@ -37,51 +39,86 @@ public:
 	};
 
 	void reset();
-	void cycle();
+	void mCycle();
+	void pushAudio();
 	uint8 read(const Index index, const uint8 waveRamIndex = 0) const;
 	void write(const Index index, const uint8 value, const uint8 waveRamIndex = 0);
 
 private:
 	struct Channel1
 	{
-		uint8 sweep{};
-		uint8 timerAndDuty{};
-		uint8 volumeAndEnvelope{};
-		uint8 periodLow{};
-		uint8 periodHighAndControl{};
+		uint8 sweep{0x80};
+		uint8 timerAndDuty{0xBF};
+		uint8 volumeAndEnvelope{0xF3};
+		uint8 periodLow{0xFF};
+		uint8 periodHighAndControl{0xBF};
+
+		bool enabled{true};
+		int disableTimer{64};
+		int pushTimer{4 * (2048 - 0x7FF)};
+		uint8 dutyStep{};
 	};
 
 	struct Channel2
 	{
-		uint8 timerAndDuty{};
-		uint8 volumeAndEnvelope{};
-		uint8 periodLow{};
-		uint8 periodHighAndControl{};
+		uint8 timerAndDuty{0x3F};
+		uint8 volumeAndEnvelope{0};
+		uint8 periodLow{0xFF};
+		uint8 periodHighAndControl{0xBF};
+		
+		bool enabled{};
+		uint8 sample{};
+		int disableTimer{64};
+		int pushTimer{4 * (2048 - 0x7FF)};
+		uint8 dutyStep{};
+
+		bool waveCycle();
+		void disableTimerCycle();
+		void trigger();
+		void setPushTimer();
 	};
+
+	static constexpr int MAX_DUTY_STEP{7};
+	static constexpr int DUTY_PATTERNS_STEPS{8};
+	static constexpr int DUTY_PATTERNS_COUNT{4};
+	static constexpr std::array<std::array<uint8, DUTY_PATTERNS_STEPS>, DUTY_PATTERNS_COUNT> DUTY_PATTERNS
+	{{
+		{0,0,0,0,0,0,0,1},
+		{1,0,0,0,0,0,0,1},
+		{1,0,0,0,0,1,1,1},
+		{0,1,1,1,1,1,1,0},
+	}};
 
 	struct Channel3
 	{
-		uint8 dacEnable{};
-		uint8 timer{};
-		uint8 volume{};
-		uint8 periodLow{};
-		uint8 periodHighAndControl{};
+		uint8 dacEnable{0x7F};
+		uint8 timer{0xFF};
+		uint8 volume{0x9F};
+		uint8 periodLow{0xFF};
+		uint8 periodHighAndControl{0xBF};
 	};
+
+	static constexpr int MAX_DISABLE_TIMER_DURATION{64};
 
 	struct Channel4
 	{
-		uint8 timer;
-		uint8 volumeAndEnvelope;
-		uint8 frequencyAndRandomness;
-		uint8 control;
+		uint8 timer{0xFF};
+		uint8 volumeAndEnvelope{0};
+		uint8 frequencyAndRandomness{0};
+		uint8 control{0xBF};
 	};
-
+	
+	static constexpr int ONE_FRAME_SAMPLES{44100 / 60};
+	
 	SDL_AudioStream* m_audioStream;
+	std::vector<float> m_samplesBuffer; 
 
-	Channel1 m_squareSweepChannel;
-	Channel2 m_squareChannel;
-	Channel3 m_waveChannel;
-	Channel4 m_noiseChannel;
+	int m_cycleCounter;	
+
+	Channel1 m_channel1;
+	Channel2 m_channel2;
+	Channel3 m_channel3;
+	Channel4 m_channel4;
 
 	uint8 m_audioVolume;
 	uint8 m_audioPanning;

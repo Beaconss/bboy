@@ -8,8 +8,6 @@ Gameboy::Gameboy()
 	, m_timers{m_bus}
 	, m_input{}
 {
-	//std::thread audioThread(a);
-	//audioThread.detach();
 }
 
 Gameboy::~Gameboy()
@@ -20,15 +18,17 @@ Gameboy::~Gameboy()
 void Gameboy::frame()
 {
 	constexpr int CYCLES_PER_FRAME{17556};
-	for(int i{}; i < CYCLES_PER_FRAME; ++i) cycle();
+	for(int i{}; i < CYCLES_PER_FRAME; ++i) mCycle();
+	m_apu.pushAudio();
 }
 
-void Gameboy::cycle() //1 machine cycle
+void Gameboy::mCycle()
 {
-	m_cpu.cycle(); 
+	m_cpu.mCycle(); 
 	m_bus.handleDmaTransfer();
-	for(int i{0}; i < 4; ++i) m_timers.cycle();
-	m_ppu.cycle();
+	m_timers.mCycle();
+	m_ppu.mCycle();
+	m_apu.mCycle();
 }
 
 void Gameboy::loadCartridge(const std::filesystem::path& filePath)

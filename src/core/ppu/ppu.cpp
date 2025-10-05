@@ -64,9 +64,9 @@ void PPU::reset()
 }
 
 //static std::ofstream //drawingLog{"drawing_log.txt"};
-static uint64_t tCycle{80};
+//static uint64_t tCycle{80};
 
-void PPU::cycle()
+void PPU::mCycle()
 {
 	if(!(m_lcdc & 0x80)) return;
 
@@ -97,7 +97,7 @@ void PPU::cycle()
 		m_reEnabling = false;
 		for(int i{0}; i < 4; ++i)
 		{
-			++tCycle;
+			//++tCycle;
 			//drawingLog << "t-cycle: " << std::dec << tCycle << '\n';
 			if(!m_firstDrawingCycleDone)
 			{
@@ -107,7 +107,7 @@ void PPU::cycle()
 			}
 
 			m_fetcher.cycle();
-			pushToLcd();
+			tryToPushPixel();
 			//drawingLog << "\n\n";
 			m_oldBgp = 0;
 			if(m_xPosition == SCREEN_WIDTH)
@@ -118,7 +118,7 @@ void PPU::cycle()
 				m_spriteBuffer.clear();
 				updateMode(H_BLANK);
 				m_firstDrawingCycleDone = false;
-				tCycle = 80;
+				//tCycle = 80;
 				//drawingLog << '\n';
 				break;
 			}
@@ -143,7 +143,7 @@ PPU::Mode PPU::getMode() const
 
 const uint16* PPU::getLcdBuffer() const
 {
-    return m_lcdBuffer.data();
+	return m_lcdBuffer.data();
 }
 
 uint8 PPU::read(const Index index) const
@@ -280,7 +280,7 @@ void PPU::tryAddSpriteToBuffer(const Sprite sprite)
 	}
 }
 
-void PPU::pushToLcd()
+void PPU::tryToPushPixel()
 {
 	//drawingLog << "pushing state:\n";
 	if(!m_pixelFifoBackground.empty() && m_fetcher.m_spriteFetchDelay == 0)
@@ -302,10 +302,7 @@ void PPU::pushToLcd()
 				pixel.paletteValue |= m_oldBgp;
 			}
 
-			//this gets the right bits of the palette based on the color index of the pixel and 
-			//use them as an index for the rgb565 color array(lcdc bit 1 is background/window enable)
-			uint16 color{colors[(pixel.paletteValue >> (pixel.colorIndex << 1)) & 0b11]};
-			m_lcdBuffer[m_xPosition + SCREEN_WIDTH * m_ly] = color;
+			m_lcdBuffer[m_xPosition + SCREEN_WIDTH * m_ly] = colors[(pixel.paletteValue >> (pixel.colorIndex << 1)) & 0b11];
 			//drawingLog << "	pushed pixel at x:" << std::dec << m_xPosition << ", y: " << static_cast<int>(m_ly)<< "\n	pixel color: " << std::hex << color
 				//<< "\n	bgp value: " << static_cast<int>(m_bgp);
 			++m_xPosition;

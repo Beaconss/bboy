@@ -55,7 +55,7 @@ public:
 	};
 
 	void reset();
-	void cycle();
+	void mCycle();
 
 	PPU::Mode getMode() const;
 	const uint16* getLcdBuffer() const;
@@ -94,7 +94,7 @@ private:
 	void oamScanCycle();
 	void tryAddSpriteToBuffer(const Sprite sprite);
 
-	void pushToLcd();
+	void tryToPushPixel();
 	bool shouldPushSpritePixel() const;
 	void clearFifos();
 
@@ -126,7 +126,7 @@ private:
 	bool m_reEnabling;
 	int m_reEnableDelay;
 
-	std::array<uint16, SCREEN_WIDTH * SCREEN_HEIGHT> m_lcdBuffer;
+	std::array<uint16, SCREEN_WIDTH* SCREEN_HEIGHT> m_lcdBuffer;
 	int m_xPosition; //x position of the pixel to output
 	int m_pixelsToDiscard;
 

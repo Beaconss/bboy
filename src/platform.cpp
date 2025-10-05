@@ -7,26 +7,26 @@ Platform::Platform()
     , m_renderer{}
     , m_screenTexture{}
 {
-    if(!SDL_InitSubSystem(SDL_INIT_VIDEO)) std::cerr << "SDL failed to initialize " << SDL_GetError();
-
+    if(!SDL_InitSubSystem(SDL_INIT_VIDEO | SDL_INIT_AUDIO)) std::cerr << "SDL failed to initialize " << SDL_GetError();
+    
     m_window = SDL_CreateWindow("std-boy", 160 * 5, 144 * 5, SDL_WINDOW_RESIZABLE);
     if(!m_window) std::cerr << "SDL window failed to initialize " << SDL_GetError() << '\n';
+    
     m_renderer = SDL_CreateRenderer(m_window, "opengl");
     if(!m_renderer) std::cerr << "SDL renderer failed to initialize " << SDL_GetError() << '\n';
-
+    SDL_SetRenderVSync(m_renderer, 0);
+    SDL_SetRenderLogicalPresentation(m_renderer, 160, 144, SDL_RendererLogicalPresentation::SDL_LOGICAL_PRESENTATION_INTEGER_SCALE);
+    
     m_screenTexture = SDL_CreateTexture(m_renderer, SDL_PixelFormat::SDL_PIXELFORMAT_RGB565 , SDL_TextureAccess::SDL_TEXTUREACCESS_STREAMING, SCREEN_WIDTH, SCREEN_HEIGHT);
     if(!m_screenTexture) std::cerr << "SDL texture failed to initialize " << SDL_GetError() << '\n';
-
-    SDL_SetRenderVSync(m_renderer, 0);
     SDL_SetTextureScaleMode(m_screenTexture, SDL_SCALEMODE_NEAREST);
-    SDL_SetRenderLogicalPresentation(m_renderer, 160, 144, SDL_RendererLogicalPresentation::SDL_LOGICAL_PRESENTATION_INTEGER_SCALE);
 }
 
 void Platform::mainLoop(Gameboy& gameboy)
 {
-    constexpr float cappedFrameTime{static_cast<float>(1000. / 59.7)};
+    constexpr float cappedFrameTime{static_cast<float>(1000. / 60.0)};
 
-    bool fpsLimit{};
+    bool fpsLimit{true};
     uint64_t start{};
     uint64_t end{};
     float elapsedMs{};
@@ -47,9 +47,8 @@ void Platform::mainLoop(Gameboy& gameboy)
         }
 
         start = SDL_GetPerformanceCounter();
-     
-        if(gameboy.hasRom()) gameboy.frame();
 
+        if(gameboy.hasRom()) gameboy.frame();
         updateScreen(gameboy.getLcdBuffer());
         render();
 
@@ -69,7 +68,7 @@ void Platform::mainLoop(Gameboy& gameboy)
 
 void Platform::updateScreen(const uint16* data)
 {
-    SDL_UpdateTexture(m_screenTexture, nullptr, data, SCREEN_WIDTH * 2);
+    SDL_UpdateTexture(m_screenTexture, nullptr, data, SCREEN_WIDTH * sizeof(uint16));
 }
 
 void Platform::render() const
