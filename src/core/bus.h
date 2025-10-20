@@ -29,7 +29,7 @@ public:
 	void handleDmaTransfer();
 	void loadCartridge(const std::filesystem::path& filePath);
 	bool hasRom() const;
-	void nextTest();
+	void nextCartridge();
 	uint8 read(const uint16 addr, const Component component) const;
 	void write(const uint16 addr, const uint8 value, const Component component);
 

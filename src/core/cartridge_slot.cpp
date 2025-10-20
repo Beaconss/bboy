@@ -300,10 +300,7 @@ bool CartridgeSlot::loadRom()
 	rom.close();
 
 	m_rom.resize(size);
-	for(int i{0x0}; i < size; ++i)
-	{
-		m_rom[i] = buffer[i];
-	}
+	std::memcpy(m_rom.data(), buffer.get(), size);
 	return true;
 }
 

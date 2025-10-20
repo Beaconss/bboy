@@ -14,7 +14,7 @@ PPU::PPU(Bus& bus)
 	, m_xPosition{}
 	, m_pixelsToDiscard{}
 	, m_spriteBuffer{}
-	, m_spriteAddress{OAM_MEMORY_START}
+	, m_spriteAddress{}
 	, m_pixelFifoBackground{}
 	, m_pixelFifoSprite{}
 	, m_lcdc{}

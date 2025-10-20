@@ -101,7 +101,6 @@ private:
 	void hBlankCycle();
 	void vBlankCycle();
 
-
 	void requestStatInterrupt() const;
 	void requestVBlankInterrupt() const;
 

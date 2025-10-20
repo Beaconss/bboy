@@ -17,8 +17,9 @@ Gameboy::~Gameboy()
 
 void Gameboy::frame()
 {
-	constexpr int CYCLES_PER_FRAME{17556};
+	static constexpr int CYCLES_PER_FRAME{17556};
 	for(int i{}; i < CYCLES_PER_FRAME; ++i) mCycle();
+	m_apu.doRemainingCycles();
 	m_apu.pushAudio();
 }
 
@@ -28,7 +29,6 @@ void Gameboy::mCycle()
 	m_bus.handleDmaTransfer();
 	m_timers.mCycle();
 	m_ppu.mCycle();
-	m_apu.mCycle();
 }
 
 void Gameboy::loadCartridge(const std::filesystem::path& filePath)
@@ -37,10 +37,10 @@ void Gameboy::loadCartridge(const std::filesystem::path& filePath)
 	m_bus.loadCartridge(filePath);
 }
 
-void Gameboy::nextTest()
+void Gameboy::nextCartridge()
 {
 	reset();
-	m_bus.nextTest();
+	m_bus.nextCartridge();
 }
 
 void Gameboy::reset()

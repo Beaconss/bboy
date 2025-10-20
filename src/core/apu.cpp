@@ -1,20 +1,10 @@
 #include "apu.h"
 
-void playAudio(SDL_AudioStream* stream)
-{
-	std::vector<float> buf(44100);
-	for(int i{}; i < buf.size(); ++i)
-	{
-		buf[i] = i % 200 < 100 ? 1.0f : 0.0f;
-	}
-	SDL_PutAudioStreamData(stream, buf.data(), int(buf.size() * sizeof(float)));
-	buf.clear();
-}
-
 APU::APU()
 	: m_audioStream{}
 	, m_samplesBuffer{}
-	, m_cycleCounter{}
+	, m_frameSequencerCounter{}
+	, m_remainingCycles{}
 	, m_channel1{}
 	, m_channel2{}
 	, m_channel3{}
@@ -30,10 +20,12 @@ APU::APU()
 void APU::reset()
 {
 	SDL_AudioSpec spec{SDL_AudioFormat::SDL_AUDIO_F32, 1, 44100};
+	SDL_ClearAudioStream(m_audioStream);
 	m_audioStream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, nullptr, nullptr);
 	SDL_ResumeAudioStreamDevice(m_audioStream);
 	std::ranges::fill(m_samplesBuffer, 0.0f);
-	m_cycleCounter = 0;
+	m_frameSequencerCounter = 0;
+	m_remainingCycles = CYCLES_PER_FRAME;
 	m_channel1 = Channel1{};
 	m_channel2 = Channel2{};
 	m_channel3 = Channel3{};
@@ -44,27 +36,16 @@ void APU::reset()
 	std::ranges::fill(m_waveRam, 0);
 }
 
-void APU::mCycle()
+void APU::doCycles(const int cycleCount)
 {
-	++m_cycleCounter;
-	if(!m_channel2.enabled || m_channel2.disableTimer == 0) return;
+	for(int i{}; i < cycleCount; ++i) mCycle();
+	m_remainingCycles -= cycleCount;
+}
 
-	constexpr int FRAME_SEQUENCER_TIME{2048}; //in m-cycles
-	if(((m_cycleCounter % (FRAME_SEQUENCER_TIME * 2)) == 0))
-	{
-		m_channel2.disableTimerCycle();
-		m_cycleCounter = 0;
-	}
-	for(int i{}; i < 4; ++i)
-	{
-		m_channel2.waveCycle();
-		static int a{};
-		if(++a == 95)
-		{
-			m_samplesBuffer.push_back(m_channel2.sample ? 1.0f : -1.0f);
-			a = 0;
-		}
-	}
+void APU::doRemainingCycles()
+{
+	for(int i{}; i < m_remainingCycles; ++i) mCycle();
+	m_remainingCycles = CYCLES_PER_FRAME;
 }
 
 void APU::pushAudio()
@@ -98,7 +79,7 @@ uint8 APU::read(const Index index, uint8 waveRamIndex) const
 	case CH4_CTRL: return m_channel4.control;
 	case AU_VOL: return m_audioVolume;
 	case AU_PAN: return m_audioPanning;
-	case AU_CTRL: return m_audioControl;
+	case AU_CTRL: return (m_audioControl & 0x80) | 0b0111'0000 | (0u << 3 | 0u << 2 | static_cast<uint8>(m_channel2.enabled) << 1 | static_cast<uint8>(m_channel1.enabled));
 	case WAVE_RAM: return m_waveRam[waveRamIndex];
 	default: return 0xFF;
 	}
@@ -106,22 +87,29 @@ uint8 APU::read(const Index index, uint8 waveRamIndex) const
 
 void APU::write(const Index index, const uint8 value, uint8 waveRamIndex)
 {
+	if(index == WAVE_RAM)
+	{
+		m_waveRam[waveRamIndex] = value;
+		return;
+	}
+	else if(!(m_audioControl & AUDIO_ENABLE)) return;
+
 	switch(index)
 	{
 	case CH1_SW: m_channel1.sweep = value; break;
-	case CH1_TIM_DUTY: m_channel1.timerAndDuty = value; m_channel1.disableTimer = MAX_DISABLE_TIMER_DURATION - (value & 0b0011'1111); break;
+	case CH1_TIM_DUTY: m_channel1.timerAndDuty = value; m_channel1.disableTimer = MAX_DISABLE_TIMER_DURATION - (m_channel1.timerAndDuty & 0b0011'1111); break;
 	case CH1_VOL_ENV: m_channel1.volumeAndEnvelope = value; break;
 	case CH1_PE_LOW: m_channel1.periodLow = value; break;
 	case CH1_PE_HI_CTRL: 
 		m_channel1.periodHighAndControl = value; 
-		//if(constexpr uint8 TRIGGER{0x80}; value & TRIGGER) triggerChannel1();
+		if(value & TRIGGER) m_channel1.trigger();
 		break;
-	case CH2_TIM_DUTY: m_channel2.timerAndDuty = value; m_channel2.disableTimer = MAX_DISABLE_TIMER_DURATION - (value & 0b0011'1111); break;
+	case CH2_TIM_DUTY: m_channel2.timerAndDuty = value; m_channel2.disableTimer = MAX_DISABLE_TIMER_DURATION - (m_channel2.timerAndDuty & 0b0011'1111); break;
 	case CH2_VOL_ENV: m_channel2.volumeAndEnvelope = value; break;
 	case CH2_PE_LOW: m_channel2.periodLow = value; break;
 	case CH2_PE_HI_CTRL: 
 		m_channel2.periodHighAndControl = value; 
-		if(constexpr uint8 TRIGGER{0x80}; value & TRIGGER) m_channel2.trigger();
+		if(value & TRIGGER) m_channel2.trigger();
 		break;
 	case CH3_DAC_EN: m_channel3.dacEnable = value; break;
 	case CH3_TIM: m_channel3.timer = value; break;
@@ -134,12 +122,39 @@ void APU::write(const Index index, const uint8 value, uint8 waveRamIndex)
 	case CH4_CTRL: m_channel4.control = value; break;
 	case AU_VOL: m_audioVolume = value; break;
 	case AU_PAN: m_audioPanning = value; break;
-	case AU_CTRL: m_audioControl = value; break;
-	case WAVE_RAM: m_waveRam[waveRamIndex] = value; break;
+	case AU_CTRL: m_audioControl = value & 0x80; break;
 	}
 }
 
-bool APU::Channel2::waveCycle()
+void APU::mCycle()
+{
+	constexpr int FRAME_SEQUENCER_TIME{2048}; //in m-cycles
+	++m_frameSequencerCounter;
+	if(((m_frameSequencerCounter % (FRAME_SEQUENCER_TIME * 2)) == 0))
+	{
+		m_channel1.disableTimerCycle();
+		m_channel2.disableTimerCycle();
+		m_frameSequencerCounter = 0;
+	}
+
+	if(!(m_audioControl & AUDIO_ENABLE)) return;
+
+	for(int i{}; i < 4; ++i)
+	{
+		if(m_channel1.enabled) m_channel1.pushCycle();
+		if(m_channel2.enabled) m_channel2.pushCycle();
+
+		static int nearestNeighbourCounter{};
+		if(++nearestNeighbourCounter == 95)
+		{
+			int sample{(m_channel1.enabled ? m_channel1.sample : 0) + (m_channel2.enabled ? m_channel2.sample : 0)};
+			m_samplesBuffer.push_back(sample ? 0.05f : -0.05f);
+			nearestNeighbourCounter = 0;
+		}
+	}
+}
+
+bool APU::PulseChannelBase::pushCycle()
 {
 	if(--pushTimer == 0)
 	{
@@ -153,26 +168,22 @@ bool APU::Channel2::waveCycle()
 	return false;
 }
 
-void APU::Channel2::disableTimerCycle()
+void APU::PulseChannelBase::disableTimerCycle()
 {
 	if(disableTimer > 0) 
 	{
-		if(--disableTimer == 0)
-		{
-			enabled = false;
-			sample = 0;
-		}
+		if(--disableTimer == 0) enabled = false;
 	}
 }
 
-void APU::Channel2::trigger()
+void APU::PulseChannelBase::trigger()
 {
 	enabled = true;
 	setPushTimer();
 	if(disableTimer == 0) disableTimer = MAX_DISABLE_TIMER_DURATION;
 }
 
-void APU::Channel2::setPushTimer()
+void APU::PulseChannelBase::setPushTimer()
 {
 	constexpr uint8 PERIOD_HIGH{0b111};
 	int period{periodLow | ((periodHighAndControl & PERIOD_HIGH) << 8)};

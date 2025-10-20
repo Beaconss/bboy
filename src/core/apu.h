@@ -5,12 +5,23 @@
 #include <algorithm>
 #include <vector>
 #include <thread>
+#include <mutex>
 #include <iostream>
 
 class APU
 {
 public:
 	APU();
+
+	struct PromiseCycle
+	{
+
+	};
+
+	struct Awaitable
+	{
+
+	};
 
 	enum Index
 	{
@@ -39,55 +50,51 @@ public:
 	};
 
 	void reset();
-	void mCycle();
+	void doCycles(const int cycleCount);
+	void doRemainingCycles();
 	void pushAudio();
 	uint8 read(const Index index, const uint8 waveRamIndex = 0) const;
 	void write(const Index index, const uint8 value, const uint8 waveRamIndex = 0);
 
 private:
-	struct Channel1
+	struct PulseChannelBase
 	{
-		uint8 sweep{0x80};
-		uint8 timerAndDuty{0xBF};
-		uint8 volumeAndEnvelope{0xF3};
-		uint8 periodLow{0xFF};
-		uint8 periodHighAndControl{0xBF};
+		static constexpr int MAX_DUTY_STEP{7};
+		static constexpr int DUTY_PATTERNS_STEPS{8};
+		static constexpr int DUTY_PATTERNS_COUNT{4};
+		static constexpr std::array<std::array<uint8, DUTY_PATTERNS_STEPS>, DUTY_PATTERNS_COUNT> DUTY_PATTERNS
+		{{
+			{0,0,0,0,0,0,0,1},
+			{1,0,0,0,0,0,0,1},
+			{1,0,0,0,0,1,1,1},
+			{0,1,1,1,1,1,1,0},
+		}};
 
-		bool enabled{true};
-		int disableTimer{64};
-		int pushTimer{4 * (2048 - 0x7FF)};
-		uint8 dutyStep{};
-	};
-
-	struct Channel2
-	{
 		uint8 timerAndDuty{0x3F};
 		uint8 volumeAndEnvelope{0};
 		uint8 periodLow{0xFF};
 		uint8 periodHighAndControl{0xBF};
-		
+
 		bool enabled{};
 		uint8 sample{};
 		int disableTimer{64};
 		int pushTimer{4 * (2048 - 0x7FF)};
 		uint8 dutyStep{};
 
-		bool waveCycle();
+		bool pushCycle();
 		void disableTimerCycle();
 		void trigger();
 		void setPushTimer();
 	};
 
-	static constexpr int MAX_DUTY_STEP{7};
-	static constexpr int DUTY_PATTERNS_STEPS{8};
-	static constexpr int DUTY_PATTERNS_COUNT{4};
-	static constexpr std::array<std::array<uint8, DUTY_PATTERNS_STEPS>, DUTY_PATTERNS_COUNT> DUTY_PATTERNS
-	{{
-		{0,0,0,0,0,0,0,1},
-		{1,0,0,0,0,0,0,1},
-		{1,0,0,0,0,1,1,1},
-		{0,1,1,1,1,1,1,0},
-	}};
+	struct Channel1 : PulseChannelBase
+	{
+		uint8 sweep{0x80};
+	};
+
+	struct Channel2 : PulseChannelBase
+	{
+	};
 
 	struct Channel3
 	{
@@ -97,7 +104,6 @@ private:
 		uint8 periodLow{0xFF};
 		uint8 periodHighAndControl{0xBF};
 	};
-
 	static constexpr int MAX_DISABLE_TIMER_DURATION{64};
 
 	struct Channel4
@@ -108,12 +114,18 @@ private:
 		uint8 control{0xBF};
 	};
 	
+	void mCycle();
+
+	static constexpr int CYCLES_PER_FRAME{17556};
 	static constexpr int ONE_FRAME_SAMPLES{44100 / 60};
+	static constexpr uint8 AUDIO_ENABLE{0x80};
+	static constexpr uint8 TRIGGER{0x80};
 	
 	SDL_AudioStream* m_audioStream;
 	std::vector<float> m_samplesBuffer; 
 
-	int m_cycleCounter;	
+	int m_frameSequencerCounter;
+	int m_remainingCycles;
 
 	Channel1 m_channel1;
 	Channel2 m_channel2;

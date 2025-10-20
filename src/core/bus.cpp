@@ -1,13 +1,13 @@
 #include <core/bus.h>
 #include <core/gameboy.h>
 
-static std::vector<std::filesystem::path> fillTests()
+static std::vector<std::filesystem::path> fillCartridges()
 {
 	namespace fs = std::filesystem;
 	std::vector<fs::path> tests{};
 	try
 	{
-		for(const auto& entry : fs::recursive_directory_iterator(fs::current_path() / "roms"))
+		for(const auto& entry : fs::recursive_directory_iterator(fs::current_path() / "roms")) 
 		{
 			if(entry.path().extension() == ".gb") tests.emplace_back(entry);
 		}
@@ -20,7 +20,7 @@ static std::vector<std::filesystem::path> fillTests()
 	return tests;
 }
 
-std::vector<std::filesystem::path> TESTS{fillTests()};
+std::vector<std::filesystem::path> TESTS{fillCartridges()};
 
 Bus::Bus(Gameboy& gb)
 	: m_gameboy{gb}
@@ -33,8 +33,8 @@ Bus::Bus(Gameboy& gb)
 	, m_dmaTransferEnableDelay{}
 {
 	reset();
-	m_cartridgeSlot.loadCartridge("roms/Kirby's Dream Land (USA, Europe).gb");
-	//nextTest();
+	m_cartridgeSlot.loadCartridge("roms/Legend of Zelda, The - Link's Awakening (USA, Europe) (Rev 2).gb");
+	//nextCartridge();
 }
 
 void Bus::reset()
@@ -101,7 +101,7 @@ bool Bus::hasRom() const
 	return m_cartridgeSlot.hasCartridge();
 }
 
-void Bus::nextTest()
+void Bus::nextCartridge()
 {
 	static int next{};
 	m_cartridgeSlot.loadCartridge(TESTS[next++]);
