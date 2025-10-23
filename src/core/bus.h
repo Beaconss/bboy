@@ -47,5 +47,5 @@ private:
 	bool m_vramBusBlocked;
 	uint16 m_dmaTransferCurrentAddress;
 	bool m_dmaTransferInProcess;
-	int m_dmaTransferEnableDelay;
+	uint8 m_dmaTransferEnableDelay;
 };

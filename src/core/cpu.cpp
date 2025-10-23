@@ -56,7 +56,7 @@ void CPU::mCycle()
 		m_ime = true;
 		m_imeEnableNextCycle = false;
 	}
-
+	
 	if(m_currentInstr) (this->*m_currentInstr)();
 	else
 	{

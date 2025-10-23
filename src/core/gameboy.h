@@ -4,7 +4,7 @@
 #include <core/bus.h>
 #include <core/cpu.h>
 #include <core/ppu/ppu.h>
-#include <core/apu.h>
+#include <core/apu/apu.h>
 #include <core/timers.h>
 #include <core/input.h>
 
@@ -23,6 +23,7 @@ public:
 	void reset();
 	bool hasRom() const;
 	const uint16* getLcdBuffer() const;
+	void putAudio(float frameTime);
 
 private:
 	friend class Bus;

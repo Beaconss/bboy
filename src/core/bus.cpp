@@ -4,12 +4,12 @@
 static std::vector<std::filesystem::path> fillCartridges()
 {
 	namespace fs = std::filesystem;
-	std::vector<fs::path> tests{};
+	std::vector<fs::path> cartridges{};
 	try
 	{
 		for(const auto& entry : fs::recursive_directory_iterator(fs::current_path() / "roms")) 
 		{
-			if(entry.path().extension() == ".gb") tests.emplace_back(entry);
+			if(entry.path().extension() == ".gb") cartridges.emplace_back(entry);
 		}
 	}
 	catch(const fs::filesystem_error& ex)
@@ -17,10 +17,10 @@ static std::vector<std::filesystem::path> fillCartridges()
 		std::cout << ex.what() << '\n'
 			<< ex.path1() << '\n';
 	}
-	return tests;
+	return cartridges;
 }
 
-std::vector<std::filesystem::path> TESTS{fillCartridges()};
+std::vector<std::filesystem::path> cartridges{fillCartridges()};
 
 Bus::Bus(Gameboy& gb)
 	: m_gameboy{gb}
@@ -104,7 +104,7 @@ bool Bus::hasRom() const
 void Bus::nextCartridge()
 {
 	static int next{};
-	m_cartridgeSlot.loadCartridge(TESTS[next++]);
+	m_cartridgeSlot.loadCartridge(cartridges[next++]);
 }
 
 uint8 Bus::read(const uint16 addr, const Component component) const

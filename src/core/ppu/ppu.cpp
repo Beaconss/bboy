@@ -86,6 +86,8 @@ void PPU::mCycle()
 		if(--m_reEnableDelay == 0) updateMode(DRAWING);
 		return;
 	}
+	else m_reEnabling = false;
+
 	++m_cycleCounter;
 	switch(m_mode)
 	{
@@ -93,38 +95,8 @@ void PPU::mCycle()
 		oamScanCycle();
 		break;
 	case DRAWING:
-	{
-		m_reEnabling = false;
-		for(int i{0}; i < 4; ++i)
-		{
-			//++tCycle;
-			//drawingLog << "t-cycle: " << std::dec << tCycle << '\n';
-			if(!m_firstDrawingCycleDone)
-			{
-				m_pixelsToDiscard = m_scx & 7;
-				m_firstDrawingCycleDone = true;
-				//drawingLog << "pixels to discard this scanline: " << m_pixelsToDiscard << '\n';
-			}
-
-			m_fetcher.cycle();
-			tryToPushPixel();
-			//drawingLog << "\n\n";
-			m_oldBgp = 0;
-			if(m_xPosition == SCREEN_WIDTH)
-			{
-				m_xPosition = 0;
-				m_fetcher.resetEndScanline();
-				clearFifos();
-				m_spriteBuffer.clear();
-				updateMode(H_BLANK);
-				m_firstDrawingCycleDone = false;
-				//tCycle = 80;
-				//drawingLog << '\n';
-				break;
-			}
-		}
+		drawingCycle();
 		break;
-	}
 	case H_BLANK:
 		hBlankCycle();
 		break;
@@ -260,7 +232,7 @@ void PPU::oamScanCycle()
 	if(m_cycleCounter == OAM_SCAN_END_CYCLE || m_cycleCounter == 19 && m_ly == 0)
 	{
 		//here if left xPosition is equal to the right's one, 
-		//left goes up because the left one has higher priority
+		//left goes up because the left one has higher priority since its first in oam memory
 		std::ranges::sort(m_spriteBuffer, [](Sprite left, Sprite right)
 			{
 				return left.xPosition >= right.xPosition;
@@ -277,6 +249,38 @@ void PPU::tryAddSpriteToBuffer(const Sprite sprite)
 		&& m_ly + 16 < sprite.yPosition + (m_lcdc & TALL_SPRITE_MODE ? 16 : 8))
 	{
 		m_spriteBuffer.push_back(sprite);
+	}
+}
+
+void PPU::drawingCycle()
+{
+	for(int i{0}; i < 4; ++i)
+	{
+		//++tCycle;
+		//drawingLog << "t-cycle: " << std::dec << tCycle << '\n';
+		if(!m_firstDrawingCycleDone)
+		{
+			m_pixelsToDiscard = m_scx & 7;
+			m_firstDrawingCycleDone = true;
+			//drawingLog << "pixels to discard this scanline: " << m_pixelsToDiscard << '\n';
+		}
+
+		m_fetcher.cycle();
+		tryToPushPixel();
+		//drawingLog << "\n\n";
+		m_oldBgp = 0;
+		if(m_xPosition == SCREEN_WIDTH)
+		{
+			m_xPosition = 0;
+			m_fetcher.resetEndScanline();
+			clearFifos();
+			m_spriteBuffer.clear();
+			updateMode(H_BLANK);
+			m_firstDrawingCycleDone = false;
+			//tCycle = 80;
+			//drawingLog << '\n';
+			break;
+		}
 	}
 }
 

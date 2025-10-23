@@ -359,7 +359,7 @@ void CartridgeSlot::saveRam()
 {
 	std::ofstream saveFile(m_cartridgeInfo.path.replace_extension(".sav"), std::ios::binary);
 	if(saveFile.fail()) std::cerr << "Couldn't open save file\n";
-	saveFile.write(reinterpret_cast<char*>(m_ram.data()), m_ram.size());
+	saveFile.write(reinterpret_cast<const char*>(m_ram.data()), m_ram.size());
 }
 
 void CartridgeSlot::loadSave()

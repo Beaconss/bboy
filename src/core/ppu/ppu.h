@@ -94,6 +94,7 @@ private:
 	void oamScanCycle();
 	void tryAddSpriteToBuffer(const Sprite sprite);
 
+	void drawingCycle();
 	void tryToPushPixel();
 	bool shouldPushSpritePixel() const;
 	void clearFifos();
@@ -119,15 +120,15 @@ private:
 	StatInterrupt m_statInterrupt;
 	Mode m_mode;
 	
-	int m_cycleCounter;
+	uint8 m_cycleCounter;
 	bool m_vblankInterruptNextCycle;
 	bool m_firstDrawingCycleDone;
 	bool m_reEnabling;
-	int m_reEnableDelay;
+	uint8 m_reEnableDelay;
 
 	std::array<uint16, SCREEN_WIDTH* SCREEN_HEIGHT> m_lcdBuffer;
-	int m_xPosition; //x position of the pixel to output
-	int m_pixelsToDiscard;
+	uint8 m_xPosition; //x position of the pixel to output
+	uint8 m_pixelsToDiscard;
 
 	std::vector<Sprite> m_spriteBuffer;
 	uint16 m_spriteAddress;

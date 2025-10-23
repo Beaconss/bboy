@@ -24,12 +24,13 @@ Platform::Platform()
 
 void Platform::mainLoop(Gameboy& gameboy)
 {
-    constexpr float cappedFrameTime{static_cast<float>(1000. / 60.0)};
+    constexpr float TARGET_FPS{59.7f};
+    constexpr float CAPPED_FRAME_TIME{1000.f / TARGET_FPS};
     
-    bool fpsLimit{false};
+    bool fpsLimit{true};
     uint64_t start{};
     uint64_t end{};
-    float elapsedMs{};
+    float frameTime{};
     while(m_running)
     {
         while(SDL_PollEvent(&m_event))
@@ -46,18 +47,20 @@ void Platform::mainLoop(Gameboy& gameboy)
         }
 
         start = SDL_GetPerformanceCounter();
-        
+    
         if(gameboy.hasRom()) gameboy.frame();
         updateScreen(gameboy.getLcdBuffer());
         render();
+            
+        end = SDL_GetPerformanceCounter();
 
-        if(fpsLimit)
+        if(fpsLimit) 
         {
-            end = SDL_GetPerformanceCounter();
-            elapsedMs = (end - start) / static_cast<float>(SDL_GetPerformanceFrequency()) * 1000.0f;
-            SDL_Delay(static_cast<uint32>(floor(cappedFrameTime - elapsedMs)));
+            frameTime = (SDL_GetPerformanceCounter() - start) / static_cast<float>(SDL_GetPerformanceFrequency()) * 1000.f;
+            if(frameTime < CAPPED_FRAME_TIME) SDL_Delay(static_cast<uint32>(CAPPED_FRAME_TIME - frameTime));           
         }
-        fpsLimit = true;
+        frameTime = (SDL_GetPerformanceCounter() - start) / static_cast<float>(SDL_GetPerformanceFrequency()) * 1000.f;
+        gameboy.putAudio(frameTime);
     }
     
     SDL_DestroyTexture(m_screenTexture);

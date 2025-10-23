@@ -19,8 +19,7 @@ void Gameboy::frame()
 {
 	static constexpr int CYCLES_PER_FRAME{17556};
 	for(int i{}; i < CYCLES_PER_FRAME; ++i) mCycle();
-	m_apu.doRemainingCycles();
-	m_apu.pushAudio();
+	m_apu.unlockThread();
 }
 
 void Gameboy::mCycle()
@@ -60,4 +59,9 @@ bool Gameboy::hasRom() const
 const uint16* Gameboy::getLcdBuffer() const
 {
 	return m_ppu.getLcdBuffer();
-} 
+}
+	
+void Gameboy::putAudio(float frameTime)
+{
+	m_apu.putAudio(frameTime);
+}
