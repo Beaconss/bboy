@@ -2,7 +2,6 @@
 #include <type_alias.h>
 
 #include <iostream>
-#include <future>
 
 class PPU;
 
@@ -14,10 +13,10 @@ private:
 
 	enum Step
 	{
-		FETCH_TILE_NO = 2,
-		FETCH_TILE_DATA_LOW = 4,
-		FETCH_TILE_DATA_HIGH = 6,
-		PUSH_TO_FIFO = 7,
+		fetchTileNo = 2,
+		fetchTileDataLow = 4,
+		fetchTileDataHigh = 6,
+		pushToFifo = 7,
 	};
 
 	void reset();

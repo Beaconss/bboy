@@ -10,8 +10,8 @@
 #include <ranges>
 #include <algorithm>
 
-constexpr int SCREEN_WIDTH{160};
-constexpr int SCREEN_HEIGHT{144};
+constexpr int screenWidth{160};
+constexpr int screenHeight{144};
 
 class PPU
 {
@@ -20,25 +20,25 @@ public:
 
 	enum Index
 	{
-		LCDC,
-		STAT,
-		SCY,
-		SCX,
-		LY,
-		LYC,
-		BGP,
-		OBP0,
-		OBP1,
-		WY,
-		WX,
+		lcdc,
+		stat,
+		scy,
+		scx,
+		ly,
+		lyc,
+		bgp,
+		obp0,
+		obp1,
+		wy,
+		wx,
 	};
 
 	enum Mode
 	{
-		H_BLANK,
-		V_BLANK,
-		OAM_SCAN,
-		DRAWING,
+		hBlank,
+		vBlank,
+		oamScan,
+		drawing,
 	};
 
 	struct Sprite
@@ -77,10 +77,10 @@ private:
 	{
 		enum Source
 		{
-			H_BLANK,
-			V_BLANK,
-			OAM_SCAN,
-			LY_COMPARE,
+			hBLank,
+			vBlank,
+			oamScan,
+			lyCompare,
 		};
 		std::array<bool, 4> sources{};
 		bool previousResult{false};
@@ -113,7 +113,8 @@ private:
 		0x0,
 	};
 
-	static constexpr uint16 OAM_MEMORY_START{0xFE00};
+	static constexpr uint16 oamMemoryStart{0xFE00};
+	static constexpr int scanlineEndCycle{114};
 
 	Bus& m_bus;
 	PixelFetcher m_fetcher;
@@ -126,7 +127,7 @@ private:
 	bool m_reEnabling;
 	uint8 m_reEnableDelay;
 
-	std::array<uint16, SCREEN_WIDTH* SCREEN_HEIGHT> m_lcdBuffer;
+	std::array<uint16, screenWidth* screenHeight> m_lcdBuffer;
 	uint8 m_xPosition; //x position of the pixel to output
 	uint8 m_pixelsToDiscard;
 
@@ -143,7 +144,7 @@ private:
 	uint8 m_ly; //LCD y coordinate (current scanline number)
 	uint8 m_lyc; //LY compare
 	uint8 m_bgp; //background palette data
-	uint8 m_oldBgp{};
+	uint8 m_oldBgp;
 	uint8 m_obp0; //sprite palette data 0
 	uint8 m_obp1; //sprite palette data 1
 	uint8 m_wy; //window y position

@@ -14,10 +14,10 @@ public:
 
 	enum Index
 	{
-		DIV,
-		TIMA,
-		TMA,
-		TAC,
+		div,
+		tima,
+		tma,
+		tac,
 	};
 
 	void reset();
@@ -26,14 +26,6 @@ public:
 	void write(const Index index, const uint8 value);
 
 private:
-	enum TimaFrequency //in t-cycles
-	{
-		FREQUENCY_1024,
-		FREQUENCY_16,
-		FREQUENCY_64,
-		FREQUENCY_256,
-	};
-
 	static constexpr std::array<uint16, 4> timaBitPositions
 	{
 		1024 >> 1,

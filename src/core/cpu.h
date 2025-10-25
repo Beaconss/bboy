@@ -30,31 +30,31 @@ private:
 
 	enum Register8bit
 	{
-		B = 0,
-		C = 1,
-		D = 2,
-		E = 3,
-		H = 4,
-		L = 5,
-		INDIRECT_HL = 6, //indirect HL, so use HL as a memory address, never use this as an address in the m_registers array
-		A = 7,  //accumulator  
+		b = 0,
+		c = 1,
+		d = 2,
+		e = 3,
+		h = 4,
+		l = 5,
+		indirectHl = 6, //indirect HL, so use HL as a memory address, never use this as an address in the m_registers array
+		a = 7,  //accumulator  
 	};
 
 	enum Register16bit
 	{
-		BC = 0,
-		DE = 1,
-		HL = 2,
-		SP = 3,
-		AF = 3, //3 is SP in most instructions and AF in a few
+		bc = 0,
+		de = 1,
+		hl = 2,
+		sp = 3,
+		af = 3, //3 is SP in most instructions and AF in a few
 	};
 
 	enum Condition
 	{
-		NOT_ZERO = 0, 
-		ZERO = 1,  
-		NOT_CARRY = 2,
-		CARRY = 3,
+		notZero = 0, 
+		zero = 1,  
+		notCarry = 2,
+		carry = 3,
 	};
 
 	static constexpr std::array<uint8, 5> interruptHandlerAddress 
@@ -66,35 +66,37 @@ private:
 		0x60, //Joypad
 	};
 
+	static constexpr uint8 zeroFlag{0b1000'0000};
+	static constexpr uint8 negativeFlag{0b0100'0000};
+	static constexpr uint8 halfCarryFlag{0b0010'0000};
+	static constexpr uint8 carryFlag{0b0001'0000};
+	
 	void handleInterrupts();
 	void interruptRoutine();
 	void fetch();
 	void execute();
 	void endInstruction();
 
-	//utilities:
-	uint8 getMSB(const uint16 in) const;
-	uint8 getLSB(const uint16 in) const;
+	uint8 getMsb(const uint16 in) const;
+	uint8 getLsb(const uint16 in) const;
 
-	uint16 getBC() const;
-	uint16 getDE() const;
-	uint16 getHL() const;
-	void setBC(const uint16 BC);
-	void setDE(const uint16 DE);
-	void setHL(const uint16 HL);
+	uint16 getBc() const;
+	uint16 getDe() const;
+	uint16 getHl() const;
+	void setBc(const uint16 bc);
+	void setDe(const uint16 de);
+	void setHl(const uint16 hl);
 
-	//flags functions:
-	bool getFZ() const;
-	bool getFN() const;
-	bool getFH() const;
-	bool getFC() const;
-	void setFZ(bool z);
-	void setFN(bool n);
-	void setFH(bool h);
-	void setFC(bool c);
+	bool getFz() const;
+	bool getFn() const;
+	bool getFh() const;
+	bool getFc() const;
+	void setFz(bool z);
+	void setFn(bool n);
+	void setFh(bool h);
+	void setFc(bool c);
 
-	//todo: interrupt related functions
-	//HALT and STOP instructions
+	//todo: HALT and STOP instructions
 
 	//8-bit load instructions:
 	void LD_r_r2();
@@ -215,7 +217,7 @@ private:
 
 	Bus& m_bus;
 	IState m_iState;
-	void (CPU::* m_currentInstr)(); //pointer to a CPU function that returns void and take no parameters called m_currentInstr
+	void (CPU::*m_currentInstr)(); //pointer to a CPU function that returns void and take no parameters called m_currentInstr
 	uint8 m_cycleCounter;
 
 	//interrupt things

@@ -11,11 +11,6 @@ AudioThread::AudioThread(APU& apu)
 	m_thread.detach();
 }
 
-void AudioThread::reset()
-{	
-	m_shouldExecute = false;
-}
-
 void AudioThread::unlock()
 {
 	const std::lock_guard<std::mutex> lock(m_mutex);
@@ -30,7 +25,7 @@ void AudioThread::threadLoop()
 	{
 		std::unique_lock<std::mutex> lock(m_mutex);
 		m_mutexCondition.wait(lock, [this]{return m_shouldExecute;});
-		m_apu.doRemainingCycles();
+		m_apu.finishFrame();
 		m_shouldExecute = false;
 	}
 }

@@ -3,6 +3,7 @@
 #include <thread>
 #include <mutex>
 #include <cassert>
+#include <condition_variable>
 
 class APU;
 
@@ -11,9 +12,7 @@ class AudioThread
 public:
 	AudioThread(APU& apu);
 
-	void reset();
 	void unlock();
-
 private:
 	void threadLoop();
 	

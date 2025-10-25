@@ -32,13 +32,13 @@ void CPU::reset()
 	m_sp = 0xFFFE;
 	m_f = 0xB0;
 	m_ir = 0;
-	m_registers[B] = 0x00;
-	m_registers[C] = 0x13;
-	m_registers[D] = 0x00;
-	m_registers[E] = 0xD8;
-	m_registers[H] = 0x01;
-	m_registers[L] = 0x4D;
-	m_registers[A] = 0x01;
+	m_registers[b] = 0x00;
+	m_registers[c] = 0x13;
+	m_registers[d] = 0x00;
+	m_registers[e] = 0xD8;
+	m_registers[h] = 0x01;
+	m_registers[l] = 0x4D;
+	m_registers[a] = 0x01;
 }
 
 void CPU::mCycle()
@@ -98,10 +98,10 @@ void CPU::interruptRoutine()
 	case 2:
 		break;
 	case 3:
-		m_bus.write(--m_sp, getMSB(m_pc), Bus::Component::CPU);
+		m_bus.write(--m_sp, getMsb(m_pc), Bus::Component::CPU);
 		//here if the interrupt currently dispatching gets disabled it checks if 
 		//there's another one to continue the dispatching with and if not it cancels the dispatching
-		if(m_sp == hardwareReg::IE && !(getMSB(m_pc) & (1 << m_interruptIndex))) 
+		if(m_sp == hardwareReg::IE && !(getMsb(m_pc) & (1 << m_interruptIndex))) 
 		{
 			bool anotherInterruptPending{false};
 			for(int i = 0; i <= 4; ++i)
@@ -121,7 +121,7 @@ void CPU::interruptRoutine()
 		}
 		break;
 	case 4:
-		m_bus.write(--m_sp, getLSB(m_pc), Bus::Component::CPU);
+		m_bus.write(--m_sp, getLsb(m_pc), Bus::Component::CPU);
 		break;
 	case 5:
 		m_bus.write(hardwareReg::IF, m_pendingInterrupts & ~(1 << m_interruptIndex), Bus::Component::CPU);
@@ -409,91 +409,91 @@ void CPU::endInstruction()
 	m_currentInstr = nullptr;
 }
 
-uint8 CPU::getMSB(const uint16 in) const
+uint8 CPU::getMsb(const uint16 in) const
 {
 	return in >> 8;
 }
 
-uint8 CPU::getLSB(const uint16 in) const
+uint8 CPU::getLsb(const uint16 in) const
 {
 	return in & 0xFF;
 }
 
-uint16 CPU::getBC() const
+uint16 CPU::getBc() const
 {
-	return (m_registers[B] << 8) | m_registers[C];
+	return (m_registers[b] << 8) | m_registers[c];
 }
 
-uint16 CPU::getDE() const
+uint16 CPU::getDe() const
 {
-	return (m_registers[D] << 8) | m_registers[E];
+	return (m_registers[d] << 8) | m_registers[e];
 }
 
-uint16 CPU::getHL() const
+uint16 CPU::getHl() const
 {
-	return (m_registers[H] << 8) | m_registers[L];
+	return (m_registers[h] << 8) | m_registers[l];
 }
 
-void CPU::setBC(const uint16 BC)
+void CPU::setBc(const uint16 Bc)
 {
-	m_registers[B] = getMSB(BC);
-	m_registers[C] = getLSB(BC);
+	m_registers[b] = getMsb(Bc);
+	m_registers[c] = getLsb(Bc);
 }
 
-void CPU::setDE(const uint16 DE)
+void CPU::setDe(const uint16 De)
 {
-	m_registers[D] = getMSB(DE);
-	m_registers[E] = getLSB(DE);
+	m_registers[d] = getMsb(De);
+	m_registers[e] = getLsb(De);
 }
 
-void CPU::setHL(const uint16 HL)
+void CPU::setHl(const uint16 Hl)
 {
-	m_registers[H] = getMSB(HL);
-	m_registers[L] = getLSB(HL);
+	m_registers[h] = getMsb(Hl);
+	m_registers[l] = getLsb(Hl);
 }
 
-bool CPU::getFZ() const
+bool CPU::getFz() const
 {
-	return static_cast<bool>(m_f & 0b1000'0000);
+	return static_cast<bool>(m_f & zeroFlag);
 }
 
-bool CPU::getFN() const
+bool CPU::getFn() const
 {
-	return static_cast<bool>(m_f & 0b0100'0000);
+	return static_cast<bool>(m_f & negativeFlag);
 }
 
-bool CPU::getFH() const
+bool CPU::getFh() const
 {
-	return static_cast<bool>(m_f & 0b0010'0000);
+	return static_cast<bool>(m_f & halfCarryFlag);
 }
 
-bool CPU::getFC() const
+bool CPU::getFc() const
 {
-	return static_cast<bool>(m_f & 0b0001'0000);
+	return static_cast<bool>(m_f & carryFlag);
 }
 
-void CPU::setFZ(bool z)
+void CPU::setFz(bool z)
 {
-	if(z) m_f = m_f | 0b1000'0000;
-	else  m_f = m_f & 0b0111'0000;
+	if(z) m_f = m_f | zeroFlag;
+	else  m_f = m_f & (~zeroFlag);
 }
 
-void CPU::setFN(bool n)
+void CPU::setFn(bool n)
 {
-	if(n) m_f = m_f | 0b0100'0000;
-	else  m_f = m_f & 0b1011'0000;
+	if(n) m_f = m_f | negativeFlag;
+	else  m_f = m_f & (~negativeFlag);
 }
 
-void CPU::setFH(bool h)
+void CPU::setFh(bool h)
 {
-	if(h) m_f = m_f | 0b0010'0000;
-	else  m_f = m_f & 0b1101'0000;
+	if(h) m_f = m_f | halfCarryFlag;
+	else  m_f = m_f & (~halfCarryFlag);
 } 
 
-void CPU::setFC(bool c)
+void CPU::setFc(bool c)
 {
-	if(c) m_f = m_f | 0b0001'0000;
-	else  m_f = m_f & 0b1110'0000;
+	if(c) m_f = m_f | carryFlag;
+	else  m_f = m_f & (~carryFlag);
 }
 
 void CPU::LD_r_r2()
@@ -530,7 +530,7 @@ void CPU::LD_r_HL()
 		m_iState.x = (m_ir >> 3) & 0b111; //r
 		break;
 	case 2:
-		m_registers[m_iState.x] = m_bus.read(getHL(), Bus::Component::CPU);
+		m_registers[m_iState.x] = m_bus.read(getHl(), Bus::Component::CPU);
 		endInstruction();
 		break;
 	}
@@ -545,7 +545,7 @@ void CPU::LD_HL_r()
 		break;
 	case 2:
 		m_iState.x = m_ir & 0b111; //r
-		m_bus.write(getHL(), m_registers[m_iState.x], Bus::Component::CPU);
+		m_bus.write(getHl(), m_registers[m_iState.x], Bus::Component::CPU);
 		endInstruction();
 		break;
 	}
@@ -562,7 +562,7 @@ void CPU::LD_HL_n()
 		m_iState.x = m_bus.read(m_pc++, Bus::Component::CPU); //n
 		break;
 	case 3:
-		m_bus.write(getHL(), m_iState.x, Bus::Component::CPU);
+		m_bus.write(getHl(), m_iState.x, Bus::Component::CPU);
 		endInstruction();
 		break;
 	}
@@ -576,7 +576,7 @@ void CPU::LD_A_BC()
 		m_currentInstr = &CPU::LD_A_BC;
 		break;
 	case 2:
-		m_registers[A] = m_bus.read(getBC(), Bus::Component::CPU);
+		m_registers[a] = m_bus.read(getBc(), Bus::Component::CPU);
 		endInstruction();
 		break;
 	}
@@ -590,7 +590,7 @@ void CPU::LD_A_DE()
 		m_currentInstr = &CPU::LD_A_DE;
 		break;
 	case 2:
-		m_registers[A] = m_bus.read(getDE(), Bus::Component::CPU);
+		m_registers[a] = m_bus.read(getDe(), Bus::Component::CPU);
 		endInstruction();
 		break;
 	}
@@ -604,7 +604,7 @@ void CPU::LD_BC_A()
 		m_currentInstr = &CPU::LD_BC_A;
 		break;
 	case 2:
-		m_bus.write(getBC(), m_registers[A], Bus::Component::CPU);
+		m_bus.write(getBc(), m_registers[a], Bus::Component::CPU);
 		endInstruction();
 		break;
 	}
@@ -618,7 +618,7 @@ void CPU::LD_DE_A()
 		m_currentInstr = &CPU::LD_DE_A;
 		break;
 	case 2:
-		m_bus.write(getDE(), m_registers[A], Bus::Component::CPU);
+		m_bus.write(getDe(), m_registers[a], Bus::Component::CPU);
 		endInstruction();
 		break;
 	}
@@ -638,7 +638,7 @@ void CPU::LD_A_nn()
 		m_iState.xx |= m_bus.read(m_pc++, Bus::Component::CPU) << 8; //nn
 		break;
 	case 4:
-		m_registers[A] = m_bus.read(m_iState.xx, Bus::Component::CPU);
+		m_registers[a] = m_bus.read(m_iState.xx, Bus::Component::CPU);
 		endInstruction();
 		break;
 	}
@@ -658,7 +658,7 @@ void CPU::LD_nn_A()
 		m_iState.xx |= m_bus.read(m_pc++, Bus::Component::CPU) << 8; //nn
 		break;
 	case 4:
-		m_bus.write(m_iState.xx, m_registers[A], Bus::Component::CPU);
+		m_bus.write(m_iState.xx, m_registers[a], Bus::Component::CPU);
 		endInstruction();
 		break;
 	}
@@ -672,7 +672,7 @@ void CPU::LDH_A_C()
 		m_currentInstr = &CPU::LDH_A_C;
 		break;
 	case 2:
-		m_registers[A] = m_bus.read(0xFF00 | m_registers[C], Bus::Component::CPU); //xx is 0xFF00 as the high byte + C as the low byte
+		m_registers[a] = m_bus.read(0xFF00 | m_registers[c], Bus::Component::CPU); //xx is 0xFF00 as the high byte + C as the low byte
 		endInstruction();	
 		break;
 	}
@@ -686,7 +686,7 @@ void CPU::LDH_C_A()
 		m_currentInstr = &CPU::LDH_C_A;
 		break;
 	case 2:
-		m_bus.write(0xFF00 | m_registers[C], m_registers[A], Bus::Component::CPU);
+		m_bus.write(0xFF00 | m_registers[c], m_registers[a], Bus::Component::CPU);
 		endInstruction();		
 		break;
 	}
@@ -703,7 +703,7 @@ void CPU::LDH_A_n()
 		m_iState.x = m_bus.read(m_pc++, Bus::Component::CPU); //n
 		break;
 	case 3:
-		m_registers[A] = m_bus.read(0xFF00 | m_iState.x, Bus::Component::CPU);
+		m_registers[a] = m_bus.read(0xFF00 | m_iState.x, Bus::Component::CPU);
 		endInstruction();		
 		break;
 	}
@@ -720,7 +720,7 @@ void CPU::LDH_n_A()
 		m_iState.x = m_bus.read(m_pc++, Bus::Component::CPU); //n
 		break;
 	case 3:
-		m_bus.write(0xFF00 | m_iState.x, m_registers[A], Bus::Component::CPU);
+		m_bus.write(0xFF00 | m_iState.x, m_registers[a], Bus::Component::CPU);
 		endInstruction();		
 		break;
 	}
@@ -734,8 +734,8 @@ void CPU::LD_A_HLd()
 		m_currentInstr = &CPU::LD_A_HLd;
 		break;
 	case 2:
-		m_registers[A] = m_bus.read(getHL(), Bus::Component::CPU);
-		if(--m_registers[L] == 0xFF) --m_registers[H]; //check for underflow
+		m_registers[a] = m_bus.read(getHl(), Bus::Component::CPU);
+		if(--m_registers[l] == 0xFF) --m_registers[h]; //check for underflow
 		endInstruction();
 		break;
 	}
@@ -750,8 +750,8 @@ void CPU::LD_HLd_A()
 		break;
 	case 2:
 		
-		m_bus.write(getHL(), m_registers[A], Bus::Component::CPU);
-		if(--m_registers[L] == 0xFF) --m_registers[H];
+		m_bus.write(getHl(), m_registers[a], Bus::Component::CPU);
+		if(--m_registers[l] == 0xFF) --m_registers[h];
 		endInstruction();
 		break;
 	}
@@ -765,8 +765,8 @@ void CPU::LD_A_HLi()
 		m_currentInstr = &CPU::LD_A_HLi;
 		break;
 	case 2:
-		m_registers[A] = m_bus.read(getHL(), Bus::Component::CPU);
-		if(++m_registers[L] == 0x00) ++m_registers[H]; //check for overflow
+		m_registers[a] = m_bus.read(getHl(), Bus::Component::CPU);
+		if(++m_registers[l] == 0x00) ++m_registers[h]; //check for overflow
 		endInstruction();
 		break;
 	}
@@ -780,8 +780,8 @@ void CPU::LD_HLi_A()
 		m_currentInstr = &CPU::LD_HLi_A;
 		break;
 	case 2:
-		m_bus.write(getHL(), m_registers[A], Bus::Component::CPU);
-		if(++m_registers[L] == 0x00) ++m_registers[H];
+		m_bus.write(getHl(), m_registers[a], Bus::Component::CPU);
+		if(++m_registers[l] == 0x00) ++m_registers[h];
 		endInstruction();
 		break;
 	}
@@ -802,10 +802,10 @@ void CPU::LD_rr_nn()
 		m_iState.xx |= m_bus.read(m_pc++, Bus::Component::CPU) << 8; //nn
 		switch(m_iState.x)
 		{
-		case BC: setBC(m_iState.xx); break;
-		case DE: setDE(m_iState.xx); break;
-		case HL: setHL(m_iState.xx); break;
-		case SP: m_sp = m_iState.xx; break;
+		case bc: setBc(m_iState.xx); break;
+		case de: setDe(m_iState.xx); break;
+		case hl: setHl(m_iState.xx); break;
+		case sp: m_sp = m_iState.xx; break;
 		}
 		endInstruction();
 		break;
@@ -826,10 +826,10 @@ void CPU::LD_nn_SP()
 		m_iState.xx |= m_bus.read(m_pc++, Bus::Component::CPU) << 8; //nn
 		break;
 	case 4:
-		m_bus.write(m_iState.xx, getLSB(m_sp), Bus::Component::CPU);
+		m_bus.write(m_iState.xx, getLsb(m_sp), Bus::Component::CPU);
 		break;
 	case 5:
-		m_bus.write(m_iState.xx + 1, getMSB(m_sp), Bus::Component::CPU);
+		m_bus.write(m_iState.xx + 1, getMsb(m_sp), Bus::Component::CPU);
 		endInstruction();
 		break;
 	}
@@ -843,7 +843,7 @@ void CPU::LD_SP_HL()
 		m_currentInstr = &CPU::LD_SP_HL;
 		break;
 	case 2:
-		m_sp = getHL();
+		m_sp = getHl();
 		endInstruction();
 		break;
 	}
@@ -862,19 +862,19 @@ void CPU::PUSH_rr()
 	case 3:
 		switch(m_iState.x)
 		{
-		case BC: m_bus.write(--m_sp, m_registers[B], Bus::Component::CPU); break;
-		case DE: m_bus.write(--m_sp, m_registers[D], Bus::Component::CPU); break;
-		case HL: m_bus.write(--m_sp, m_registers[H], Bus::Component::CPU); break;
-		case AF: m_bus.write(--m_sp, m_registers[A], Bus::Component::CPU); break;
+		case bc: m_bus.write(--m_sp, m_registers[b], Bus::Component::CPU); break;
+		case de: m_bus.write(--m_sp, m_registers[d], Bus::Component::CPU); break;
+		case hl: m_bus.write(--m_sp, m_registers[h], Bus::Component::CPU); break;
+		case af: m_bus.write(--m_sp, m_registers[a], Bus::Component::CPU); break;
 		}
 		break;
 	case 4:
 		switch(m_iState.x)
 		{
-		case BC: m_bus.write(--m_sp, m_registers[C], Bus::Component::CPU); break;
-		case DE: m_bus.write(--m_sp, m_registers[E], Bus::Component::CPU); break;
-		case HL: m_bus.write(--m_sp, m_registers[L], Bus::Component::CPU); break;
-		case AF: m_bus.write(--m_sp, m_f & 0xF0, Bus::Component::CPU); break;
+		case bc: m_bus.write(--m_sp, m_registers[c], Bus::Component::CPU); break;
+		case de: m_bus.write(--m_sp, m_registers[e], Bus::Component::CPU); break;
+		case hl: m_bus.write(--m_sp, m_registers[l], Bus::Component::CPU); break;
+		case af: m_bus.write(--m_sp, m_f & 0xF0, Bus::Component::CPU); break;
 		}
 		endInstruction();
 		break;
@@ -896,12 +896,12 @@ void CPU::POP_rr()
 		m_iState.x = (m_ir >> 4) & 0b11; //rr
 		switch(m_iState.x)
 		{
-		case BC: setBC(m_iState.xx); break;
-		case DE: setDE(m_iState.xx); break;
-		case HL: setHL(m_iState.xx); break;
-		case AF: 
-			m_registers[A] = getMSB(m_iState.xx); 
-			m_f = getLSB(m_iState.xx) & 0xF0; 
+		case bc: setBc(m_iState.xx); break;
+		case de: setDe(m_iState.xx); break;
+		case hl: setHl(m_iState.xx); break;
+		case af: 
+			m_registers[a] = getMsb(m_iState.xx); 
+			m_f = getLsb(m_iState.xx) & 0xF0; 
 			break;
 		}
 		endInstruction();
@@ -920,12 +920,12 @@ void CPU::LD_HL_SP_e()
 		m_iState.e = static_cast<int8>(m_bus.read(m_pc++, Bus::Component::CPU)); //e
 		break;
 	case 3:
-		setHL(static_cast<uint16>(m_sp + m_iState.e));
+		setHl(static_cast<uint16>(m_sp + m_iState.e));
 
-		setFZ(false);
-		setFN(false);
-		setFH(((m_sp & 0xF) + (static_cast<uint8>(m_iState.e) & 0xF)) & 0x10);
-		setFC(((m_sp & 0xFF) + static_cast<uint8>(m_iState.e)) & 0x100);
+		setFz(false);
+		setFn(false);
+		setFh(((m_sp & 0xF) + (static_cast<uint8>(m_iState.e) & 0xF)) & 0x10);
+		setFc(((m_sp & 0xFF) + static_cast<uint8>(m_iState.e)) & 0x100);
 
 		endInstruction();
 		break;
@@ -935,14 +935,14 @@ void CPU::LD_HL_SP_e()
 void CPU::ADD_r()
 {
 	m_iState.x = m_ir & 0b111; //r
-	m_iState.xx = m_registers[A] + m_registers[m_iState.x]; //result
+	m_iState.xx = m_registers[a] + m_registers[m_iState.x]; //result
 
-	setFZ((m_iState.xx & 0xFF) == 0);
-	setFN(false);
-	setFH(((m_registers[A] & 0xF) + (m_registers[m_iState.x] & 0xF)) & 0x10);
-	setFC(m_iState.xx & 0x100);
+	setFz((m_iState.xx & 0xFF) == 0);
+	setFn(false);
+	setFh(((m_registers[a] & 0xF) + (m_registers[m_iState.x] & 0xF)) & 0x10);
+	setFc(m_iState.xx & 0x100);
 
-	m_registers[A] = static_cast<uint8>(m_iState.xx);
+	m_registers[a] = static_cast<uint8>(m_iState.xx);
 	m_cycleCounter = 0;
 }
 
@@ -954,15 +954,15 @@ void CPU::ADD_HL()
 		m_currentInstr = &CPU::ADD_HL;
 		break;
 	case 2:
-		m_iState.x = m_bus.read(getHL(), Bus::Component::CPU); //HL mem
-		m_iState.xx = m_registers[A] + m_iState.x; //result
+		m_iState.x = m_bus.read(getHl(), Bus::Component::CPU); //HL mem
+		m_iState.xx = m_registers[a] + m_iState.x; //result
 
-		setFZ((m_iState.xx & 0xFF) == 0);
-		setFN(false);
-		setFH(((m_registers[A] & 0xF) + (m_iState.x & 0xF)) & 0x10);
-		setFC(m_iState.xx & 0x100);
+		setFz((m_iState.xx & 0xFF) == 0);
+		setFn(false);
+		setFh(((m_registers[a] & 0xF) + (m_iState.x & 0xF)) & 0x10);
+		setFc(m_iState.xx & 0x100);
 
-		m_registers[A] = static_cast<uint8>(m_iState.xx);
+		m_registers[a] = static_cast<uint8>(m_iState.xx);
 		endInstruction();
 		break;
 	}
@@ -977,14 +977,14 @@ void CPU::ADD_n()
 		break;
 	case 2:
 		m_iState.x = m_bus.read(m_pc++, Bus::Component::CPU); //n
-		m_iState.xx = m_registers[A] + m_iState.x; //result
+		m_iState.xx = m_registers[a] + m_iState.x; //result
 
-		setFZ((m_iState.xx & 0xFF) == 0);
-		setFN(false);
-		setFH(((m_registers[A] & 0xF) + (m_iState.x & 0xF)) & 0x10);
-		setFC(m_iState.xx & 0x100);
+		setFz((m_iState.xx & 0xFF) == 0);
+		setFn(false);
+		setFh(((m_registers[a] & 0xF) + (m_iState.x & 0xF)) & 0x10);
+		setFc(m_iState.xx & 0x100);
 
-		m_registers[A] = static_cast<uint8>(m_iState.xx);
+		m_registers[a] = static_cast<uint8>(m_iState.xx);
 		endInstruction();
 		break;
 	}
@@ -993,14 +993,14 @@ void CPU::ADD_n()
 void CPU::ADC_r()
 {
 	m_iState.x = m_ir & 0b111; //r
-	m_iState.xx = m_registers[A] + m_registers[m_iState.x] + getFC(); //result
+	m_iState.xx = m_registers[a] + m_registers[m_iState.x] + getFc(); //result
 
-	setFZ((m_iState.xx & 0xFF) == 0);
-	setFN(false);
-	setFH(((m_registers[A] & 0xF) + (m_registers[m_iState.x] & 0xF) + (getFC())) & 0x10);
-	setFC(m_iState.xx & 0x100);
+	setFz((m_iState.xx & 0xFF) == 0);
+	setFn(false);
+	setFh(((m_registers[a] & 0xF) + (m_registers[m_iState.x] & 0xF) + (getFc())) & 0x10);
+	setFc(m_iState.xx & 0x100);
 
-	m_registers[A] = static_cast<uint8>(m_iState.xx);
+	m_registers[a] = static_cast<uint8>(m_iState.xx);
 	m_cycleCounter = 0;
 }
 
@@ -1012,15 +1012,15 @@ void CPU::ADC_HL()
 		m_currentInstr = &CPU::ADC_HL;
 		break;
 	case 2:
-		m_iState.x = m_bus.read(getHL(), Bus::Component::CPU); //HL mem
-		m_iState.xx = m_registers[A] + m_iState.x + getFC(); //result
+		m_iState.x = m_bus.read(getHl(), Bus::Component::CPU); //HL mem
+		m_iState.xx = m_registers[a] + m_iState.x + getFc(); //result
 
-		setFZ((m_iState.xx & 0xFF) == 0);
-		setFN(false);
-		setFH(((m_registers[A] & 0xF) + (m_iState.x & 0xF) + (getFC())) & 0x10);
-		setFC(m_iState.xx & 0x100);
+		setFz((m_iState.xx & 0xFF) == 0);
+		setFn(false);
+		setFh(((m_registers[a] & 0xF) + (m_iState.x & 0xF) + (getFc())) & 0x10);
+		setFc(m_iState.xx & 0x100);
 
-		m_registers[A] = static_cast<uint8>(m_iState.xx);
+		m_registers[a] = static_cast<uint8>(m_iState.xx);
 		endInstruction();
 		break;
 	}
@@ -1035,14 +1035,14 @@ void CPU::ADC_n()
 		break;
 	case 2:
 		m_iState.x = m_bus.read(m_pc++, Bus::Component::CPU); //n
-		m_iState.xx = m_registers[A] + m_iState.x + getFC(); //result
+		m_iState.xx = m_registers[a] + m_iState.x + getFc(); //result
 
-		setFZ((m_iState.xx & 0xFF) == 0);
-		setFN(false);
-		setFH(((m_registers[A] & 0xF) + (m_iState.x & 0xF) + (getFC())) & 0x10);
-		setFC(m_iState.xx & 0x100);
+		setFz((m_iState.xx & 0xFF) == 0);
+		setFn(false);
+		setFh(((m_registers[a] & 0xF) + (m_iState.x & 0xF) + (getFc())) & 0x10);
+		setFc(m_iState.xx & 0x100);
 
-		m_registers[A] = static_cast<uint8>(m_iState.xx);
+		m_registers[a] = static_cast<uint8>(m_iState.xx);
 		endInstruction();
 		break;
 	}
@@ -1051,14 +1051,14 @@ void CPU::ADC_n()
 void CPU::SUB_r()
 {
 	m_iState.x = m_ir & 0b111; //r
-	m_iState.xx = m_registers[A] - m_registers[m_iState.x]; //result
+	m_iState.xx = m_registers[a] - m_registers[m_iState.x]; //result
 
-	setFZ((m_iState.xx & 0xFF) == 0);
-	setFN(true);
-	setFH(((m_registers[A] & 0xF) - (m_registers[m_iState.x] & 0xF)) & 0x10);
-	setFC(m_iState.xx & 0x100);
+	setFz((m_iState.xx & 0xFF) == 0);
+	setFn(true);
+	setFh(((m_registers[a] & 0xF) - (m_registers[m_iState.x] & 0xF)) & 0x10);
+	setFc(m_iState.xx & 0x100);
 
-	m_registers[A] = static_cast<uint8>(m_iState.xx);
+	m_registers[a] = static_cast<uint8>(m_iState.xx);
 	m_cycleCounter = 0;
 }
 
@@ -1070,15 +1070,15 @@ void CPU::SUB_HL()
 		m_currentInstr = &CPU::SUB_HL;
 		break;
 	case 2:
-		m_iState.x = m_bus.read(getHL(), Bus::Component::CPU); //HL mem
-		m_iState.xx = m_registers[A] - m_iState.x; //result
+		m_iState.x = m_bus.read(getHl(), Bus::Component::CPU); //HL mem
+		m_iState.xx = m_registers[a] - m_iState.x; //result
 
-		setFZ((m_iState.xx & 0xFF) == 0);
-		setFN(true);
-		setFH(((m_registers[A] & 0xF) - (m_iState.x & 0xF)) & 0x10);
-		setFC(m_iState.xx & 0x100);
+		setFz((m_iState.xx & 0xFF) == 0);
+		setFn(true);
+		setFh(((m_registers[a] & 0xF) - (m_iState.x & 0xF)) & 0x10);
+		setFc(m_iState.xx & 0x100);
 
-		m_registers[A] = static_cast<uint8>(m_iState.xx);
+		m_registers[a] = static_cast<uint8>(m_iState.xx);
 		endInstruction();
 		break;
 	}
@@ -1093,14 +1093,14 @@ void CPU::SUB_n()
 		break;
 	case 2:
 		m_iState.x = m_bus.read(m_pc++, Bus::Component::CPU); //n
-		m_iState.xx = m_registers[A] - m_iState.x; //result
+		m_iState.xx = m_registers[a] - m_iState.x; //result
 
-		setFZ((m_iState.xx & 0xFF) == 0);
-		setFN(true);
-		setFH(((m_registers[A] & 0xF) - (m_iState.x & 0xF)) & 0x10);
-		setFC(m_iState.xx & 0x100);
+		setFz((m_iState.xx & 0xFF) == 0);
+		setFn(true);
+		setFh(((m_registers[a] & 0xF) - (m_iState.x & 0xF)) & 0x10);
+		setFc(m_iState.xx & 0x100);
 
-		m_registers[A] = static_cast<uint8>(m_iState.xx);
+		m_registers[a] = static_cast<uint8>(m_iState.xx);
 		endInstruction();
 		break;
 	}
@@ -1109,14 +1109,14 @@ void CPU::SUB_n()
 void CPU::SBC_r()
 {
 	m_iState.x = m_ir & 0b111; //r
-	m_iState.xx = m_registers[A] - m_registers[m_iState.x] - getFC(); //result
+	m_iState.xx = m_registers[a] - m_registers[m_iState.x] - getFc(); //result
 
-	setFZ((m_iState.xx & 0xFF) == 0);
-	setFN(true);
-	setFH(((m_registers[A] & 0xF) - (m_registers[m_iState.x] & 0xF) - (getFC())) & 0x10);
-	setFC(m_iState.xx & 0x100);
+	setFz((m_iState.xx & 0xFF) == 0);
+	setFn(true);
+	setFh(((m_registers[a] & 0xF) - (m_registers[m_iState.x] & 0xF) - (getFc())) & 0x10);
+	setFc(m_iState.xx & 0x100);
 
-	m_registers[A] = static_cast<uint8>(m_iState.xx);
+	m_registers[a] = static_cast<uint8>(m_iState.xx);
 	m_cycleCounter = 0;
 }
 
@@ -1128,15 +1128,15 @@ void CPU::SBC_HL()
 		m_currentInstr = &CPU::SBC_HL;
 		break;
 	case 2:
-		m_iState.x = m_bus.read(getHL(), Bus::Component::CPU); //HL mem
-		m_iState.xx = m_registers[A] - m_iState.x - getFC(); //result
+		m_iState.x = m_bus.read(getHl(), Bus::Component::CPU); //HL mem
+		m_iState.xx = m_registers[a] - m_iState.x - getFc(); //result
 
-		setFZ((m_iState.xx & 0xFF) == 0);
-		setFN(true);
-		setFH(((m_registers[A] & 0xF) - (m_iState.x & 0xF) - getFC()) & 0x10);
-		setFC(m_iState.xx & 0x100);
+		setFz((m_iState.xx & 0xFF) == 0);
+		setFn(true);
+		setFh(((m_registers[a] & 0xF) - (m_iState.x & 0xF) - getFc()) & 0x10);
+		setFc(m_iState.xx & 0x100);
 
-		m_registers[A] = static_cast<uint8>(m_iState.xx);
+		m_registers[a] = static_cast<uint8>(m_iState.xx);
 		endInstruction();
 		break;
 	}
@@ -1151,14 +1151,14 @@ void CPU::SBC_n()
 		break;
 	case 2:
 		m_iState.x = m_bus.read(m_pc++, Bus::Component::CPU); //n
-		m_iState.xx = m_registers[A] - m_iState.x - getFC(); //result
+		m_iState.xx = m_registers[a] - m_iState.x - getFc(); //result
 
-		setFZ((m_iState.xx & 0xFF) == 0);
-		setFN(true);
-		setFH(((m_registers[A] & 0xF) - (m_iState.x & 0xF) - (getFC())) & 0x10);
-		setFC(m_iState.xx & 0x100);
+		setFz((m_iState.xx & 0xFF) == 0);
+		setFn(true);
+		setFh(((m_registers[a] & 0xF) - (m_iState.x & 0xF) - (getFc())) & 0x10);
+		setFc(m_iState.xx & 0x100);
 
-		m_registers[A] = static_cast<uint8>(m_iState.xx);
+		m_registers[a] = static_cast<uint8>(m_iState.xx);
 		endInstruction();
 		break;
 	}
@@ -1167,12 +1167,12 @@ void CPU::SBC_n()
 void CPU::CP_r()
 {
 	m_iState.x = m_ir & 0b111; //r
-	m_iState.xx = m_registers[A] - m_registers[m_iState.x];
+	m_iState.xx = m_registers[a] - m_registers[m_iState.x];
 
-	setFZ((m_iState.xx & 0xFF) == 0);
-	setFN(true);
-	setFH(((m_registers[A] & 0xF) - (m_registers[m_iState.x] & 0xF)) & 0x10);
-	setFC(m_iState.xx & 0x100);
+	setFz((m_iState.xx & 0xFF) == 0);
+	setFn(true);
+	setFh(((m_registers[a] & 0xF) - (m_registers[m_iState.x] & 0xF)) & 0x10);
+	setFc(m_iState.xx & 0x100);
 	m_cycleCounter = 0;
 }
 
@@ -1184,13 +1184,13 @@ void CPU::CP_HL()
 		m_currentInstr = &CPU::CP_HL;
 		break;
 	case 2:
-		m_iState.x = m_bus.read(getHL(), Bus::Component::CPU); //HL mem
-		m_iState.xx = m_registers[A] - m_iState.x;
+		m_iState.x = m_bus.read(getHl(), Bus::Component::CPU); //HL mem
+		m_iState.xx = m_registers[a] - m_iState.x;
 
-		setFZ((m_iState.xx & 0xFF) == 0);
-		setFN(true);
-		setFH((m_registers[A] & 0xF) - (m_iState.x & 0xF) & 0x10);
-		setFC(m_iState.xx & 0x100);
+		setFz((m_iState.xx & 0xFF) == 0);
+		setFn(true);
+		setFh((m_registers[a] & 0xF) - (m_iState.x & 0xF) & 0x10);
+		setFc(m_iState.xx & 0x100);
 
 		endInstruction();
 		break;
@@ -1206,12 +1206,12 @@ void CPU::CP_n()
 		break;
 	case 2:
 		m_iState.x = m_bus.read(m_pc++, Bus::Component::CPU); //n
-		m_iState.xx = m_registers[A] - m_iState.x;
+		m_iState.xx = m_registers[a] - m_iState.x;
 
-		setFZ((m_iState.xx & 0xFF) == 0);
-		setFN(true);
-		setFH((m_registers[A] & 0xF) - (m_iState.x & 0xF) & 0x10);
-		setFC(m_iState.xx & 0x100);
+		setFz((m_iState.xx & 0xFF) == 0);
+		setFn(true);
+		setFh((m_registers[a] & 0xF) - (m_iState.x & 0xF) & 0x10);
+		setFc(m_iState.xx & 0x100);
 
 		endInstruction();
 		break;
@@ -1222,9 +1222,9 @@ void CPU::INC_r()
 {
 	m_iState.x = (m_ir >> 3) & 0b111; //r
 
-	setFZ(m_registers[m_iState.x] == 0xFF);
-	setFN(false);
-	setFH((m_registers[m_iState.x] & 0xF) == 0xF);
+	setFz(m_registers[m_iState.x] == 0xFF);
+	setFn(false);
+	setFh((m_registers[m_iState.x] & 0xF) == 0xF);
 
 	++m_registers[m_iState.x];
 	m_cycleCounter = 0;
@@ -1238,14 +1238,14 @@ void CPU::INC_HL()
 		m_currentInstr = &CPU::INC_HL;
 		break;
 	case 2:
-		m_iState.x = m_bus.read(getHL(), Bus::Component::CPU); //HL mem
+		m_iState.x = m_bus.read(getHl(), Bus::Component::CPU); //HL mem
 		break;
 	case 3:
-		m_bus.write(getHL(), m_iState.x + 1, Bus::Component::CPU);
+		m_bus.write(getHl(), m_iState.x + 1, Bus::Component::CPU);
 
-		setFZ(m_iState.x == 0xFF);
-		setFN(false);
-		setFH((m_iState.x & 0xF) == 0xF);
+		setFz(m_iState.x == 0xFF);
+		setFn(false);
+		setFh((m_iState.x & 0xF) == 0xF);
 
 		endInstruction();
 		break;
@@ -1256,9 +1256,9 @@ void CPU::DEC_r()
 {
 	m_iState.x = (m_ir >> 3) & 0b111; //r
 
-	setFZ((m_registers[m_iState.x] - 1) == 0);
-	setFN(true);
-	setFH(((m_registers[m_iState.x] & 0xF) - 1) & 0x10);
+	setFz((m_registers[m_iState.x] - 1) == 0);
+	setFn(true);
+	setFh(((m_registers[m_iState.x] & 0xF) - 1) & 0x10);
 
 	--m_registers[m_iState.x];
 	m_cycleCounter = 0;
@@ -1272,14 +1272,14 @@ void CPU::DEC_HL()
 		m_currentInstr = &CPU::DEC_HL;
 		break;
 	case 2:
-		m_iState.x = m_bus.read(getHL(), Bus::Component::CPU); //HL mem
+		m_iState.x = m_bus.read(getHl(), Bus::Component::CPU); //HL mem
 		break;
 	case 3:
-		m_bus.write(getHL(), m_iState.x - 1, Bus::Component::CPU);
+		m_bus.write(getHl(), m_iState.x - 1, Bus::Component::CPU);
 
-		setFZ((m_iState.x - 1) == 0);
-		setFN(true);
-		setFH(((m_iState.x & 0xF) - 1) & 0x10);
+		setFz((m_iState.x - 1) == 0);
+		setFn(true);
+		setFh(((m_iState.x & 0xF) - 1) & 0x10);
 
 		endInstruction();
 		break;
@@ -1290,12 +1290,12 @@ void CPU::AND_r()
 {
 	m_iState.x = m_ir & 0b111; //r
 
-	m_registers[A] &= m_registers[m_iState.x];
+	m_registers[a] &= m_registers[m_iState.x];
 
-	setFZ(m_registers[A] == 0);
-	setFN(false);
-	setFH(true);
-	setFC(false);
+	setFz(m_registers[a] == 0);
+	setFn(false);
+	setFh(true);
+	setFc(false);
 	m_cycleCounter = 0;
 }
 
@@ -1307,14 +1307,14 @@ void CPU::AND_HL()
 		m_currentInstr = &CPU::AND_HL;
 		break;
 	case 2:
-		m_iState.x = m_bus.read(getHL(), Bus::Component::CPU); //HL mem
+		m_iState.x = m_bus.read(getHl(), Bus::Component::CPU); //HL mem
 
-		m_registers[A] &= m_iState.x;
+		m_registers[a] &= m_iState.x;
 
-		setFZ(m_registers[A] == 0);
-		setFN(false);
-		setFH(true);
-		setFC(false);
+		setFz(m_registers[a] == 0);
+		setFn(false);
+		setFh(true);
+		setFc(false);
 
 		endInstruction();
 		break;
@@ -1331,12 +1331,12 @@ void CPU::AND_n()
 	case 2:
 		m_iState.x = m_bus.read(m_pc++, Bus::Component::CPU); //n
 
-		m_registers[A] &= m_iState.x;
+		m_registers[a] &= m_iState.x;
 
-		setFZ(m_registers[A] == 0);
-		setFN(false);
-		setFH(true);
-		setFC(false);
+		setFz(m_registers[a] == 0);
+		setFn(false);
+		setFh(true);
+		setFc(false);
 
 		endInstruction();
 		break;
@@ -1347,12 +1347,12 @@ void CPU::OR_r()
 {
 	m_iState.x = m_ir & 0b111; //r
 
-	m_registers[A] |= m_registers[m_iState.x];
+	m_registers[a] |= m_registers[m_iState.x];
 
-	setFZ(m_registers[A] == 0);
-	setFN(false);
-	setFH(false);
-	setFC(false);
+	setFz(m_registers[a] == 0);
+	setFn(false);
+	setFh(false);
+	setFc(false);
 	m_cycleCounter = 0;
 }
 
@@ -1364,14 +1364,14 @@ void CPU::OR_HL()
 		m_currentInstr = &CPU::OR_HL;
 		break;
 	case 2:
-		m_iState.x = m_bus.read(getHL(), Bus::Component::CPU); //HL mem
+		m_iState.x = m_bus.read(getHl(), Bus::Component::CPU); //HL mem
 
-		m_registers[A] |= m_iState.x;
+		m_registers[a] |= m_iState.x;
 
-		setFZ(m_registers[A] == 0);
-		setFN(false);
-		setFH(false);
-		setFC(false);
+		setFz(m_registers[a] == 0);
+		setFn(false);
+		setFh(false);
+		setFc(false);
 
 		endInstruction();
 		break;
@@ -1388,12 +1388,12 @@ void CPU::OR_n()
 	case 2:
 		m_iState.x = m_bus.read(m_pc++, Bus::Component::CPU); //n
 
-		m_registers[A] |= m_iState.x;
+		m_registers[a] |= m_iState.x;
 
-		setFZ(m_registers[A] == 0);
-		setFN(false);
-		setFH(false);
-		setFC(false);
+		setFz(m_registers[a] == 0);
+		setFn(false);
+		setFh(false);
+		setFc(false);
 
 		endInstruction();
 		break;
@@ -1404,12 +1404,12 @@ void CPU::XOR_r()
 {
 	m_iState.x = m_ir & 0b111; //r
 
-	m_registers[A] ^= m_registers[m_iState.x];
+	m_registers[a] ^= m_registers[m_iState.x];
 
-	setFZ(m_registers[A] == 0);
-	setFN(false);
-	setFH(false);
-	setFC(false);
+	setFz(m_registers[a] == 0);
+	setFn(false);
+	setFh(false);
+	setFc(false);
 	m_cycleCounter = 0;
 }
 
@@ -1421,14 +1421,14 @@ void CPU::XOR_HL()
 		m_currentInstr = &CPU::XOR_HL;
 		break;
 	case 2:
-		m_iState.x = m_bus.read(getHL(), Bus::Component::CPU); //HL mem
+		m_iState.x = m_bus.read(getHl(), Bus::Component::CPU); //HL mem
 
-		m_registers[A] ^= m_iState.x;
+		m_registers[a] ^= m_iState.x;
 
-		setFZ(m_registers[A] == 0);
-		setFN(false);
-		setFH(false);
-		setFC(false);
+		setFz(m_registers[a] == 0);
+		setFn(false);
+		setFh(false);
+		setFc(false);
 
 		endInstruction();
 		break;
@@ -1445,12 +1445,12 @@ void CPU::XOR_n()
 	case 2:
 		m_iState.x = m_bus.read(m_pc++, Bus::Component::CPU); //n
 
-		m_registers[A] ^= m_iState.x;
+		m_registers[a] ^= m_iState.x;
 
-		setFZ(m_registers[A] == 0);
-		setFN(false);
-		setFH(false);
-		setFC(false);
+		setFz(m_registers[a] == 0);
+		setFn(false);
+		setFh(false);
+		setFc(false);
 
 		endInstruction();
 		break;
@@ -1459,50 +1459,50 @@ void CPU::XOR_n()
 
 void CPU::DAA()
 {
-	m_iState.x = m_registers[A];
+	m_iState.x = m_registers[a];
 
-	if(!getFN())
+	if(!getFn())
 	{
-		if(getFC() || m_iState.x > 0x99) 
+		if(getFc() || m_iState.x > 0x99) 
 		{
 			m_iState.x += 0x60;
-			setFC(true);
+			setFc(true);
 		}
-		if(getFH() || (m_iState.x & 0xF) > 0x09) m_iState.x += 0x06;
+		if(getFh() || (m_iState.x & 0xF) > 0x09) m_iState.x += 0x06;
 	}
 	else
 	{
-		if(getFC()) m_iState.x -= 0x60;
-		if(getFH()) m_iState.x -= 0x06;
+		if(getFc()) m_iState.x -= 0x60;
+		if(getFh()) m_iState.x -= 0x06;
 	}
 
-	m_registers[A] = m_iState.x;
-	setFZ(m_registers[A] == 0);
-	setFH(false);
+	m_registers[a] = m_iState.x;
+	setFz(m_registers[a] == 0);
+	setFh(false);
 	m_cycleCounter = 0;
 }
 
 void CPU::CPL()
 {
-	m_registers[A] = ~m_registers[A];
-	setFN(true);
-	setFH(true);
+	m_registers[a] = ~m_registers[a];
+	setFn(true);
+	setFh(true);
 	m_cycleCounter = 0;
 }
 
 void CPU::CCF()
 {
-	setFN(false);
-	setFH(false);
-	setFC(!getFC());
+	setFn(false);
+	setFh(false);
+	setFc(!getFc());
 	m_cycleCounter = 0;
 }
 
 void CPU::SCF()
 {
-	setFN(false);
-	setFH(false);
-	setFC(true);
+	setFn(false);
+	setFh(false);
+	setFc(true);
 	m_cycleCounter = 0;
 }
 
@@ -1517,10 +1517,10 @@ void CPU::INC_rr()
 	case 2:
 		switch(m_iState.x) 
 		{
-		case BC: setBC(static_cast<uint16>(getBC() + 1)); break;
-		case DE: setDE(static_cast<uint16>(getDE() + 1)); break;
-		case HL: setHL(static_cast<uint16>(getHL() + 1)); break;
-		case SP: ++m_sp; break;
+		case bc: setBc(static_cast<uint16>(getBc() + 1)); break;
+		case de: setDe(static_cast<uint16>(getDe() + 1)); break;
+		case hl: setHl(static_cast<uint16>(getHl() + 1)); break;
+		case sp: ++m_sp; break;
 		}
 		endInstruction();
 		break;
@@ -1538,10 +1538,10 @@ void CPU::DEC_rr()
 	case 2:
 		switch(m_iState.x)
 		{
-		case BC: setBC(static_cast<uint16>(getBC() - 1)); break;
-		case DE: setDE(static_cast<uint16>(getDE() - 1)); break;
-		case HL: setHL(static_cast<uint16>(getHL() - 1)); break;
-		case SP: --m_sp; break;
+		case bc: setBc(static_cast<uint16>(getBc() - 1)); break;
+		case de: setDe(static_cast<uint16>(getDe() - 1)); break;
+		case hl: setHl(static_cast<uint16>(getHl() - 1)); break;
+		case sp: --m_sp; break;
 		}
 		endInstruction();
 		break;
@@ -1559,19 +1559,19 @@ void CPU::ADD_HL_rr()
 	case 2:
 		switch(m_iState.x) //m_iState.xx is register rr value in this switch
 		{
-		case BC: m_iState.xx = getBC(); break;
-		case DE: m_iState.xx = getDE(); break;
-		case HL: m_iState.xx = getHL(); break;
-		case SP: m_iState.xx = m_sp; break;
+		case bc: m_iState.xx = getBc(); break;
+		case de: m_iState.xx = getDe(); break;
+		case hl: m_iState.xx = getHl(); break;
+		case sp: m_iState.xx = m_sp; break;
 		}
 	
-		uint32 result{static_cast<uint32>(getHL() + m_iState.xx)}; //result
+		uint32 result{static_cast<uint32>(getHl() + m_iState.xx)}; //result
 
-		setFN(false);
-		setFH(((getHL() & 0xFFF) + (m_iState.xx & 0xFFF)) & 0x1000);
-		setFC(result & 0x10000);
+		setFn(false);
+		setFh(((getHl() & 0xFFF) + (m_iState.xx & 0xFFF)) & 0x1000);
+		setFc(result & 0x10000);
 
-		setHL(static_cast<uint16>(result));
+		setHl(static_cast<uint16>(result));
 
 		endInstruction();
 		break;
@@ -1591,10 +1591,10 @@ void CPU::ADD_SP_e()
 	case 3:
 		break;
 	case 4:
-		setFZ(false);
-		setFN(false);
-		setFH((m_sp & 0xF) + (static_cast<uint8>(m_iState.e) & 0xF) & 0x10);
-		setFC(((m_sp & 0xFF) + static_cast<uint8>(m_iState.e)) & 0x100);
+		setFz(false);
+		setFn(false);
+		setFh((m_sp & 0xF) + (static_cast<uint8>(m_iState.e) & 0xF) & 0x10);
+		setFc(((m_sp & 0xFF) + static_cast<uint8>(m_iState.e)) & 0x100);
 
 		m_sp = static_cast<uint16>(m_sp + m_iState.e);
 		endInstruction();
@@ -1604,50 +1604,50 @@ void CPU::ADD_SP_e()
 
 void CPU::RLCA()
 {
-	m_iState.x = m_registers[A] >> 7; //bit out
+	m_iState.x = m_registers[a] >> 7; //bit out
 
-	m_registers[A] = (m_registers[A] << 1) | m_iState.x; //shift then add the carried bit to rotate circularly
+	m_registers[a] = (m_registers[a] << 1) | m_iState.x; //shift then add the carried bit to rotate circularly
 
-	setFZ(false);
-	setFN(false);
-	setFH(false);
-	setFC(m_iState.x);
+	setFz(false);
+	setFn(false);
+	setFh(false);
+	setFc(m_iState.x);
 	m_cycleCounter = 0;
 }
 
 void CPU::RRCA()
 {
-	m_iState.x = (m_registers[A] & 1) << 7; //bit out
-	m_registers[A] = (m_registers[A] >> 1) | m_iState.x;
+	m_iState.x = (m_registers[a] & 1) << 7; //bit out
+	m_registers[a] = (m_registers[a] >> 1) | m_iState.x;
 
-	setFZ(false);
-	setFN(false);
-	setFH(false);
-	setFC(m_iState.x);
+	setFz(false);
+	setFn(false);
+	setFh(false);
+	setFc(m_iState.x);
 	m_cycleCounter = 0;
 }
 
 void CPU::RLA()
 {
-	m_iState.x = m_registers[A] >> 7; //bit out
-	m_registers[A] = (m_registers[A] << 1) | static_cast<uint8>(getFC());
+	m_iState.x = m_registers[a] >> 7; //bit out
+	m_registers[a] = (m_registers[a] << 1) | static_cast<uint8>(getFc());
 
-	setFZ(false);
-	setFN(false);
-	setFH(false);
-	setFC(m_iState.x);
+	setFz(false);
+	setFn(false);
+	setFh(false);
+	setFc(m_iState.x);
 	m_cycleCounter = 0;
 }
 
 void CPU::RRA()
 {
-	m_iState.x = m_registers[A] & 1; //bit out
-	m_registers[A] = (m_registers[A] >> 1) | (static_cast<uint8>(getFC()) << 7);
+	m_iState.x = m_registers[a] & 1; //bit out
+	m_registers[a] = (m_registers[a] >> 1) | (static_cast<uint8>(getFc()) << 7);
 
-	setFZ(false);
-	setFN(false);
-	setFH(false);
-	setFC(m_iState.x);
+	setFz(false);
+	setFn(false);
+	setFh(false);
+	setFc(m_iState.x);
 	m_cycleCounter = 0;
 }
 
@@ -1664,10 +1664,10 @@ void CPU::RLC_r()
 
 		m_registers[m_iState.x] = (m_registers[m_iState.x] << 1) | m_iState.y;
 
-		setFZ(m_registers[m_iState.x] == 0);
-		setFN(false);
-		setFH(false);
-		setFC(m_iState.y);
+		setFz(m_registers[m_iState.x] == 0);
+		setFn(false);
+		setFh(false);
+		setFc(m_iState.y);
 		endInstruction();
 		break;
 	}
@@ -1683,18 +1683,18 @@ void CPU::RLC_HL()
 	case 2:
 		break;
 	case 3:
-		m_iState.x = m_bus.read(getHL(), Bus::Component::CPU); //HL mem
+		m_iState.x = m_bus.read(getHl(), Bus::Component::CPU); //HL mem
 		break;
 	case 4:
 		m_iState.y = m_iState.x >> 7; //bit out
 		m_iState.z = (m_iState.x << 1) | m_iState.y; //result
 
-		m_bus.write(getHL(), m_iState.z, Bus::Component::CPU);
+		m_bus.write(getHl(), m_iState.z, Bus::Component::CPU);
 
-		setFZ(m_iState.z == 0);
-		setFN(false);
-		setFH(false);
-		setFC(m_iState.y);
+		setFz(m_iState.z == 0);
+		setFn(false);
+		setFh(false);
+		setFc(m_iState.y);
 		endInstruction();
 		break;
 	}
@@ -1713,10 +1713,10 @@ void CPU::RRC_r()
 
 		m_registers[m_iState.x] = (m_registers[m_iState.x] >> 1) | m_iState.y;
 
-		setFZ(m_registers[m_iState.x] == 0);
-		setFN(false);
-		setFH(false);
-		setFC(m_iState.y);
+		setFz(m_registers[m_iState.x] == 0);
+		setFn(false);
+		setFh(false);
+		setFc(m_iState.y);
 		endInstruction();
 		break;
 	}
@@ -1732,18 +1732,18 @@ void CPU::RRC_HL()
 	case 2:
 		break;
 	case 3:
-		m_iState.x = m_bus.read(getHL(), Bus::Component::CPU); //HL mem
+		m_iState.x = m_bus.read(getHl(), Bus::Component::CPU); //HL mem
 		break;
 	case 4:
 		m_iState.y = (m_iState.x & 1) << 7; //bit out
 		m_iState.z = (m_iState.x >> 1) | m_iState.y; //result
 
-		m_bus.write(getHL(), m_iState.z, Bus::Component::CPU);
+		m_bus.write(getHl(), m_iState.z, Bus::Component::CPU);
 
-		setFZ(m_iState.z == 0);
-		setFN(false);
-		setFH(false);
-		setFC(m_iState.y);
+		setFz(m_iState.z == 0);
+		setFn(false);
+		setFh(false);
+		setFc(m_iState.y);
 		endInstruction();
 		break;
 	}
@@ -1759,12 +1759,12 @@ void CPU::RL_r()
 	case 2:
 		m_iState.x = m_ir & 0b111; //r
 		m_iState.y = m_registers[m_iState.x] >> 7; //bit out
-		m_registers[m_iState.x] = (m_registers[m_iState.x] << 1) | static_cast<uint8>(getFC());
+		m_registers[m_iState.x] = (m_registers[m_iState.x] << 1) | static_cast<uint8>(getFc());
 
-		setFZ(m_registers[m_iState.x] == 0);
-		setFN(false);
-		setFH(false);
-		setFC(m_iState.y);
+		setFz(m_registers[m_iState.x] == 0);
+		setFn(false);
+		setFh(false);
+		setFc(m_iState.y);
 		endInstruction();
 		break;
 	}
@@ -1780,18 +1780,18 @@ void CPU::RL_HL()
 	case 2:
 		break;
 	case 3:
-		m_iState.x = m_bus.read(getHL(), Bus::Component::CPU); //HL mem
+		m_iState.x = m_bus.read(getHl(), Bus::Component::CPU); //HL mem
 		break;
 	case 4:
 		m_iState.y = m_iState.x >> 7; //bit out
-		m_iState.z = (m_iState.x << 1) | static_cast<uint8>(getFC()); //result
+		m_iState.z = (m_iState.x << 1) | static_cast<uint8>(getFc()); //result
 
-		m_bus.write(getHL(), m_iState.z, Bus::Component::CPU);
+		m_bus.write(getHl(), m_iState.z, Bus::Component::CPU);
 
-		setFZ(m_iState.z == 0);
-		setFN(false);
-		setFH(false);
-		setFC(m_iState.y);
+		setFz(m_iState.z == 0);
+		setFn(false);
+		setFh(false);
+		setFc(m_iState.y);
 		endInstruction();
 		break;
 	}
@@ -1808,12 +1808,12 @@ void CPU::RR_r()
 		m_iState.x = m_ir & 0b111; //r
 		m_iState.y = m_registers[m_iState.x] & 1; //bit out
 
-		m_registers[m_iState.x] = (m_registers[m_iState.x] >> 1) | (static_cast<uint8>(getFC()) << 7);
+		m_registers[m_iState.x] = (m_registers[m_iState.x] >> 1) | (static_cast<uint8>(getFc()) << 7);
 
-		setFZ(m_registers[m_iState.x] == 0);
-		setFN(false);
-		setFH(false);
-		setFC(m_iState.y);
+		setFz(m_registers[m_iState.x] == 0);
+		setFn(false);
+		setFh(false);
+		setFc(m_iState.y);
 		endInstruction();
 		break;
 	}
@@ -1829,18 +1829,18 @@ void CPU::RR_HL()
 	case 2:
 		break;
 	case 3:
-		m_iState.x = m_bus.read(getHL(), Bus::Component::CPU); //HL mem
+		m_iState.x = m_bus.read(getHl(), Bus::Component::CPU); //HL mem
 		break;
 	case 4:
 		m_iState.y = m_iState.x & 1; //bit out
-		m_iState.z = (m_iState.x >> 1) | (static_cast<uint8>(getFC()) << 7); //result
+		m_iState.z = (m_iState.x >> 1) | (static_cast<uint8>(getFc()) << 7); //result
 
-		m_bus.write(getHL(), m_iState.z, Bus::Component::CPU);
+		m_bus.write(getHl(), m_iState.z, Bus::Component::CPU);
 
-		setFZ(m_iState.z == 0);
-		setFN(false);
-		setFH(false);
-		setFC(m_iState.y);
+		setFz(m_iState.z == 0);
+		setFn(false);
+		setFh(false);
+		setFc(m_iState.y);
 		endInstruction();
 		break;
 	}
@@ -1859,10 +1859,10 @@ void CPU::SLA_r()
 
 		m_registers[m_iState.x] = m_registers[m_iState.x] << 1;
 
-		setFZ(m_registers[m_iState.x] == 0);
-		setFN(false);
-		setFH(false);
-		setFC(m_iState.y);
+		setFz(m_registers[m_iState.x] == 0);
+		setFn(false);
+		setFh(false);
+		setFc(m_iState.y);
 		endInstruction();
 		break;
 	}
@@ -1878,18 +1878,18 @@ void CPU::SLA_HL()
 	case 2:
 		break;
 	case 3:
-		m_iState.x = m_bus.read(getHL(), Bus::Component::CPU); //HL mem
+		m_iState.x = m_bus.read(getHl(), Bus::Component::CPU); //HL mem
 		break;
 	case 4:
 		m_iState.y = m_iState.x >> 7; //bit out
 		m_iState.z = m_iState.x << 1; //result
 
-		m_bus.write(getHL(), m_iState.z, Bus::Component::CPU);
+		m_bus.write(getHl(), m_iState.z, Bus::Component::CPU);
 
-		setFZ(m_iState.z == 0);
-		setFN(false);
-		setFH(false);
-		setFC(m_iState.y);
+		setFz(m_iState.z == 0);
+		setFn(false);
+		setFh(false);
+		setFc(m_iState.y);
 		endInstruction();
 		break;
 	}
@@ -1908,10 +1908,10 @@ void CPU::SRA_r()
 
 		m_registers[m_iState.x] = (m_registers[m_iState.x] >> 1) | (m_registers[m_iState.x] & 0x80); //registers[x] & 0x80 = sign bit
 
-		setFZ(m_registers[m_iState.x] == 0);
-		setFN(false);
-		setFH(false);
-		setFC(m_iState.y);
+		setFz(m_registers[m_iState.x] == 0);
+		setFn(false);
+		setFh(false);
+		setFc(m_iState.y);
 		endInstruction();
 		break;
 	}
@@ -1927,18 +1927,18 @@ void CPU::SRA_HL()
 	case 2:
 		break;
 	case 3:
-		m_iState.x = m_bus.read(getHL(), Bus::Component::CPU);
+		m_iState.x = m_bus.read(getHl(), Bus::Component::CPU);
 		break;
 	case 4:
 		m_iState.y = m_iState.x & 1; // bit out
 		m_iState.z = (m_iState.x >> 1) | (m_iState.x & 0x80); //z = result, x & 0x80 = sign bit
 
-		m_bus.write(getHL(), m_iState.z, Bus::Component::CPU);
+		m_bus.write(getHl(), m_iState.z, Bus::Component::CPU);
 
-		setFZ(m_iState.z == 0);
-		setFN(false);
-		setFH(false);
-		setFC(m_iState.y);
+		setFz(m_iState.z == 0);
+		setFn(false);
+		setFh(false);
+		setFc(m_iState.y);
 		endInstruction();
 	}
 }
@@ -1955,10 +1955,10 @@ void CPU::SWAP_r()
 
 		m_registers[m_iState.x] = ((m_registers[m_iState.x] & 0xF0) >> 4) | ((m_registers[m_iState.x] & 0x0F) << 4);
 
-		setFZ(m_registers[m_iState.x] == 0);
-		setFN(false);
-		setFH(false);
-		setFC(false);
+		setFz(m_registers[m_iState.x] == 0);
+		setFn(false);
+		setFh(false);
+		setFc(false);
 		endInstruction();
 		break;
 	}
@@ -1974,17 +1974,17 @@ void CPU::SWAP_HL()
 	case 2:
 		break;
 	case 3:
-		m_iState.x = m_bus.read(getHL(), Bus::Component::CPU); //HL mem
+		m_iState.x = m_bus.read(getHl(), Bus::Component::CPU); //HL mem
 		break;
 	case 4:
 		m_iState.y = ((m_iState.x & 0xF0) >> 4) | ((m_iState.x & 0xF) << 4); //result
 
-		m_bus.write(getHL(), m_iState.y, Bus::Component::CPU);
+		m_bus.write(getHl(), m_iState.y, Bus::Component::CPU);
 
-		setFZ(m_iState.y == 0);
-		setFN(false);
-		setFH(false);
-		setFC(false);
+		setFz(m_iState.y == 0);
+		setFn(false);
+		setFh(false);
+		setFc(false);
 		endInstruction();
 		break;
 	}
@@ -2003,10 +2003,10 @@ void CPU::SRL_r()
 
 		m_registers[m_iState.x] = m_registers[m_iState.x] >> 1;
 
-		setFZ(m_registers[m_iState.x] == 0);
-		setFN(false);
-		setFH(false);
-		setFC(m_iState.y);
+		setFz(m_registers[m_iState.x] == 0);
+		setFn(false);
+		setFh(false);
+		setFc(m_iState.y);
 		endInstruction();
 		break;
 	}
@@ -2022,18 +2022,18 @@ void CPU::SRL_HL()
 	case 2:
 		break;
 	case 3:
-		m_iState.x = m_bus.read(getHL(), Bus::Component::CPU); //HL mem
+		m_iState.x = m_bus.read(getHl(), Bus::Component::CPU); //HL mem
 		break;
 	case 4:
 		m_iState.y = m_iState.x & 1; //bit out
 		m_iState.z = m_iState.x >> 1; //result
 
-		m_bus.write(getHL(), m_iState.z, Bus::Component::CPU);
+		m_bus.write(getHl(), m_iState.z, Bus::Component::CPU);
 
-		setFZ(m_iState.z == 0);
-		setFN(false);
-		setFH(false);
-		setFC(m_iState.y);
+		setFz(m_iState.z == 0);
+		setFn(false);
+		setFh(false);
+		setFc(m_iState.y);
 		endInstruction();
 		break;
 	}
@@ -2050,9 +2050,9 @@ void CPU::BIT_b_r()
 		m_iState.x = (m_ir >> 3) & 0b111; //b
 		m_iState.y = m_ir & 0b0111; //r
 
-		setFZ((m_registers[m_iState.y] & (1 << m_iState.x)) == 0); //shift the bit in the 0 place by b times to check the right bit
-		setFN(false);
-		setFH(true);
+		setFz((m_registers[m_iState.y] & (1 << m_iState.x)) == 0); //shift the bit in the 0 place by b times to check the right bit
+		setFn(false);
+		setFh(true);
 		endInstruction();
 		break;
 	}
@@ -2069,11 +2069,11 @@ void CPU::BIT_b_HL()
 		break;
 	case 3:
 		m_iState.x = (m_ir >> 3) & 0b111; //b
-		m_iState.y = m_bus.read(getHL(), Bus::Component::CPU); //HL mem
+		m_iState.y = m_bus.read(getHl(), Bus::Component::CPU); //HL mem
 
-		setFZ((m_iState.y & (1 << m_iState.x)) == 0);
-		setFN(false);
-		setFH(true);
+		setFz((m_iState.y & (1 << m_iState.x)) == 0);
+		setFn(false);
+		setFh(true);
 		endInstruction();
 		break;
 	}
@@ -2105,12 +2105,12 @@ void CPU::RES_b_HL()
 	case 2:
 		break;
 	case 3:
-		m_iState.x = m_bus.read(getHL(), Bus::Component::CPU); //HL mem
+		m_iState.x = m_bus.read(getHl(), Bus::Component::CPU); //HL mem
 		break;
 	case 4:
 		m_iState.y = (m_ir >> 3) & 0b111; //b
 
-		m_bus.write(getHL(), m_iState.x & ~(1 << m_iState.y), Bus::Component::CPU);
+		m_bus.write(getHl(), m_iState.x & ~(1 << m_iState.y), Bus::Component::CPU);
 		endInstruction();
 		break;
 	}
@@ -2143,12 +2143,12 @@ void CPU::SET_b_HL()
 	case 2:
 		break;
 	case 3:
-		m_iState.x = m_bus.read(getHL(), Bus::Component::CPU); //HL mem
+		m_iState.x = m_bus.read(getHl(), Bus::Component::CPU); //HL mem
 		break;
 	case 4:
 		m_iState.y = (m_ir >> 3) & 0b111; //b
 
-		m_bus.write(getHL(), m_iState.x | (1 << m_iState.y), Bus::Component::CPU);
+		m_bus.write(getHl(), m_iState.x | (1 << m_iState.y), Bus::Component::CPU);
 		endInstruction();
 		break;
 	}
@@ -2176,7 +2176,7 @@ void CPU::JP_nn()
 
 void CPU::JP_HL()
 {
-	m_pc = getHL();
+	m_pc = getHl();
 	m_cycleCounter = 0;
 }
 
@@ -2196,10 +2196,10 @@ void CPU::JP_cc_nn()
 
 		switch(m_iState.x) //m_iState.y is used as a bool to check later if condition is met
 		{
-		case NOT_ZERO: m_iState.y = !getFZ(); break;
-		case ZERO: m_iState.y = getFZ(); break;
-		case NOT_CARRY: m_iState.y = !getFC(); break;
-		case CARRY: m_iState.y = getFC(); break;
+		case notZero: m_iState.y = !getFz(); break;
+		case zero: m_iState.y = getFz(); break;
+		case notCarry: m_iState.y = !getFc(); break;
+		case carry: m_iState.y = getFc(); break;
 		}
 
 		if(m_iState.y) m_pc = m_iState.xx;
@@ -2241,10 +2241,10 @@ void CPU::JR_cc_e()
 
 		switch(m_iState.x) //m_iState.y is used as a bool to check later if condition is met
 		{
-		case NOT_ZERO: m_iState.y = !getFZ(); break;
-		case ZERO: m_iState.y = getFZ(); break;
-		case NOT_CARRY: m_iState.y = !getFC(); break;
-		case CARRY: m_iState.y = getFC(); break;
+		case notZero: m_iState.y = !getFz(); break;
+		case zero: m_iState.y = getFz(); break;
+		case notCarry: m_iState.y = !getFc(); break;
+		case carry: m_iState.y = getFc(); break;
 		}
 
 		if(m_iState.y) m_pc += m_iState.e;
@@ -2272,10 +2272,10 @@ void CPU::CALL_nn()
 	case 4:
 		break;
 	case 5:
-		m_bus.write(--m_sp, getMSB(m_pc), Bus::Component::CPU);
+		m_bus.write(--m_sp, getMsb(m_pc), Bus::Component::CPU);
 		break;
 	case 6:
-		m_bus.write(--m_sp, getLSB(m_pc), Bus::Component::CPU);
+		m_bus.write(--m_sp, getLsb(m_pc), Bus::Component::CPU);
 		m_pc = m_iState.xx;
 		endInstruction();
 		break;
@@ -2298,10 +2298,10 @@ void CPU::CALL_cc_nn()
 
 		switch(m_iState.x) //m_iState.y is used as a bool to check later if condition is met
 		{
-		case NOT_ZERO: m_iState.y = !getFZ(); break;
-		case ZERO: m_iState.y = getFZ(); break;
-		case NOT_CARRY: m_iState.y = !getFC(); break;
-		case CARRY: m_iState.y = getFC(); break;
+		case notZero: m_iState.y = !getFz(); break;
+		case zero: m_iState.y = getFz(); break;
+		case notCarry: m_iState.y = !getFc(); break;
+		case carry: m_iState.y = getFc(); break;
 		}
 
 		if(!m_iState.y) endInstruction();
@@ -2309,10 +2309,10 @@ void CPU::CALL_cc_nn()
 	case 4:
 		break;
 	case 5:
-		m_bus.write(--m_sp, getMSB(m_pc), Bus::Component::CPU);
+		m_bus.write(--m_sp, getMsb(m_pc), Bus::Component::CPU);
 		break;
 	case 6:
-		m_bus.write(--m_sp, getLSB(m_pc), Bus::Component::CPU);
+		m_bus.write(--m_sp, getLsb(m_pc), Bus::Component::CPU);
 		m_pc = m_iState.xx;
 		endInstruction();
 		break;
@@ -2350,10 +2350,10 @@ void CPU::RET_cc()
 	case 2:
 		switch(m_iState.x)
 		{
-		case NOT_ZERO: m_iState.y = !getFZ(); break;
-		case ZERO: m_iState.y = getFZ(); break;
-		case NOT_CARRY: m_iState.y = !getFC(); break;
-		case CARRY: m_iState.y = getFC(); break;
+		case notZero: m_iState.y = !getFz(); break;
+		case zero: m_iState.y = getFz(); break;
+		case notCarry: m_iState.y = !getFc(); break;
+		case carry: m_iState.y = getFc(); break;
 		}
 
 		if(!m_iState.y) endInstruction();
@@ -2402,10 +2402,10 @@ void CPU::RST_n()
 	case 2:
 		break;
 	case 3:
-		m_bus.write(--m_sp, getMSB(m_pc), Bus::Component::CPU);
+		m_bus.write(--m_sp, getMsb(m_pc), Bus::Component::CPU);
 		break;
 	case 4:
-		m_bus.write(--m_sp, getLSB(m_pc), Bus::Component::CPU);
+		m_bus.write(--m_sp, getLsb(m_pc), Bus::Component::CPU);
 		m_pc = m_ir & 0b111000;
 		endInstruction();
 		break;

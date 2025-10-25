@@ -28,7 +28,7 @@ public:
 	void reset();
 	void handleDmaTransfer();
 	void loadCartridge(const std::filesystem::path& filePath);
-	bool hasRom() const;
+	const bool hasCartridge() const;
 	void nextCartridge();
 	uint8 read(const uint16 addr, const Component component) const;
 	void write(const uint16 addr, const uint8 value, const Component component);
@@ -38,6 +38,8 @@ public:
 
 private:
 	bool isInExternalBus(const uint16 addr) const;
+
+	static constexpr int echoRamOffset{MemoryRegions::echoRam.first - MemoryRegions::workRam0.first};
 
 	Gameboy& m_gameboy;
 	std::vector<uint8> m_memory;

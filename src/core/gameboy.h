@@ -10,30 +10,33 @@
 
 #include <array>
 #include <fstream>
-#include <coroutine>
+#include <memory>
 
 class Gameboy
 {
 public:
 	Gameboy();
 	~Gameboy();
-	void frame();
+
+	void reset();
+	void frame(float frameTime);
+
 	void loadCartridge(const std::filesystem::path& filePath);
 	void nextCartridge();
-	void reset();
-	bool hasRom() const;
-	const uint16* getLcdBuffer() const;
-	void putAudio(float frameTime);
+	const bool hasCartridge() const;
 
+	const PPU& getPPU() const;
 private:
 	friend class Bus;
 	void mCycle();
 
 	Bus m_bus;
 	CPU m_cpu;
-	PPU m_ppu;
+	std::unique_ptr<PPU> m_ppu;
 	APU m_apu;
 
 	Timers m_timers;
 	Input m_input;
+
+	uint16 m_currentCycle;
 };

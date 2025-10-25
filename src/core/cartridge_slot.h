@@ -7,6 +7,7 @@
 #include <fstream>
 #include <algorithm>
 #include <filesystem>
+#include <cstring>
 
 class CartridgeSlot
 {
@@ -22,13 +23,13 @@ public:
 	void writeRam(const uint16 addr, const uint8 value);
 
 private:
-	enum MbcType
+	enum class MbcType
 	{
-		NONE,
-		MBC1,
-		MBC2,
-		MBC3,
-		MBC5,
+		none,
+		mbc1,
+		mbc2,
+		mbc3,
+		mbc5,
 	};
 
 	struct CartridgeInfo
@@ -43,7 +44,7 @@ private:
 		uint16 ramBanks{};
 	};
 
-	static constexpr std::array<const char*, 5> MBC_TYPES
+	static constexpr std::array<const char*, 5> mbcTypes
 	{
 		"None",
 		"Mbc1",
@@ -52,11 +53,11 @@ private:
 		"Mbc5",
 	};
 
-	static constexpr unsigned int KB_2{0x800};
-	static constexpr unsigned int KB_8{0x2000};
-	static constexpr unsigned int KB_16{0x4000};
-	static constexpr unsigned int KB_32{0x8000};
-	static constexpr unsigned int KB_64{0x10000};
+	static constexpr uint32 kb2{0x800};
+	static constexpr uint32 kb8{0x2000};
+	static constexpr uint32 kb16{0x4000};
+	static constexpr uint32 kb32{0x8000};
+	static constexpr uint32 kb64{0x10000};
 
 	bool loadRom();
 	void initializeRom();

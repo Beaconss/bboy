@@ -7,7 +7,7 @@ Platform::Platform()
     , m_renderer{}
     , m_screenTexture{}
 {
-    if(!SDL_InitSubSystem(SDL_INIT_VIDEO | SDL_INIT_AUDIO)) std::cerr << "SDL failed to initialize " << SDL_GetError();
+    if(!SDL_InitSubSystem(SDL_INIT_VIDEO | SDL_INIT_AUDIO)) std::cerr << "SDL failed to initialize " << SDL_GetError() << '\n';
     
     m_window = SDL_CreateWindow("std-boy", 160 * 5, 144 * 5, SDL_WINDOW_RESIZABLE);
     if(!m_window) std::cerr << "SDL window failed to initialize " << SDL_GetError() << '\n';
@@ -17,7 +17,7 @@ Platform::Platform()
     SDL_SetRenderVSync(m_renderer, 0);
     SDL_SetRenderLogicalPresentation(m_renderer, 160, 144, SDL_RendererLogicalPresentation::SDL_LOGICAL_PRESENTATION_INTEGER_SCALE);
     
-    m_screenTexture = SDL_CreateTexture(m_renderer, SDL_PixelFormat::SDL_PIXELFORMAT_RGB565 , SDL_TextureAccess::SDL_TEXTUREACCESS_STREAMING, SCREEN_WIDTH, SCREEN_HEIGHT);
+    m_screenTexture = SDL_CreateTexture(m_renderer, SDL_PixelFormat::SDL_PIXELFORMAT_RGB565 , SDL_TextureAccess::SDL_TEXTUREACCESS_STREAMING, screenWidth, screenHeight);
     if(!m_screenTexture) std::cerr << "SDL texture failed to initialize " << SDL_GetError() << '\n';
     SDL_SetTextureScaleMode(m_screenTexture, SDL_SCALEMODE_NEAREST);
 }
@@ -30,7 +30,7 @@ void Platform::mainLoop(Gameboy& gameboy)
     bool fpsLimit{true};
     uint64_t start{};
     uint64_t end{};
-    float frameTime{};
+    float frameTime{CAPPED_FRAME_TIME};
     while(m_running)
     {
         while(SDL_PollEvent(&m_event))
@@ -48,8 +48,8 @@ void Platform::mainLoop(Gameboy& gameboy)
 
         start = SDL_GetPerformanceCounter();
     
-        if(gameboy.hasRom()) gameboy.frame();
-        updateScreen(gameboy.getLcdBuffer());
+        if(gameboy.hasCartridge()) gameboy.frame(frameTime);
+        updateScreen(gameboy.getPPU().getLcdBuffer());
         render();
             
         end = SDL_GetPerformanceCounter();
@@ -60,7 +60,6 @@ void Platform::mainLoop(Gameboy& gameboy)
             if(frameTime < CAPPED_FRAME_TIME) SDL_Delay(static_cast<uint32>(CAPPED_FRAME_TIME - frameTime));           
         }
         frameTime = (SDL_GetPerformanceCounter() - start) / static_cast<float>(SDL_GetPerformanceFrequency()) * 1000.f;
-        gameboy.putAudio(frameTime);
     }
     
     SDL_DestroyTexture(m_screenTexture);
@@ -71,7 +70,7 @@ void Platform::mainLoop(Gameboy& gameboy)
 
 void Platform::updateScreen(const uint16* data)
 {
-    SDL_UpdateTexture(m_screenTexture, nullptr, data, SCREEN_WIDTH * sizeof(uint16));
+    SDL_UpdateTexture(m_screenTexture, nullptr, data, screenWidth * sizeof(uint16));
 }
 
 void Platform::render() const

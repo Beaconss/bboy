@@ -38,7 +38,7 @@ void PPU::reset()
 {
 	m_fetcher.reset();
 	m_statInterrupt = StatInterrupt{};
-	m_mode = V_BLANK;
+	m_mode = vBlank;
 	m_cycleCounter = 0;
 	m_vblankInterruptNextCycle = false;
 	m_firstDrawingCycleDone = false;
@@ -48,7 +48,7 @@ void PPU::reset()
 	m_xPosition = 0;
 	m_pixelsToDiscard = 0;
 	m_spriteBuffer.clear();
-	m_spriteAddress = OAM_MEMORY_START;
+	m_spriteAddress = oamMemoryStart;
 	clearFifos();
 	m_lcdc = 0x91;
 	m_stat = 0x85;
@@ -70,20 +70,20 @@ void PPU::mCycle()
 {
 	if(!(m_lcdc & 0x80)) return;
 
-	if(constexpr int LAST_VBLANK_SCANLINE{153}; m_ly == LAST_VBLANK_SCANLINE) m_ly = 0;
+	if(constexpr int lastVBlankScanline{153}; m_ly == lastVBlankScanline) m_ly = 0;
 	updateCoincidenceFlag();
 	m_stat = (m_stat & 0b11111100) | m_mode; //bits 1-0 of stat store the current mode
 	handleStatInterrupt();
 	if(m_vblankInterruptNextCycle)
 	{
 		requestVBlankInterrupt();
-		m_statInterrupt.sources[OAM_SCAN] = false; //reset this in case it was briefly true
+		m_statInterrupt.sources[oamScan] = false; //reset this in case it was briefly true
 		m_vblankInterruptNextCycle = false;
 	}
 
 	if(m_reEnableDelay > 0)
 	{
-		if(--m_reEnableDelay == 0) updateMode(DRAWING);
+		if(--m_reEnableDelay == 0) updateMode(drawing);
 		return;
 	}
 	else m_reEnabling = false;
@@ -91,16 +91,16 @@ void PPU::mCycle()
 	++m_cycleCounter;
 	switch(m_mode)
 	{
-	case OAM_SCAN:
+	case oamScan:
 		oamScanCycle();
 		break;
-	case DRAWING:
+	case drawing:
 		drawingCycle();
 		break;
-	case H_BLANK:
+	case hBlank:
 		hBlankCycle();
 		break;
-	case V_BLANK:
+	case vBlank:
 		vBlankCycle();
 		break;
 	}
@@ -109,7 +109,7 @@ void PPU::mCycle()
 
 PPU::Mode PPU::getMode() const
 {
-	if((m_mode == DRAWING || m_mode == OAM_SCAN) && !m_reEnabling) return m_mode;
+	if((m_mode == drawing || m_mode == oamScan) && !m_reEnabling) return m_mode;
 	else return static_cast<Mode>(m_stat & 0b11);
 }
 
@@ -122,17 +122,17 @@ uint8 PPU::read(const Index index) const
 {
 	switch(index)
 	{
-	case LCDC: return m_lcdc;
-	case STAT: return m_stat;
-	case SCY: return m_scy;
-	case SCX: return m_scx;
-	case LY: return m_ly;
-	case LYC: return m_lyc;
-	case BGP: return m_bgp;
-	case OBP0: return m_obp0;
-	case OBP1: return m_obp1;
-	case WY: return m_wy;
-	case WX: return m_wx;
+	case lcdc: return m_lcdc;
+	case stat: return m_stat;
+	case scy: return m_scy;
+	case scx: return m_scx;
+	case ly: return m_ly;
+	case lyc: return m_lyc;
+	case bgp: return m_bgp;
+	case obp0: return m_obp0;
+	case obp1: return m_obp1;
+	case wy: return m_wy;
+	case wx: return m_wx;
 	default: return 0xFF;
 	}
 }
@@ -141,47 +141,47 @@ void PPU::write(const Index index, const uint8 value)
 {
 	switch(index)
 	{
-	case LCDC: 
-		if(constexpr int RE_ENABLE_DELAY{19}; !(m_lcdc & 0x80) && value & 0x80) 
+	case lcdc: 
+		if(constexpr int maxReEnableDelay{19}; !(m_lcdc & 0x80) && value & 0x80) 
 		{
 			m_reEnabling = true;
-			m_reEnableDelay = RE_ENABLE_DELAY;
+			m_reEnableDelay = maxReEnableDelay;
 		}
 		m_lcdc = value; 
 		if(!(m_lcdc & 0x80))
 		{
-			updateMode(H_BLANK);
+			updateMode(hBlank);
 			m_stat = (m_stat & 0b1111'1100) | m_mode; //manually update stat mode bits because if the ppu is disabled they wont update
 			m_ly = 0;
 			m_cycleCounter = 20;
 		}
 		m_fetcher.updateTilemap();
 		break;
-	case STAT: 
+	case stat: 
 		m_stat = ((m_stat & 0b111) | (value & ~0b111)) | 0x80; //bit 0-1-2 are read only and bit 7 is always 1
 		setStatModeSources();
 		break;
-	case SCY: m_scy = value; break;
-	case SCX: m_scx = value; break;
-	case LY: break;
-	case LYC: m_lyc = value; break;
-	case BGP: 
+	case scy: m_scy = value; break;
+	case scx: m_scx = value; break;
+	case ly: break;
+	case lyc: m_lyc = value; break;
+	case bgp: 
 		m_oldBgp = m_bgp;
 		m_bgp = value;
 		break;
-	case OBP0: m_obp0 = value; break;
-	case OBP1: m_obp1 = value; break;
-	case WY: m_wy = value; break;
-	case WX: m_wx = value; break;
+	case obp0: m_obp0 = value; break;
+	case obp1: m_obp1 = value; break;
+	case wy: m_wy = value; break;
+	case wx: m_wx = value; break;
 	}
 }
 
 void PPU::handleStatInterrupt()
 {
-	const bool statResult{m_statInterrupt.sources[StatInterrupt::H_BLANK]
-						 || m_statInterrupt.sources[StatInterrupt::V_BLANK]
-						 || m_statInterrupt.sources[StatInterrupt::OAM_SCAN]
-						 || m_statInterrupt.sources[StatInterrupt::LY_COMPARE]};
+	const bool statResult{m_statInterrupt.sources[StatInterrupt::hBLank]
+						 || m_statInterrupt.sources[StatInterrupt::vBlank]
+						 || m_statInterrupt.sources[StatInterrupt::oamScan]
+						 || m_statInterrupt.sources[StatInterrupt::lyCompare]};
 	if(!m_statInterrupt.previousResult && statResult) requestStatInterrupt(); //if there was a rising edge
 	m_statInterrupt.previousResult = statResult;
 }
@@ -198,7 +198,7 @@ void PPU::setStatModeSources()
 void PPU::updateMode(const Mode mode)
 {
 	m_mode = mode; 
-	if(m_mode == DRAWING) m_oldBgp = 0;
+	if(m_mode == drawing) m_oldBgp = 0;
 	setStatModeSources();
 }
 
@@ -206,20 +206,17 @@ void PPU::updateCoincidenceFlag(bool set)
 {
 	m_stat = (m_stat & ~0b100) | (set ? ((m_ly == m_lyc) << 2) : 0);
 	
-	if(m_stat & 0x40 && m_stat & 0b100)
-	{
-		m_statInterrupt.sources[StatInterrupt::LY_COMPARE] = true;
-	}
-	else m_statInterrupt.sources[StatInterrupt::LY_COMPARE] = false;
+	if(m_stat & 0x40 && m_stat & 0b100) m_statInterrupt.sources[StatInterrupt::Source::lyCompare] = true;
+	else m_statInterrupt.sources[StatInterrupt::lyCompare] = false;
 }
 
 void PPU::oamScanCycle()
 {
-	constexpr int SPRITE_BUFFER_MAX_SIZE{10};
+	constexpr int spriteBufferMaxSize{10};
 
 	for(int i{0}; i < 2; ++i)
 	{
-		if(m_spriteBuffer.size() < SPRITE_BUFFER_MAX_SIZE)
+		if(m_spriteBuffer.size() < spriteBufferMaxSize)
 		{
 			Sprite sprite{};
 			m_bus.fillSprite(m_spriteAddress, sprite);
@@ -228,8 +225,8 @@ void PPU::oamScanCycle()
 		}
 	}
 
-	constexpr int OAM_SCAN_END_CYCLE{20};
-	if(m_cycleCounter == OAM_SCAN_END_CYCLE || m_cycleCounter == 19 && m_ly == 0)
+	constexpr int oamScanEndCycle{20};
+	if(m_cycleCounter == oamScanEndCycle || m_cycleCounter == 19 && m_ly == 0)
 	{
 		//here if left xPosition is equal to the right's one, 
 		//left goes up because the left one has higher priority since its first in oam memory
@@ -237,16 +234,16 @@ void PPU::oamScanCycle()
 			{
 				return left.xPosition >= right.xPosition;
 			});
-		m_spriteAddress = OAM_MEMORY_START;
-		updateMode(DRAWING);
+		m_spriteAddress = oamMemoryStart;
+		updateMode(drawing);
 	}
 }
 
 void PPU::tryAddSpriteToBuffer(const Sprite sprite)
 {
-	constexpr uint8 TALL_SPRITE_MODE{0b100};
+	constexpr uint8 tallSpriteMode{0b100};
 	if(m_ly + 16 >= sprite.yPosition 
-		&& m_ly + 16 < sprite.yPosition + (m_lcdc & TALL_SPRITE_MODE ? 16 : 8))
+		&& m_ly + 16 < sprite.yPosition + (m_lcdc & tallSpriteMode ? 16 : 8))
 	{
 		m_spriteBuffer.push_back(sprite);
 	}
@@ -269,13 +266,13 @@ void PPU::drawingCycle()
 		tryToPushPixel();
 		//drawingLog << "\n\n";
 		m_oldBgp = 0;
-		if(m_xPosition == SCREEN_WIDTH)
+		if(m_xPosition == screenWidth)
 		{
 			m_xPosition = 0;
 			m_fetcher.resetEndScanline();
 			clearFifos();
 			m_spriteBuffer.clear();
-			updateMode(H_BLANK);
+			updateMode(hBlank);
 			m_firstDrawingCycleDone = false;
 			//tCycle = 80;
 			//drawingLog << '\n';
@@ -301,12 +298,12 @@ void PPU::tryToPushPixel()
 			else //background/window
 			{
 				pixel = m_pixelFifoBackground.front();
-				constexpr uint8 BACKGROUND_WINDOW_ENABLE{0b1};
-				pixel.paletteValue = m_lcdc & BACKGROUND_WINDOW_ENABLE ? m_bgp : 0;
+				constexpr uint8 backgroundEnable{0b1};
+				pixel.paletteValue = m_lcdc & backgroundEnable ? m_bgp : 0;
 				pixel.paletteValue |= m_oldBgp;
 			}
 
-			m_lcdBuffer[m_xPosition + SCREEN_WIDTH * m_ly] = colors[(pixel.paletteValue >> (pixel.colorIndex << 1)) & 0b11];
+			m_lcdBuffer[m_xPosition + screenWidth * m_ly] = colors[(pixel.paletteValue >> (pixel.colorIndex << 1)) & 0b11];
 			//drawingLog << "	pushed pixel at x:" << std::dec << m_xPosition << ", y: " << static_cast<int>(m_ly)<< "\n	pixel color: " << std::hex << color
 				//<< "\n	bgp value: " << static_cast<int>(m_bgp);
 			++m_xPosition;
@@ -325,9 +322,9 @@ void PPU::tryToPushPixel()
 
 bool PPU::shouldPushSpritePixel() const
 {
-	constexpr uint8 SPRITE_ENABLE{0b10};
+	constexpr uint8 spriteEnable{0b10};
 	return !m_pixelFifoSprite.empty()
-			&& (m_lcdc & SPRITE_ENABLE
+			&& (m_lcdc & spriteEnable
 			&& m_pixelFifoSprite.front().colorIndex != 0
 			&& (!m_pixelFifoSprite.front().backgroundPriority
 			|| m_pixelFifoBackground.front().colorIndex == 0));
@@ -341,38 +338,36 @@ void PPU::clearFifos()
 
 void PPU::hBlankCycle()
 {
-	constexpr int SCANLINE_END_CYCLE{114};
-	if(m_cycleCounter == SCANLINE_END_CYCLE)
+	if(m_cycleCounter == scanlineEndCycle)
 	{
 		++m_ly;
 		updateCoincidenceFlag(false);
-		updateMode(OAM_SCAN);
+		updateMode(oamScan);
 		m_cycleCounter = 0;
 	}
-	constexpr uint16 FIRST_V_BLANK_SCANLINE{144};
-	if(m_ly == FIRST_V_BLANK_SCANLINE) //if this next scanline is the first of V_BLANK, V_BLANK for another 10 scanlines
+	constexpr uint16 firstVBlankScanline{144};
+	if(m_ly == firstVBlankScanline) //if this next scanline is the first of vBlank, vBlank for another 10 scanlines
 	{
 		m_vblankInterruptNextCycle = true;
-		updateMode(V_BLANK);
-		constexpr uint8 STAT_OAM_SOURCE_ENABLE{0b10'0000};
-		if(m_stat & STAT_OAM_SOURCE_ENABLE) m_statInterrupt.sources[OAM_SCAN] = true; //re enable oam scan source if the corresponding stat bit is active as updateMode(V_BLANK) cleared it
+		updateMode(vBlank);
+		constexpr uint8 statOamSourceEnable{0b10'0000};
+		if(m_stat & statOamSourceEnable) m_statInterrupt.sources[oamScan] = true; //re enable oam scan source if the corresponding stat bit is active as updateMode(vBlank) cleared it
 	}
 }
 
 void PPU::vBlankCycle()
 {
-	constexpr int SCANLINE_END_CYCLE{114};
-	if(m_cycleCounter == SCANLINE_END_CYCLE)
+	if(m_cycleCounter == scanlineEndCycle)
 	{
 		++m_ly;
 		updateCoincidenceFlag(false);
 		m_cycleCounter = 0;
 	}
-	constexpr uint16 LAST_VBLANK_SCANLINE{1}; //because at line 153 it goes back to 0 after 4 t-cycles
-	if(m_ly == LAST_VBLANK_SCANLINE)
+	constexpr uint16 lastVBlankScanline{1}; //because at line 153 it goes back to 0 after 4 t-cycles
+	if(m_ly == lastVBlankScanline)
 	{
 		m_ly = 0;
-		updateMode(OAM_SCAN);
+		updateMode(oamScan);
 		m_fetcher.reset();
 	}
 }

@@ -3,11 +3,22 @@
 Gameboy::Gameboy()
 	: m_bus{*this}
 	, m_cpu{m_bus}
-	, m_ppu{m_bus}
+	, m_ppu{std::make_unique<PPU>(m_bus)}
 	, m_apu{}
 	, m_timers{m_bus}
 	, m_input{}
+	, m_currentCycle{}
 {
+}
+
+void Gameboy::reset() 
+{
+	m_bus.reset();
+	m_cpu.reset();
+	m_ppu->reset();
+	m_apu.reset();
+	m_timers.reset();
+	m_currentCycle = 1;
 }
 
 Gameboy::~Gameboy()
@@ -15,10 +26,12 @@ Gameboy::~Gameboy()
 	reset();
 }
 
-void Gameboy::frame()
+void Gameboy::frame(float frameTime)
 {
-	static constexpr int CYCLES_PER_FRAME{17556};
-	for(int i{}; i < CYCLES_PER_FRAME; ++i) mCycle();
+	m_apu.setupFrame(frameTime);
+	static constexpr int M_CYCLES_PER_FRAME{17556};
+	for(;m_currentCycle <= M_CYCLES_PER_FRAME; ++m_currentCycle) mCycle();
+	m_currentCycle = 1;
 	m_apu.unlockThread();
 }
 
@@ -27,7 +40,7 @@ void Gameboy::mCycle()
 	m_cpu.mCycle(); 
 	m_bus.handleDmaTransfer();
 	m_timers.mCycle();
-	m_ppu.mCycle();
+	m_ppu->mCycle();
 }
 
 void Gameboy::loadCartridge(const std::filesystem::path& filePath)
@@ -42,26 +55,12 @@ void Gameboy::nextCartridge()
 	m_bus.nextCartridge();
 }
 
-void Gameboy::reset()
+const bool Gameboy::hasCartridge() const
 {
-	m_bus.reset();
-	m_cpu.reset();
-	m_ppu.reset();
-	m_apu.reset();
-	m_timers.reset();
+	return m_bus.hasCartridge();
 }
 
-bool Gameboy::hasRom() const
+const PPU& Gameboy::getPPU() const
 {
-	return m_bus.hasRom();
-}
-
-const uint16* Gameboy::getLcdBuffer() const
-{
-	return m_ppu.getLcdBuffer();
-}
-	
-void Gameboy::putAudio(float frameTime)
-{
-	m_apu.putAudio(frameTime);
+	return *m_ppu;
 }
