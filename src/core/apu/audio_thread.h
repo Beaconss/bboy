@@ -2,11 +2,9 @@
 #include <iostream>
 #include <thread>
 #include <mutex>
-#include <cassert>
 #include <condition_variable>
 
 class APU;
-
 class AudioThread
 {
 public:

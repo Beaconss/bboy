@@ -1,5 +1,5 @@
-#include <core/gameboy.h>
-#include <platform.h>
+#include "core/gameboy.h"
+#include "platform.h"
 
 int main(int argc, char** argv)
 {

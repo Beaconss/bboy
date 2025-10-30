@@ -1,12 +1,8 @@
 #pragma once
-#include <type_alias.h>
-#include <hardware_registers.h>
-#include <core/bus.h>
-
+#include "type_alias.h"
 #include <array>
 
 class Bus;
-
 class Timers
 {
 public:

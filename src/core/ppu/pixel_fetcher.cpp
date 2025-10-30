@@ -1,5 +1,7 @@
-#include <core/ppu/ppu.h>
-#include <core/ppu/pixel_fetcher.h>
+#include "core/ppu/pixel_fetcher.h"
+#include "core/ppu/ppu.h"
+#include "core/bus.h"
+#include <iostream>
 
 PixelFetcher::PixelFetcher(PPU& ppu)
 	: m_ppu{ppu}
@@ -117,8 +119,8 @@ void PixelFetcher::cycle()
 			const uint16 m_tileNumber = tallSprite ? sprite.tileNumber & 0xFE : sprite.tileNumber;
 
 			const uint16 tileAddr = 0x8000 + (m_tileNumber * 16) + (2 * row);
-			m_tileDataLow = m_ppu.m_bus.read(tileAddr, Bus::Component::PPU);
-			m_tileDataHigh = m_ppu.m_bus.read(tileAddr + 1, Bus::Component::PPU);
+			m_tileDataLow = m_ppu.m_bus.read(tileAddr, Bus::Component::ppu);
+			m_tileDataHigh = m_ppu.m_bus.read(tileAddr + 1, Bus::Component::ppu);
 
 			pushToSpriteFifo(sprite);
 			checkForSprite();
@@ -144,7 +146,7 @@ void PixelFetcher::cycle()
 							+ (tilesPerRow * ((m_ppu.m_ly + m_ppu.m_scy) / pixelsPerTile)))
 							& tilemapSize))};
 
-			m_tileNumber = m_ppu.m_bus.read(m_tilemap + offset, Bus::Component::PPU);
+			m_tileNumber = m_ppu.m_bus.read(m_tilemap + offset, Bus::Component::ppu);
 			//drawingLog << "	fetched tile number\n";
 		}
 		break;
@@ -159,7 +161,7 @@ void PixelFetcher::cycle()
 					:
 					0x8000 + (m_tileNumber * 16)
 					+ (2 * ((m_ppu.m_ly + m_ppu.m_scy) & 7));
-				m_tileDataLow = m_ppu.m_bus.read(m_tileAddress, Bus::Component::PPU);
+				m_tileDataLow = m_ppu.m_bus.read(m_tileAddress, Bus::Component::ppu);
 			}
 			else
 			{
@@ -170,13 +172,13 @@ void PixelFetcher::cycle()
 					:
 					0x9000 + (static_cast<int8>(m_tileNumber) * 16)
 					+ (2 * ((m_ppu.m_ly + m_ppu.m_scy) & 7));
-				m_tileDataLow = m_ppu.m_bus.read(m_tileAddress, Bus::Component::PPU);
+				m_tileDataLow = m_ppu.m_bus.read(m_tileAddress, Bus::Component::ppu);
 			}
 			//drawingLog << "	fetched tile data low\n";
 		}
 		break;
 		case fetchTileDataHigh:
-			m_tileDataHigh = m_ppu.m_bus.read(m_tileAddress + 1, Bus::Component::PPU);
+			m_tileDataHigh = m_ppu.m_bus.read(m_tileAddress + 1, Bus::Component::ppu);
 			if(!m_firstFetchCompleted)
 			{
 				m_backgroundCycleCounter = 0;

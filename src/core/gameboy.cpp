@@ -1,4 +1,5 @@
-#include <core/gameboy.h>
+#include "core/gameboy.h"
+#include "hardware_registers.h"
 
 Gameboy::Gameboy()
 	: m_bus{*this}

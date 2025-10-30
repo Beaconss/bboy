@@ -1,6 +1,5 @@
 #pragma once
-#include <type_alias.h>
-#include <SDL3/SDL.h>
+#include "type_alias.h"
 
 class Input
 {

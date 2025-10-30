@@ -1,15 +1,11 @@
 #pragma once
-#include <type_alias.h>
-#include <hardware_registers.h>
-#include <core/bus.h>
-#include <core/cpu.h>
-#include <core/ppu/ppu.h>
-#include <core/apu/apu.h>
-#include <core/timers.h>
-#include <core/input.h>
-
-#include <array>
-#include <fstream>
+#include "type_alias.h"
+#include "core/bus.h"
+#include "core/cpu.h"
+#include "core/apu/apu.h"
+#include "core/timers.h"
+#include "core/input.h"
+#include "core/ppu/ppu.h"
 #include <memory>
 
 class Gameboy

@@ -1,4 +1,8 @@
-#include <core/apu/apu.h>
+#include "core/apu/apu.h"
+#include <SDL3/SDL_audio.h>
+#include <cmath>
+#include <iostream>
+#include <algorithm>
 
 APU::APU()
 	: m_audioThread{*this}
@@ -57,7 +61,7 @@ void APU::setupFrame(float lastFrameTime)
 {
 	constexpr int tCyclesPerFrame{mCyclesPerFrame * 4};
 	m_thisFrameSamples = static_cast<uint16>((frequency / std::lroundf((1000.f / lastFrameTime))));
-	m_nearestNeighbourTarget = std::lroundf(static_cast<float>(tCyclesPerFrame / m_thisFrameSamples));
+	m_nearestNeighbourTarget = std::lroundf(static_cast<float>(tCyclesPerFrame / std::lroundf((frequency / (1000.f / lastFrameTime)))));
 	m_nearestNeighbourCounter = 0;
 }
 
@@ -193,7 +197,7 @@ void APU::finishFrame()
 
 void APU::putAudio()
 {
-	m_samplesBuffer.resize(m_thisFrameSamples);
+	//m_samplesBuffer.resize(m_thisFrameSamples);
 	SDL_PutAudioStreamData(m_audioStream, m_samplesBuffer.data(), int(m_samplesBuffer.size() * sizeof(float)));
 	m_samplesBuffer.clear();
 }

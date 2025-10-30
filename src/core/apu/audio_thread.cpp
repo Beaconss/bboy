@@ -1,5 +1,6 @@
-#include <core/apu/audio_thread.h>
-#include <core/apu/apu.h>
+#include "core/apu/audio_thread.h"
+#include "core/apu/apu.h"
+#include <cassert>
 
 AudioThread::AudioThread(APU& apu)
 	: m_apu{apu}
@@ -24,7 +25,7 @@ void AudioThread::threadLoop()
 	while(true)
 	{
 		std::unique_lock<std::mutex> lock(m_mutex);
-		m_mutexCondition.wait(lock, [this]{return m_shouldExecute;});
+		m_mutexCondition.wait(lock, [this] {return m_shouldExecute; });
 		m_apu.finishFrame();
 		m_shouldExecute = false;
 	}

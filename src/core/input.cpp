@@ -1,4 +1,5 @@
-#include <core/input.h>
+#include "core/input.h"
+#include <SDL3/SDL.h>
 
 Input::Input()
 	: m_p1{0xCF}

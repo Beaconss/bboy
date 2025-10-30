@@ -1,18 +1,14 @@
 #pragma once 
-#include <type_alias.h>
-#include <hardware_registers.h>
-#include <core/bus.h>
-#include <core/ppu/pixel_fetcher.h>
-
+#include "type_alias.h"
+#include "core/ppu/pixel_fetcher.h"
 #include <vector>
 #include <array>
 #include <queue>
-#include <ranges>
-#include <algorithm>
 
 constexpr int screenWidth{160};
 constexpr int screenHeight{144};
 
+class Bus;
 class PPU
 {
 public:
@@ -123,7 +119,6 @@ private:
 	
 	uint8 m_cycleCounter;
 	bool m_vblankInterruptNextCycle;
-	bool m_firstDrawingCycleDone;
 	bool m_reEnabling;
 	uint8 m_reEnableDelay;
 

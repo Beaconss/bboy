@@ -1,4 +1,7 @@
-#include <platform.h>
+#include "platform.h"
+#include "core/gameboy.h"
+#include <SDL3/SDL_opengl.h>
+#include <iostream>
 
 Platform::Platform()
 	: m_running{true}

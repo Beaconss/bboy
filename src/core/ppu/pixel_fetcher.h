@@ -1,10 +1,7 @@
 #pragma once
-#include <type_alias.h>
-
-#include <iostream>
+#include "type_alias.h"
 
 class PPU;
-
 class PixelFetcher
 {
 private:

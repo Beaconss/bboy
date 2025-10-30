@@ -1,4 +1,9 @@
-#include <core/cartridge_slot.h>
+#include "core/cartridge_slot.h"
+#include "memory_regions.h"
+#include <iostream>
+#include <cstring>
+#include <fstream>
+#include <algorithm>
 
 CartridgeSlot::CartridgeSlot()
 	: m_hasCartridge{}

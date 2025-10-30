@@ -1,17 +1,9 @@
 #pragma once
-#include <type_alias.h>
-#include <core/gameboy.h>
+#include "type_alias.h"
 #include <SDL3/SDL.h>
-#include <SDL3/SDL_opengl.h>
-
-#include <iostream>
-#include <array>
-#include <thread>
-#include <fstream>
 
 class Gameboy;
-
-class Platform //this is a singleton
+class Platform
 {
 public:
 	static Platform& getInstance()

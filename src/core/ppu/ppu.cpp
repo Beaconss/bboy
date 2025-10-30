@@ -1,4 +1,8 @@
-#include <core/ppu/ppu.h>
+#include "core/ppu/ppu.h"
+#include "hardware_registers.h"
+#include "core/bus.h"
+#include <ranges>
+#include <algorithm>
 
 PPU::PPU(Bus& bus)
 	: m_bus{bus}
@@ -7,7 +11,6 @@ PPU::PPU(Bus& bus)
 	, m_mode{}
 	, m_cycleCounter{}
 	, m_vblankInterruptNextCycle{}
-	, m_firstDrawingCycleDone{}
 	, m_reEnabling{}
 	, m_reEnableDelay{}
 	, m_lcdBuffer{}
@@ -41,7 +44,6 @@ void PPU::reset()
 	m_mode = vBlank;
 	m_cycleCounter = 0;
 	m_vblankInterruptNextCycle = false;
-	m_firstDrawingCycleDone = false;
 	m_reEnabling = false;
 	m_reEnableDelay = 0;
 	std::ranges::fill(m_lcdBuffer, 0);
@@ -198,7 +200,12 @@ void PPU::setStatModeSources()
 void PPU::updateMode(const Mode mode)
 {
 	m_mode = mode; 
-	if(m_mode == drawing) m_oldBgp = 0;
+	if(m_mode == drawing) 
+	{
+		m_pixelsToDiscard = m_scx & 7;
+		//drawingLog << "pixels to discard this scanline: " << m_pixelsToDiscard << '\n';
+		m_oldBgp = 0;
+	}
 	setStatModeSources();
 }
 
@@ -255,12 +262,6 @@ void PPU::drawingCycle()
 	{
 		//++tCycle;
 		//drawingLog << "t-cycle: " << std::dec << tCycle << '\n';
-		if(!m_firstDrawingCycleDone)
-		{
-			m_pixelsToDiscard = m_scx & 7;
-			m_firstDrawingCycleDone = true;
-			//drawingLog << "pixels to discard this scanline: " << m_pixelsToDiscard << '\n';
-		}
 
 		m_fetcher.cycle();
 		tryToPushPixel();
@@ -273,7 +274,6 @@ void PPU::drawingCycle()
 			clearFifos();
 			m_spriteBuffer.clear();
 			updateMode(hBlank);
-			m_firstDrawingCycleDone = false;
 			//tCycle = 80;
 			//drawingLog << '\n';
 			break;
@@ -374,10 +374,10 @@ void PPU::vBlankCycle()
 
 void PPU::requestStatInterrupt() const
 {
-	m_bus.write(hardwareReg::IF, m_bus.read(hardwareReg::IF, Bus::Component::PPU) | 0b10, Bus::Component::PPU);
+	m_bus.write(hardwareReg::IF, m_bus.read(hardwareReg::IF, Bus::Component::ppu) | 0b10, Bus::Component::ppu);
 }
 
 void PPU::requestVBlankInterrupt() const
 {
-	m_bus.write(hardwareReg::IF, m_bus.read(hardwareReg::IF, Bus::Component::PPU) | 0b1, Bus::Component::PPU);
+	m_bus.write(hardwareReg::IF, m_bus.read(hardwareReg::IF, Bus::Component::ppu) | 0b1, Bus::Component::ppu);
 }

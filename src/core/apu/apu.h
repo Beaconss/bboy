@@ -1,17 +1,11 @@
 #pragma once
-#include <type_alias.h>
-#include <core/apu/audio_thread.h>
-
-#include <SDL3/SDL_audio.h>
-
+#include "type_alias.h"
+#include "core/apu/audio_thread.h"
 #include <array>
 #include <queue>
-#include <algorithm>
 #include <vector>
-#include <iostream>
-#include <cmath>
-#include <atomic>
 
+struct SDL_AudioStream;
 class APU
 {
 public:

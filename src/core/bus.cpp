@@ -1,5 +1,8 @@
-#include <core/bus.h>
-#include <core/gameboy.h>
+#include "core/bus.h"
+#include "core/gameboy.h"
+#include "hardware_registers.h"
+#include <algorithm>
+#include <filesystem>
 
 static std::vector<std::filesystem::path> fillCartridges()
 {
@@ -42,8 +45,8 @@ void Bus::reset()
 	m_memory.resize(kb64); //32 kbs are not used but its ok to have less overhead
 	std::ranges::fill(m_memory, 0);
 	m_cartridgeSlot.reset();
-	m_externalBusBlocked = 0;
-	m_vramBusBlocked = 0;
+	m_externalBusBlocked = false;
+	m_vramBusBlocked = false;
 	m_dmaTransferCurrentAddress = 0;
 	m_dmaTransferInProcess = false;
 	m_dmaTransferEnableDelay = 0;
@@ -54,8 +57,6 @@ void Bus::reset()
 
 void Bus::handleDmaTransfer()
 {
-	using namespace MemoryRegions;
-
 	if(m_dmaTransferEnableDelay > 0)
 	{
 		if(--m_dmaTransferEnableDelay == 0)
@@ -64,7 +65,7 @@ void Bus::handleDmaTransfer()
 			m_dmaTransferCurrentAddress = m_memory[hardwareReg::DMA] >= 0xFE ? (0xDE00 + ((m_memory[hardwareReg::DMA] - 0xFE) << 8)) : (m_memory[hardwareReg::DMA] << 8);
 		}
 	}
-
+	
 	if((m_dmaTransferCurrentAddress & 0xFF) == 0xA0)
 	{
 		m_externalBusBlocked = false;
@@ -72,21 +73,15 @@ void Bus::handleDmaTransfer()
 		m_dmaTransferInProcess = false;
 		m_dmaTransferCurrentAddress = 0;
 	}
-
+	
 	if(m_dmaTransferInProcess)
 	{
-		
 		const uint16 destinationAddr{static_cast<uint16>(0xFE00 | m_dmaTransferCurrentAddress & 0xFF)};
-		write(destinationAddr, read(m_dmaTransferCurrentAddress++, Component::BUS), Component::BUS);
-	
-		if(m_dmaTransferCurrentAddress >= vram.first && m_dmaTransferCurrentAddress <= vram.second)
-		{
-			m_vramBusBlocked = true;
-		}
-		else if(isInExternalBus(m_dmaTransferCurrentAddress))
-		{
-			m_externalBusBlocked = true;
-		}
+		write(destinationAddr, read(m_dmaTransferCurrentAddress++, Component::bus), Component::bus);
+		
+		using namespace MemoryRegions;
+		m_vramBusBlocked = m_dmaTransferCurrentAddress >= vram.first && m_dmaTransferCurrentAddress <= vram.second;
+		m_externalBusBlocked = isInExternalBus(m_dmaTransferCurrentAddress);
 	}
 }
 
@@ -162,14 +157,14 @@ uint8 Bus::read(const uint16 addr, const Component component) const
 	{
 		const bool addrInOam{addr >= oam.first && addr <= oam.second};
 		const bool addrInVram{addr >= vram.first && addr <= vram.second};
-		if(m_dmaTransferInProcess && component != Component::BUS && (addrInOam || (m_vramBusBlocked && addrInVram) || (m_externalBusBlocked && isInExternalBus(addr))))	return 0xFF;
+		if(m_dmaTransferInProcess && component != Component::bus && (addrInOam || (m_vramBusBlocked && addrInVram) || (m_externalBusBlocked && isInExternalBus(addr))))	return 0xFF;
 
 		if(addr <= romBank1.second) return m_cartridgeSlot.readRom(addr);
 		else if(addr >= externalRam.first && addr <= externalRam.second) return m_cartridgeSlot.readRam(addr);
 		else if(addr >= echoRam.first && addr <= echoRam.second) return m_memory[addr - echoRamOffset];
 		
 		const PPU::Mode ppuMode{m_gameboy.m_ppu->getMode()};
-		if(component == Component::CPU && ((addrInOam && (ppuMode == PPU::oamScan || ppuMode == PPU::drawing)) || (addrInVram && ppuMode == PPU::drawing))) return 0xFF;
+		if(component == Component::cpu && ((addrInOam && (ppuMode == PPU::oamScan || ppuMode == PPU::drawing)) || (addrInVram && ppuMode == PPU::drawing))) return 0xFF;
 
 		return m_memory[addr];
 	}
@@ -237,7 +232,7 @@ void Bus::write(const uint16 addr, const uint8 value, const Component component)
 	{
 		const bool addrInOam{addr >= oam.first && addr <= oam.second};
 		const bool addrInVram{addr >= vram.first && addr <= vram.second};
-		if(m_dmaTransferInProcess && component != Component::BUS && (addrInOam || (m_vramBusBlocked && addrInVram) || (m_externalBusBlocked && isInExternalBus(addr)))) return;
+		if(m_dmaTransferInProcess && component != Component::bus && (addrInOam || (m_vramBusBlocked && addrInVram) || (m_externalBusBlocked && isInExternalBus(addr)))) return;
 
 		if(addr <= romBank1.second)
 		{
@@ -256,7 +251,7 @@ void Bus::write(const uint16 addr, const uint8 value, const Component component)
 		}
 
 		const PPU::Mode ppuMode{m_gameboy.m_ppu->getMode()};
-		if(component == Component::CPU && ((addrInOam && (ppuMode == PPU::oamScan || ppuMode == PPU::drawing)) || (addrInVram && ppuMode == PPU::drawing))) return;
+		if(component == Component::cpu && ((addrInOam && (ppuMode == PPU::oamScan || ppuMode == PPU::drawing)) || (addrInVram && ppuMode == PPU::drawing))) return;
 
 		m_memory[addr] = value;
 		break;
@@ -264,7 +259,6 @@ void Bus::write(const uint16 addr, const uint8 value, const Component component)
 	}
 }
 
-template<>
 void Bus::fillSprite(uint16 oamAddr, PPU::Sprite& sprite) const
 {
 	if(m_dmaTransferInProcess) return;

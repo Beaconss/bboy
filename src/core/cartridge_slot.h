@@ -1,13 +1,8 @@
 #pragma once
-#include <type_alias.h>
-#include <memory_regions.h>
-
-#include <array>
+#include "type_alias.h"
 #include <vector>
-#include <fstream>
-#include <algorithm>
+#include <array>
 #include <filesystem>
-#include <cstring>
 
 class CartridgeSlot
 {
