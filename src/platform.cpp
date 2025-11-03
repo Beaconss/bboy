@@ -29,11 +29,13 @@ void Platform::mainLoop(Gameboy& gameboy)
 {
     constexpr float TARGET_FPS{59.7f};
     constexpr float CAPPED_FRAME_TIME{1000.f / TARGET_FPS};
-    
+
     bool fpsLimit{true};
     uint64_t start{};
     uint64_t end{};
-    float frameTime{CAPPED_FRAME_TIME};
+    float frametime{CAPPED_FRAME_TIME};
+
+    auto fpsStart{std::chrono::steady_clock::now()};
     while(m_running)
     {
         while(SDL_PollEvent(&m_event))
@@ -51,7 +53,7 @@ void Platform::mainLoop(Gameboy& gameboy)
 
         start = SDL_GetPerformanceCounter();
     
-        if(gameboy.hasCartridge()) gameboy.frame(frameTime);
+        if(gameboy.hasCartridge()) gameboy.frame(frametime);
         updateScreen(gameboy.getPPU().getLcdBuffer());
         render();
             
@@ -59,10 +61,17 @@ void Platform::mainLoop(Gameboy& gameboy)
 
         if(fpsLimit) 
         {
-            frameTime = (SDL_GetPerformanceCounter() - start) / static_cast<float>(SDL_GetPerformanceFrequency()) * 1000.f;
-            if(frameTime < CAPPED_FRAME_TIME) SDL_Delay(static_cast<uint32>(CAPPED_FRAME_TIME - frameTime));           
+            frametime = (SDL_GetPerformanceCounter() - start) / static_cast<float>(SDL_GetPerformanceFrequency()) * 1000.f;
+            if(frametime < CAPPED_FRAME_TIME) SDL_Delay(static_cast<uint32>(CAPPED_FRAME_TIME - frametime));           
         }
-        frameTime = (SDL_GetPerformanceCounter() - start) / static_cast<float>(SDL_GetPerformanceFrequency()) * 1000.f;
+        frametime = (SDL_GetPerformanceCounter() - start) / static_cast<float>(SDL_GetPerformanceFrequency()) * 1000.f;
+        
+        auto fpsEnd{std::chrono::steady_clock::now()};
+        if(std::chrono::duration<double, std::milli>(fpsEnd - fpsStart) > std::chrono::duration<double, std::milli>(700))
+        {
+            fpsStart = std::chrono::steady_clock::now();
+            SDL_SetWindowTitle(m_window, std::to_string(1000.f / frametime).c_str());
+        }
     }
     
     SDL_DestroyTexture(m_screenTexture);

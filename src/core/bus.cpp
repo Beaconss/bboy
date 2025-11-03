@@ -10,7 +10,7 @@ static std::vector<std::filesystem::path> fillCartridges()
 	std::vector<fs::path> cartridges{};
 	try
 	{
-		for(const auto& entry : fs::recursive_directory_iterator(fs::current_path() / "roms")) 
+		for(const auto& entry : fs::recursive_directory_iterator(fs::current_path() / "../../roms")) 
 		{
 			if(entry.path().extension() == ".gb") cartridges.emplace_back(entry);
 		}
@@ -36,7 +36,8 @@ Bus::Bus(Gameboy& gb)
 	, m_dmaTransferEnableDelay{}
 {
 	reset();
-	m_cartridgeSlot.loadCartridge("roms/Legend of Zelda, The - Link's Awakening (USA, Europe) (Rev 2).gb");
+	m_cartridgeSlot.loadCartridge("../../roms/Legend of Zelda, The - Link's Awakening (USA, Europe) (Rev 2).gb");
+	//m_cartridgeSlot.loadCartridge("../../test/acceptance/ppu/stat_lyc_onoff.gb");
 }
 
 void Bus::reset()
@@ -183,32 +184,32 @@ void Bus::write(const uint16 addr, const uint8 value, const Component component)
 	case TMA: m_gameboy.m_timers.write(Timers::tma, value); break;
 	case TAC: m_gameboy.m_timers.write(Timers::tac, value); break;
 	case IF: m_memory[IF] = value | 0b1110'0000; break;
-	case CH1_SW: m_gameboy.m_apu.write(APU::ch1Sw, value, m_gameboy.m_currentCycle); break;
-	case CH1_TIM_DUTY: m_gameboy.m_apu.write(APU::ch1TimDuty, value, m_gameboy.m_currentCycle); break;
-	case CH1_VOL_ENV: m_gameboy.m_apu.write(APU::ch1VolEnv, value, m_gameboy.m_currentCycle);	break;
-	case CH1_PE_LOW: m_gameboy.m_apu.write(APU::ch1PeLow, value, m_gameboy.m_currentCycle); break;
-	case CH1_PE_HI_CTRL: m_gameboy.m_apu.write(APU::ch1PeHighCtrl, value, m_gameboy.m_currentCycle); break;
-	case CH2_TIM_DUTY: m_gameboy.m_apu.write(APU::ch2TimDuty, value, m_gameboy.m_currentCycle); break;
-	case CH2_VOL_ENV: m_gameboy.m_apu.write(APU::ch2VolEnv, value, m_gameboy.m_currentCycle); break;
-	case CH2_PE_LOW: m_gameboy.m_apu.write(APU::ch2PeLow, value, m_gameboy.m_currentCycle); break;
-	case CH2_PE_HI_CTRL: m_gameboy.m_apu.write(APU::ch2PeHighCtrl, value, m_gameboy.m_currentCycle); break;
-	case CH3_DAC_EN: m_gameboy.m_apu.write(APU::ch3DacEn, value, m_gameboy.m_currentCycle); break;
-	case CH3_TIM: m_gameboy.m_apu.write(APU::ch3Tim, value, m_gameboy.m_currentCycle); break;
-	case CH3_VOL: m_gameboy.m_apu.write(APU::ch3Vol, value, m_gameboy.m_currentCycle); break;
-	case CH3_PE_LOW: m_gameboy.m_apu.write(APU::ch3PeLow, value, m_gameboy.m_currentCycle); break;
-	case CH3_PE_HI_CTRL: m_gameboy.m_apu.write(APU::ch3PeHighCtrl, value, m_gameboy.m_currentCycle); break;
-	case CH4_TIM: m_gameboy.m_apu.write(APU::ch4Tim, value, m_gameboy.m_currentCycle); break;
-	case CH4_VOL_ENV: m_gameboy.m_apu.write(APU::ch4VolEnv, value, m_gameboy.m_currentCycle); break;
-	case CH4_FRE_RAND: m_gameboy.m_apu.write(APU::ch4FreRand, value, m_gameboy.m_currentCycle); break;
-	case CH4_CTRL: m_gameboy.m_apu.write(APU::ch4Ctrl, value, m_gameboy.m_currentCycle); break;
-	case AU_VOL: m_gameboy.m_apu.write(APU::audioVolume, value, m_gameboy.m_currentCycle); break;
-	case AU_PAN: m_gameboy.m_apu.write(APU::audioPanning, value, m_gameboy.m_currentCycle); break;
-	case AU_CTRL: m_gameboy.m_apu.write(APU::audioCtrl, value, m_gameboy.m_currentCycle); break;
+	case CH1_SW: m_gameboy.m_apu.write(APU::ch1Sw, value); break;
+	case CH1_TIM_DUTY: m_gameboy.m_apu.write(APU::ch1TimDuty, value); break;
+	case CH1_VOL_ENV: m_gameboy.m_apu.write(APU::ch1VolEnv, value);	break;
+	case CH1_PE_LOW: m_gameboy.m_apu.write(APU::ch1PeLow, value); break;
+	case CH1_PE_HI_CTRL: m_gameboy.m_apu.write(APU::ch1PeHighCtrl, value); break;
+	case CH2_TIM_DUTY: m_gameboy.m_apu.write(APU::ch2TimDuty, value); break;
+	case CH2_VOL_ENV: m_gameboy.m_apu.write(APU::ch2VolEnv, value); break;
+	case CH2_PE_LOW: m_gameboy.m_apu.write(APU::ch2PeLow, value); break;
+	case CH2_PE_HI_CTRL: m_gameboy.m_apu.write(APU::ch2PeHighCtrl, value); break;
+	case CH3_DAC_EN: m_gameboy.m_apu.write(APU::ch3DacEn, value); break;
+	case CH3_TIM: m_gameboy.m_apu.write(APU::ch3Tim, value); break;
+	case CH3_VOL: m_gameboy.m_apu.write(APU::ch3Vol, value); break;
+	case CH3_PE_LOW: m_gameboy.m_apu.write(APU::ch3PeLow, value); break;
+	case CH3_PE_HI_CTRL: m_gameboy.m_apu.write(APU::ch3PeHighCtrl, value); break;
+	case CH4_TIM: m_gameboy.m_apu.write(APU::ch4Tim, value); break;
+	case CH4_VOL_ENV: m_gameboy.m_apu.write(APU::ch4VolEnv, value); break;
+	case CH4_FRE_RAND: m_gameboy.m_apu.write(APU::ch4FreRand, value); break;
+	case CH4_CTRL: m_gameboy.m_apu.write(APU::ch4Ctrl, value); break;
+	case AU_VOL: m_gameboy.m_apu.write(APU::audioVolume, value); break;
+	case AU_PAN: m_gameboy.m_apu.write(APU::audioPanning, value); break;
+	case AU_CTRL: m_gameboy.m_apu.write(APU::audioCtrl, value); break;
 	case WAVE_RAM[0]:case WAVE_RAM[1]:case WAVE_RAM[2]:case WAVE_RAM[3]: break;
 	case WAVE_RAM[4]:case WAVE_RAM[5]:case WAVE_RAM[6]:case WAVE_RAM[7]: break;
 	case WAVE_RAM[8]:case WAVE_RAM[9]:case WAVE_RAM[10]:case WAVE_RAM[11]: break;
 	case WAVE_RAM[12]:case WAVE_RAM[13]:case WAVE_RAM[14]:case WAVE_RAM[15]: break;
-		 m_gameboy.m_apu.write(APU::waveRam, value, m_gameboy.m_currentCycle, addr & 0xF);
+		 m_gameboy.m_apu.write(APU::waveRam, value, addr & 0xF);
 	case LCDC: m_gameboy.m_ppu->write(PPU::lcdc, value); break;
 	case STAT: m_gameboy.m_ppu->write(PPU::stat, value); break;
 	case SCY: m_gameboy.m_ppu->write(PPU::scy, value); break;
@@ -257,6 +258,11 @@ void Bus::write(const uint16 addr, const uint8 value, const Component component)
 		break;
 	}
 	}
+}
+
+uint16 Bus::currentCycle() const
+{
+	return m_gameboy.m_currentCycle;
 }
 
 void Bus::fillSprite(uint16 oamAddr, PPU::Sprite& sprite) const

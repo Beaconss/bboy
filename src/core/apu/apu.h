@@ -5,11 +5,12 @@
 #include <queue>
 #include <vector>
 
+class Bus;
 struct SDL_AudioStream;
 class APU
 {
 public:
-	APU();
+	APU(Bus& bus);
 	~APU();
 
 	enum Index
@@ -39,22 +40,13 @@ public:
 	};
 
 	void reset();
-	void setupFrame(float frameTime);
-	void doCycles(const int cycleCount);	
 	void unlockThread();
+	void setFrametime(float frametime);
 	uint8 read(const Index index, const uint8 waveRamIndex = 0);
-	void write(const Index index, const uint8 value, const uint16 currentCycle, const uint8 waveRamIndex = 0);
+	void write(const Index index, const uint8 value, const uint8 waveRamIndex = 0);
 
 private:
 	friend class AudioThread;
-
-	struct Timestamp
-	{
-		Index registerToSet{};
-		uint16 cycle{};
-		uint8 value{};
-		uint8 waveRamIndex{};
-	};
 
 	struct PulseChannel
 	{
@@ -70,32 +62,56 @@ private:
 		}};	
 		static constexpr uint8 timer{0b0011'1111};
 
-		uint8 timerAndDuty{0x3F};
-		uint8 volumeAndEnvelope{0};
-		uint8 periodLow{0xFF};
-		uint8 periodHighAndControl{0xBF};
+		uint8 timerAndDuty{};
+		uint8 volumeAndEnvelope{};
+		uint8 periodLow{};
+		uint8 periodHighAndControl{};
 
 		bool enabled{};
+		bool dac{};
 		uint8 sample{};
-		int disableTimer{64};
-		int pushTimer{4 * (2048 - 0x7FF)};
+		int disableTimer{1};
+		int pushTimer{(0x800 - 0x7FF)};
 		uint8 dutyStep{};
+		uint8 volume{};
+		uint8 envelopeTarget{};
+		uint8 envelopeCounter{};
+		bool envelopeDir{};
 
 		void pushCycle();
 		void disableTimerCycle();
-		void trigger();
-		void setPushTimer();
+		void envelopeCycle();
 		void setTimerAndDuty(const uint8 value);
+		void setVolumeAndEnvelope(const uint8 value);
 		void setPeriodHighAndControl(const uint8 value);
+		void setPushTimer();
+		void trigger();
 	};
 
 	struct Channel1 : PulseChannel
 	{
 		uint8 sweep{0x80};
+		Channel1()
+		{
+			timerAndDuty = 0xBF;
+			volumeAndEnvelope = 0xF3;
+			periodLow = 0xFF;
+			periodHighAndControl = 0xBF;
+			dac = true;
+			volume = 0xF;
+			envelopeTarget = 0x3;
+		}
 	};
 	
 	struct Channel2 : PulseChannel
 	{
+		Channel2()
+		{
+			timerAndDuty = 0x3F;
+			volumeAndEnvelope = 0;
+			periodLow = 0xFF;
+			periodHighAndControl = 0xBF;
+		}
 	};
 
 	struct Channel3
@@ -116,23 +132,30 @@ private:
 		uint8 control{0xBF};
 	};
 
-	void mCycle(const int cycle);
-	void loadTimestamp(const Timestamp& timestamp);
+	void mCycle();
+	void catchUp();
 	void finishFrame();
+	void setNearestNeighbour();
 	void putAudio();
+
+	static constexpr std::array<float, 0x10> digitalToAnalog
+	{
+		1.f, .875f, .75f, .625f, .5f, .375f, .25f, .125f, 0.f,
+		-.125f, -.25f, -.375f, -.5f, -.625f, -.75f, -.875f
+	};
 
 	static constexpr int mCyclesPerFrame{17556};
 	static constexpr int frequency{44100};
 	static constexpr uint8 audioEnable{0x80};
 	
+	Bus& m_bus;
 	AudioThread m_audioThread;
 	SDL_AudioStream* m_audioStream;
 	std::vector<float> m_samplesBuffer; 
-	std::queue<Timestamp> m_timestamps;
-	std::queue<Timestamp> m_thisFrameTimestamps;
-
 	uint16 m_frameSequencerCounter;
-	uint16 m_remainingCycles;
+	uint16 m_nextCycleToExecute;
+
+	std::atomic<float> m_lastFrametime;
 	uint16 m_thisFrameSamples;
 	uint16 m_nearestNeighbourCounter;
 	uint32 m_nearestNeighbourTarget;

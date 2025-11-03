@@ -106,7 +106,6 @@ void PPU::mCycle()
 		vBlankCycle();
 		break;
 	}
-
 }
 
 PPU::Mode PPU::getMode() const
@@ -160,7 +159,7 @@ void PPU::write(const Index index, const uint8 value)
 		m_fetcher.updateTilemap();
 		break;
 	case stat: 
-		m_stat = ((m_stat & 0b111) | (value & ~0b111)) | 0x80; //bit 0-1-2 are read only and bit 7 is always 1
+		m_stat = ((m_stat & 0b111) | (value & ~0b111)) | 0x80;
 		setStatModeSources();
 		break;
 	case scy: m_scy = value; break;

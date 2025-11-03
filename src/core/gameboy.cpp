@@ -5,7 +5,7 @@ Gameboy::Gameboy()
 	: m_bus{*this}
 	, m_cpu{m_bus}
 	, m_ppu{std::make_unique<PPU>(m_bus)}
-	, m_apu{}
+	, m_apu{m_bus}
 	, m_timers{m_bus}
 	, m_input{}
 	, m_currentCycle{}
@@ -27,11 +27,11 @@ Gameboy::~Gameboy()
 	reset();
 }
 
-void Gameboy::frame(float frameTime)
+void Gameboy::frame(float frametime)
 {
-	m_apu.setupFrame(frameTime);
-	static constexpr int M_CYCLES_PER_FRAME{17556};
-	for(;m_currentCycle <= M_CYCLES_PER_FRAME; ++m_currentCycle) mCycle();
+	static constexpr int mCyclePerFrame{17556};
+	m_apu.setFrametime(frametime);
+	for(;m_currentCycle <= mCyclePerFrame; ++m_currentCycle) mCycle();
 	m_currentCycle = 1;
 	m_apu.unlockThread();
 }
@@ -56,9 +56,14 @@ void Gameboy::nextCartridge()
 	m_bus.nextCartridge();
 }
 
-const bool Gameboy::hasCartridge() const
+bool Gameboy::hasCartridge() const
 {
 	return m_bus.hasCartridge();
+}
+
+uint16 Gameboy::currentCycle() const
+{
+	return m_currentCycle;
 }
 
 const PPU& Gameboy::getPPU() const

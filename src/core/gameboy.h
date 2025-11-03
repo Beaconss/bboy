@@ -19,7 +19,8 @@ public:
 
 	void loadCartridge(const std::filesystem::path& filePath);
 	void nextCartridge();
-	const bool hasCartridge() const;
+	bool hasCartridge() const;
+	uint16 currentCycle() const;
 
 	const PPU& getPPU() const;
 private:

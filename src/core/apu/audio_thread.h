@@ -11,13 +11,13 @@ public:
 	AudioThread(APU& apu);
 
 	void unlock();
+	void waitToFinish();
 private:
 	void threadLoop();
 	
 	APU& m_apu;
 	std::thread m_thread;
 	std::mutex m_mutex;
-	std::condition_variable m_mutexCondition;
-	bool m_shouldExecute;
+	std::condition_variable m_condition;
+	bool m_executing;
 };
-

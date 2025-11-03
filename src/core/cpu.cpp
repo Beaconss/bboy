@@ -1249,7 +1249,6 @@ void CPU::INC_HL()
 		setFz(m_iState.x == 0xFF);
 		setFn(false);
 		setFh((m_iState.x & 0xF) == 0xF);
-
 		endInstruction();
 		break;
 	}

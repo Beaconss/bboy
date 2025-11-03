@@ -1,23 +1,31 @@
 #include "core/apu/audio_thread.h"
 #include "core/apu/apu.h"
-#include <cassert>
 
 AudioThread::AudioThread(APU& apu)
 	: m_apu{apu}
 	, m_thread{&AudioThread::threadLoop, this}
 	, m_mutex{}
-	, m_mutexCondition{}
-	, m_shouldExecute{}
+	, m_condition{}
+	, m_executing{}
 {
 	m_thread.detach();
 }
 
 void AudioThread::unlock()
 {
-	const std::lock_guard<std::mutex> lock(m_mutex);
-	assert(!m_shouldExecute);
-	m_shouldExecute = true;
-	m_mutexCondition.notify_one();
+	std::unique_lock<std::mutex> lock(m_mutex);
+	m_condition.wait(lock, [this]{return !m_executing;});
+	m_executing = true;
+	m_condition.notify_one();
+}
+
+void AudioThread::waitToFinish()
+{
+	std::unique_lock<std::mutex> lock(m_mutex);
+	m_condition.wait(lock, [this]{return !m_executing;});
+	#ifdef DEBUG
+	if(m_executing) throw std::exception();
+	#endif
 }
 
 void AudioThread::threadLoop()
@@ -25,8 +33,9 @@ void AudioThread::threadLoop()
 	while(true)
 	{
 		std::unique_lock<std::mutex> lock(m_mutex);
-		m_mutexCondition.wait(lock, [this] {return m_shouldExecute; });
+		m_condition.wait(lock, [this]{return m_executing;});
 		m_apu.finishFrame();
-		m_shouldExecute = false;
+		m_executing = false;
+		m_condition.notify_one();
 	}
 }
