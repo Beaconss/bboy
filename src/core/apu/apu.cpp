@@ -3,7 +3,6 @@
 #include <SDL3/SDL_audio.h>
 #include <cmath>
 #include <iostream>
-#include <ranges>
 
 APU::APU(Bus& bus)
 	: m_bus(bus)
@@ -25,6 +24,9 @@ APU::APU(Bus& bus)
 	, m_audioControl{}
 	, m_waveRam{}
 {
+	SDL_AudioSpec spec{SDL_AudioFormat::SDL_AUDIO_F32, 1, frequency};
+	m_audioStream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, nullptr, nullptr);
+	SDL_ResumeAudioStreamDevice(m_audioStream);
 	reset();
 }
 
@@ -35,10 +37,8 @@ APU::~APU()
 
 void APU::reset()
 {
-	SDL_AudioSpec spec{SDL_AudioFormat::SDL_AUDIO_F32, 1, frequency};
+	m_audioThread.waitToFinish();
 	SDL_ClearAudioStream(m_audioStream);
-	m_audioStream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, nullptr, nullptr);
-	SDL_ResumeAudioStreamDevice(m_audioStream);
 	m_samplesBuffer.clear();
 	m_frameSequencerCounter = 0;
 	m_nextCycleToExecute = 1;
@@ -51,7 +51,7 @@ void APU::reset()
 	m_audioVolume = 0x77;
 	m_audioPanning = 0xF3;
 	m_audioControl = 0xF0;
-	std::ranges::fill(m_waveRam, 0);
+	std::fill(m_waveRam.begin(), m_waveRam.end(), 0);
 }
 
 void APU::unlockThread()
@@ -70,7 +70,7 @@ uint8 APU::read(const Index index, uint8 waveRamIndex)
 	catchUp();
 	switch(index) 
 	{
-	case ch1Sw: return m_channel1.sweep;
+	case ch1Sw: return m_channel1.sweep | 0x80;
 	case ch1TimDuty: return m_channel1.timerAndDuty | 0b0011'111;
 	case ch1VolEnv: return m_channel1.volumeAndEnvelope;
 	case ch1PeHighCtrl: return m_channel1.periodHighAndControl | 0b1011'1111;
@@ -96,36 +96,61 @@ uint8 APU::read(const Index index, uint8 waveRamIndex)
 
 void APU::write(const Index index, const uint8 value, uint8 waveRamIndex)
 {	
-	if(!(m_audioControl & audioEnable) && index != audioCtrl && index != waveRam) return;
+	if(!(m_audioControl & audioEnable) && clearedWhenOff(index)) return;
+
 	catchUp();
 	switch(index)
 	{
-		case ch1Sw: m_channel1.sweep = value; break;
-		case ch1TimDuty: m_channel1.setTimerAndDuty(value); break;
-		case ch1VolEnv: m_channel1.volumeAndEnvelope = value; break;
-		case ch1PeLow: m_channel1.periodLow = value; break;
-		case ch1PeHighCtrl: m_channel1.setPeriodHighAndControl(value); break;
-		case ch2TimDuty: m_channel2.setTimerAndDuty(value); break;
-		case ch2VolEnv: m_channel2.volumeAndEnvelope = value; break;
-		case ch2PeLow: m_channel2.periodLow = value; break;
-		case ch2PeHighCtrl: m_channel2.setPeriodHighAndControl(value); break;
+	case ch1Sw: m_channel1.sweep = value; break;
+	case ch1TimDuty: m_channel1.setTimerAndDuty(value); break;
+	case ch1VolEnv: m_channel1.volumeAndEnvelope = value; break;
+	case ch1PeLow: m_channel1.periodLow = value; break;
+	case ch1PeHighCtrl: m_channel1.setPeriodHighAndControl(value); break;
+	case ch2TimDuty: m_channel2.setTimerAndDuty(value); break;
+	case ch2VolEnv: m_channel2.volumeAndEnvelope = value; break;
+	case ch2PeLow: m_channel2.periodLow = value; break;
+	case ch2PeHighCtrl: m_channel2.setPeriodHighAndControl(value); break;
 
-		case ch3DacEn: m_channel3.dacEnable = value; break;
-		case ch3Tim: m_channel3.timer = value; break;
-		case ch3Vol: m_channel3.volume = value; break;
-		case ch3PeLow: m_channel3.periodLow = value; break;
-		case ch3PeHighCtrl: m_channel3.periodHighAndControl = value; break;
-		case ch4Tim: m_channel4.timer = value; break;
-		case ch4VolEnv: m_channel4.volumeAndEnvelope = value; break;
-		case ch4FreRand: m_channel4.frequencyAndRandomness = value; break;
-		case ch4Ctrl: m_channel4.control = value; break;
+	case ch3DacEn: m_channel3.dacEnable = value; break;
+	case ch3Tim: m_channel3.timer = value; break;
+	case ch3Vol: m_channel3.volume = value; break;
+	case ch3PeLow: m_channel3.periodLow = value; break;
+	case ch3PeHighCtrl: m_channel3.periodHighAndControl = value; break;
+	case ch4Tim: m_channel4.timer = value; break;
+	case ch4VolEnv: m_channel4.volumeAndEnvelope = value; break;
+	case ch4FreRand: m_channel4.frequencyAndRandomness = value; break;
+	case ch4Ctrl: m_channel4.control = value; break;
 
-		case audioVolume: m_audioVolume = value; break;
-		case audioPanning: m_audioPanning = value; break;
-		case audioCtrl: m_audioControl = value & 0x80; break;
-		
-		case waveRam: m_waveRam[waveRamIndex] = value; break;
+	case audioVolume: m_audioVolume = value; break;
+	case audioPanning: m_audioPanning = value; break;
+	case audioCtrl: 
+		m_audioControl = value & audioEnable; 
+		if(!(m_audioControl & audioEnable)) clearRegisters();
+		break;
+
+	case waveRam: m_waveRam[waveRamIndex] = value; break;
 	}
+}
+
+void APU::clearRegisters()
+{
+	m_channel1.sweep = 0;
+	m_channel1.volumeAndEnvelope = 0;
+	m_channel1.periodLow = 0;
+	m_channel1.periodHighAndControl = 0;
+	m_channel1.dutyStep = 0;
+	m_channel2.volumeAndEnvelope = 0;
+	m_channel2.periodLow = 0;
+	m_channel2.periodHighAndControl = 0;
+	m_channel2.dutyStep = 0;
+}
+
+bool APU::clearedWhenOff(Index reg) const
+{
+	return reg != ch1TimDuty
+			&& reg != ch2TimDuty 
+			&& reg != audioCtrl 
+			&& reg != waveRam;
 }
 
 void APU::mCycle()
@@ -136,6 +161,10 @@ void APU::mCycle()
 	{
 		m_channel1.disableTimerCycle();
 		m_channel2.disableTimerCycle();
+	}
+	if(((m_frameSequencerCounter % (frameSequencerTimer * 4)) == 0))
+	{
+		
 	}
 	if((m_frameSequencerCounter % (frameSequencerTimer * 8)) == 0)
 	{
@@ -153,19 +182,11 @@ void APU::mCycle()
 		if(++m_nearestNeighbourCounter == m_nearestNeighbourTarget)
 		{
 			m_nearestNeighbourCounter = 0;
-			//here convert from digital to analog
-
-			//sample *= 0.01f;	
-			//m_samplesBuffer.push_back(sample);
+			float sample{(digitalToAnalog[m_channel1.sample] + digitalToAnalog[m_channel2.sample]) / 2.f};
+			m_samplesBuffer.push_back(sample);
 		}
 	}
 }
-
-/*
-from digital 0 to F to analog 1 to -1
-so 0 is 1
-F is -1
-*/
 
 void APU::catchUp() 
 {
@@ -246,7 +267,7 @@ void APU::PulseChannel::setVolumeAndEnvelope(const uint8 value)
 void APU::PulseChannel::setPeriodHighAndControl(const uint8 value)
 {
 	periodHighAndControl = value;
-	if(constexpr uint8 triggerBit{0x80}; periodHighAndControl & triggerBit && dac) trigger();
+	if(constexpr uint8 triggerBit{0x80}; periodHighAndControl & triggerBit) trigger();
 }
 
 void APU::PulseChannel::setPushTimer()
@@ -258,7 +279,7 @@ void APU::PulseChannel::setPushTimer()
 
 void APU::PulseChannel::trigger()
 {
-	enabled = true;
+	enabled = dac;
 	if(disableTimer == 0) disableTimer = maxDisableTimerDuration - (timerAndDuty & timer);
 	setPushTimer();
 	constexpr uint8 volumeBits{0xF0};

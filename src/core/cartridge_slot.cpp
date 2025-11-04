@@ -3,7 +3,6 @@
 #include <iostream>
 #include <cstring>
 #include <fstream>
-#include <algorithm>
 
 CartridgeSlot::CartridgeSlot()
 	: m_hasCartridge{}
@@ -23,10 +22,10 @@ CartridgeSlot::CartridgeSlot()
 
 void CartridgeSlot::reset()
 {
-	if(m_cartridgeInfo.hasRam && m_cartridgeInfo.hasBattery) saveRam();
+	if(m_cartridgeInfo.hasRam && m_cartridgeInfo.hasBattery) save();
 	m_hasCartridge = false;
-	std::ranges::fill(m_rom, 0);
-	std::ranges::fill(m_ram, 0);
+	std::fill(m_rom.begin(), m_rom.end(), 0);
+	std::fill(m_ram.begin(), m_ram.end(), 0);
 	m_cartridgeInfo.mbc = MbcType::none;
 	m_cartridgeInfo.hasRam = false;
 	m_cartridgeInfo.hasBattery = false;
@@ -153,6 +152,11 @@ void CartridgeSlot::loadCartridge(const std::filesystem::path& filePath)
 		<< "Mbc type: " << mbcTypes[static_cast<int>(m_cartridgeInfo.mbc)] << "\n\n";
 }
 
+void CartridgeSlot::reloadCartridge()
+{
+	loadCartridge(m_cartridgeInfo.path);
+}
+
 bool CartridgeSlot::hasCartridge() const
 {
 	return m_hasCartridge;
@@ -238,10 +242,7 @@ void CartridgeSlot::writeRom(const uint16 addr, const uint8 value)
 			m_romBankIndex = (m_romBankIndex & 0b0'1111'1111) | ((value & 1) << 8);
 			m_romBankIndex &= m_cartridgeInfo.romBanks - 1;
 		}
-		else if(addr <= ramBankEnd) 
-		{
-			m_ramBankIndex = value & (m_cartridgeInfo.hasRumble ? 0b111 : 0xF);
-		}
+		else if(addr <= ramBankEnd) m_ramBankIndex = value & (m_cartridgeInfo.hasRumble ? 0b111 : 0xF);
 	}
 	break;
 	}
@@ -358,17 +359,23 @@ void CartridgeSlot::initializeRam()
 	m_ram.resize(m_ramSize);
 }
 
-void CartridgeSlot::saveRam()
+void CartridgeSlot::save()
 {
-	std::ofstream saveFile(m_cartridgeInfo.path.replace_extension(".sav"), std::ios::binary);
-	if(saveFile.fail()) std::cerr << "Couldn't open save file\n";
+	std::filesystem::path save{m_cartridgeInfo.path};
+	std::ofstream saveFile(save.replace_extension(".sav"), std::ios::binary);
+	if(saveFile.fail()) 
+	{
+		std::cerr << "Couldn't open save file\n";
+		return;
+	}
 	saveFile.write(reinterpret_cast<const char*>(m_ram.data()), m_ram.size());
 }
 
 void CartridgeSlot::loadSave()
 {
-	std::ifstream saveFile(m_cartridgeInfo.path.replace_extension(".sav"), std::ios::binary);
-	if(saveFile.fail())
+	std::filesystem::path save{m_cartridgeInfo.path};
+	std::ifstream saveFile(save.replace_extension(".sav"), std::ios::binary);
+	if(saveFile.fail())	
 	{
 		std::cout << "No save file found or couldn't open it\n";
 		return;

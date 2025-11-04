@@ -91,6 +91,10 @@ private:
 	struct Channel1 : PulseChannel
 	{
 		uint8 sweep{0x80};
+		uint8 sweepOutput{};
+		uint8 sweepTarget{};
+		uint8 sweepCounter{};
+		bool sweepEnabled{};
 		Channel1()
 		{
 			timerAndDuty = 0xBF;
@@ -132,17 +136,25 @@ private:
 		uint8 control{0xBF};
 	};
 
+	void clearRegisters();
+	bool clearedWhenOff(Index reg) const;
 	void mCycle();
 	void catchUp();
 	void finishFrame();
 	void setNearestNeighbour();
 	void putAudio();
 
-	static constexpr std::array<float, 0x10> digitalToAnalog
-	{
-		1.f, .875f, .75f, .625f, .5f, .375f, .25f, .125f, 0.f,
-		-.125f, -.25f, -.375f, -.5f, -.625f, -.75f, -.875f
-	};
+	static constexpr auto digitalToAnalog{[]
+										{
+											constexpr size_t size{16};
+											std::array<float, size> out{};
+											constexpr float conversionStep{2.f / (size - 1)};
+											for(size_t i{}; i < size; ++i)
+											{
+												out[i] = 1.f - (conversionStep * i);
+											}
+											return out;
+										}()};
 
 	static constexpr int mCyclesPerFrame{17556};
 	static constexpr int frequency{44100};

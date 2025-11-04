@@ -47,7 +47,13 @@ void Gameboy::mCycle()
 void Gameboy::loadCartridge(const std::filesystem::path& filePath)
 {
 	reset();
-	m_bus.loadCartridge(filePath);
+	m_bus.getCartridgeSlot().loadCartridge(filePath);
+}
+
+void Gameboy::hardReset()
+{
+	reset();
+	m_bus.getCartridgeSlot().reloadCartridge();
 }
 
 void Gameboy::nextCartridge()
@@ -56,9 +62,9 @@ void Gameboy::nextCartridge()
 	m_bus.nextCartridge();
 }
 
-bool Gameboy::hasCartridge() const
+bool Gameboy::hasCartridge()
 {
-	return m_bus.hasCartridge();
+	return m_bus.getCartridgeSlot().hasCartridge();
 }
 
 uint16 Gameboy::currentCycle() const

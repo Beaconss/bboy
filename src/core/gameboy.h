@@ -18,8 +18,9 @@ public:
 	void frame(float frameTime);
 
 	void loadCartridge(const std::filesystem::path& filePath);
+	void hardReset();
 	void nextCartridge();
-	bool hasCartridge() const;
+	bool hasCartridge();
 	uint16 currentCycle() const;
 
 	const PPU& getPPU() const;

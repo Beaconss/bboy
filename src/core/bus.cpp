@@ -1,8 +1,6 @@
 #include "core/bus.h"
 #include "core/gameboy.h"
 #include "hardware_registers.h"
-#include <algorithm>
-#include <filesystem>
 
 static std::vector<std::filesystem::path> fillCartridges()
 {
@@ -10,7 +8,7 @@ static std::vector<std::filesystem::path> fillCartridges()
 	std::vector<fs::path> cartridges{};
 	try
 	{
-		for(const auto& entry : fs::recursive_directory_iterator(fs::current_path() / "../../roms")) 
+		for(const auto& entry : fs::recursive_directory_iterator(fs::current_path() / "..\\..\\roms")) 
 		{
 			if(entry.path().extension() == ".gb") cartridges.emplace_back(entry);
 		}
@@ -36,7 +34,7 @@ Bus::Bus(Gameboy& gb)
 	, m_dmaTransferEnableDelay{}
 {
 	reset();
-	m_cartridgeSlot.loadCartridge("../../roms/Legend of Zelda, The - Link's Awakening (USA, Europe) (Rev 2).gb");
+	m_cartridgeSlot.loadCartridge("..\\..\\roms\\Legend of Zelda, The - Link's Awakening (USA, Europe) (Rev 2).gb");
 	//m_cartridgeSlot.loadCartridge("../../test/acceptance/ppu/stat_lyc_onoff.gb");
 }
 
@@ -44,7 +42,7 @@ void Bus::reset()
 {
 	constexpr unsigned int kb64{0x10000};
 	m_memory.resize(kb64); //32 kbs are not used but its ok to have less overhead
-	std::ranges::fill(m_memory, 0);
+	std::fill(m_memory.begin(), m_memory.end(), 0);
 	m_cartridgeSlot.reset();
 	m_externalBusBlocked = false;
 	m_vramBusBlocked = false;
@@ -86,14 +84,9 @@ void Bus::handleDmaTransfer()
 	}
 }
 
-void Bus::loadCartridge(const std::filesystem::path& filePath)
+CartridgeSlot& Bus::getCartridgeSlot()
 {
-	m_cartridgeSlot.loadCartridge(filePath);
-}
-
-const bool Bus::hasCartridge() const
-{
-	return m_cartridgeSlot.hasCartridge();
+	return m_cartridgeSlot;
 }
 
 void Bus::nextCartridge()

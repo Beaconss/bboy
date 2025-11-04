@@ -11,6 +11,7 @@ public:
 	
 	void reset();
 	void loadCartridge(const std::filesystem::path& filePath);
+	void reloadCartridge();
 	bool hasCartridge() const;
 	uint8 readRom(const uint16 addr) const;
 	void writeRom(const uint16 addr, const uint8 value);
@@ -57,7 +58,7 @@ private:
 	bool loadRom();
 	void initializeRom();
 	void initializeRam();
-	void saveRam();
+	void save();
 	void loadSave();
 
 	bool m_hasCartridge;

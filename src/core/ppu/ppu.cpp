@@ -1,7 +1,6 @@
 #include "core/ppu/ppu.h"
 #include "hardware_registers.h"
 #include "core/bus.h"
-#include <ranges>
 #include <algorithm>
 
 PPU::PPU(Bus& bus)
@@ -46,7 +45,7 @@ void PPU::reset()
 	m_vblankInterruptNextCycle = false;
 	m_reEnabling = false;
 	m_reEnableDelay = 0;
-	std::ranges::fill(m_lcdBuffer, 0);
+	std::fill(m_lcdBuffer.begin(), m_lcdBuffer.end(), 0);
 	m_xPosition = 0;
 	m_pixelsToDiscard = 0;
 	m_spriteBuffer.clear();
@@ -236,10 +235,10 @@ void PPU::oamScanCycle()
 	{
 		//here if left xPosition is equal to the right's one, 
 		//left goes up because the left one has higher priority since its first in oam memory
-		std::ranges::sort(m_spriteBuffer, [](Sprite left, Sprite right)
-			{
-				return left.xPosition >= right.xPosition;
-			});
+		std::sort(m_spriteBuffer.begin(), m_spriteBuffer.end(), [](Sprite left, Sprite right)
+															{
+																return left.xPosition >= right.xPosition;
+															});
 		m_spriteAddress = oamMemoryStart;
 		updateMode(drawing);
 	}
