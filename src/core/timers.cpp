@@ -1,6 +1,7 @@
 #include "core/timers.h"
 #include "hardware_registers.h"
 #include "core/bus.h"
+#include "timers.h"
 
 Timers::Timers(Bus& bus)
 	: m_bus{bus}
@@ -50,32 +51,45 @@ void Timers::mCycle()
 	}
 }
 
-uint8 Timers::read(const Index index) const
-{	
-	switch(index)
-	{
-	case div: return static_cast<uint8>(m_div >> 8); //in memory only div's upper 8 bits are mapped
-	case tima: return m_tima;
-	case tma: return m_tma;
-	case tac: return m_tac;
-	default: return 0xFF;
-	}
+uint8 Timers::getDiv() const
+{
+	return static_cast<uint8>(m_div >> 8); //in memory only div's upper 8 bits are mapped
 }
 
-void Timers::write(Index index, uint8 value)
+uint8 Timers::getTima() const
 {
-	switch(index)
-	{
-	case div: m_div = 0; break;
-	case tima:
-		m_tima = value;
-		m_timaResetCounter = 0;
-		break;
-	case tma: 
-		m_tma = value;
-		break;
-	case tac: m_tac = value & 0x0F; break;
-	}
+    return m_tima;
+}
+
+uint8 Timers::getTma() const
+{
+    return m_tma;
+}
+
+uint8 Timers::getTac() const
+{
+    return m_tac | 0xF8;
+}
+
+void Timers::setDiv()
+{
+	m_div = 0;
+}
+
+void Timers::setTima(uint8 value)
+{
+	m_tima = value;
+	m_timaResetCounter = 0;
+}
+
+void Timers::setTma(uint8 value)
+{
+	m_tma = value;
+}
+
+void Timers::setTac(uint8 value)
+{
+	m_tac = value;
 }
 
 void Timers::requestTimerInterrupt() const

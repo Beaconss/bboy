@@ -103,10 +103,10 @@ uint8 Bus::read(const uint16 addr, const Component component) const
 	switch(addr)
 	{
 	case P1: return m_gameboy.m_input.read();
-	case DIV: return m_gameboy.m_timers.read(Timers::div);
-	case TIMA: return m_gameboy.m_timers.read(Timers::tima);
-	case TMA: return m_gameboy.m_timers.read(Timers::tma);
-	case TAC: return m_gameboy.m_timers.read(Timers::tac);
+	case DIV: return m_gameboy.m_timers.getDiv();
+ 	case TIMA: return m_gameboy.m_timers.getTima(); 
+	case TMA: return m_gameboy.m_timers.getTma();
+	case TAC: return m_gameboy.m_timers.getTac();
 	case IF: return m_memory[IF];
 	case CH1_SW: return m_gameboy.m_apu.read(APU::ch1Sw);
 	case CH1_TIM_DUTY: return m_gameboy.m_apu.read(APU::ch1TimDuty);
@@ -172,10 +172,10 @@ void Bus::write(const uint16 addr, const uint8 value, const Component component)
 	switch(addr)
 	{
 	case P1: m_gameboy.m_input.write(value); break;
-	case DIV: m_gameboy.m_timers.write(Timers::div, value); break;
-	case TIMA: m_gameboy.m_timers.write(Timers::tima, value); break;
-	case TMA: m_gameboy.m_timers.write(Timers::tma, value); break;
-	case TAC: m_gameboy.m_timers.write(Timers::tac, value); break;
+	case DIV: m_gameboy.m_timers.setDiv(); break;
+	case TIMA: m_gameboy.m_timers.setTima(value); break;
+	case TMA: m_gameboy.m_timers.setTma(value); break;
+	case TAC: m_gameboy.m_timers.setTac(value); break;
 	case IF: m_memory[IF] = value | 0b1110'0000; break;
 	case CH1_SW: m_gameboy.m_apu.write(APU::ch1Sw, value); break;
 	case CH1_TIM_DUTY: m_gameboy.m_apu.write(APU::ch1TimDuty, value); break;

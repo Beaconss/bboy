@@ -1,6 +1,7 @@
 #pragma once
 #include "type_alias.h"
 #include "core/apu/audio_thread.h"
+#include "core/apu/pulse_channels.h"
 #include <array>
 #include <queue>
 #include <vector>
@@ -48,76 +49,6 @@ public:
 private:
 	friend class AudioThread;
 
-	struct PulseChannel
-	{
-		static constexpr int maxDutyStep{7};
-		static constexpr int dutyPatternsStep{8};
-		static constexpr int dutyPatternsCount{4};
-		static constexpr std::array<std::array<uint8, dutyPatternsStep>, dutyPatternsCount> dutyPatterns
-		{{
-			{0,0,0,0,0,0,0,1},
-			{1,0,0,0,0,0,0,1},
-			{1,0,0,0,0,1,1,1},
-			{0,1,1,1,1,1,1,0},
-		}};	
-		static constexpr uint8 timer{0b0011'1111};
-
-		uint8 timerAndDuty{};
-		uint8 volumeAndEnvelope{};
-		uint8 periodLow{};
-		uint8 periodHighAndControl{};
-
-		bool enabled{};
-		bool dac{};
-		uint8 sample{};
-		int disableTimer{1};
-		int pushTimer{(0x800 - 0x7FF)};
-		uint8 dutyStep{};
-		uint8 volume{};
-		uint8 envelopeTarget{};
-		uint8 envelopeCounter{};
-		bool envelopeDir{};
-
-		void pushCycle();
-		void disableTimerCycle();
-		void envelopeCycle();
-		void setTimerAndDuty(const uint8 value);
-		void setVolumeAndEnvelope(const uint8 value);
-		void setPeriodHighAndControl(const uint8 value);
-		void setPushTimer();
-		void trigger();
-	};
-
-	struct Channel1 : PulseChannel
-	{
-		uint8 sweep{0x80};
-		uint8 sweepOutput{};
-		uint8 sweepTarget{};
-		uint8 sweepCounter{};
-		bool sweepEnabled{};
-		Channel1()
-		{
-			timerAndDuty = 0xBF;
-			volumeAndEnvelope = 0xF3;
-			periodLow = 0xFF;
-			periodHighAndControl = 0xBF;
-			dac = true;
-			volume = 0xF;
-			envelopeTarget = 0x3;
-		}
-	};
-	
-	struct Channel2 : PulseChannel
-	{
-		Channel2()
-		{
-			timerAndDuty = 0x3F;
-			volumeAndEnvelope = 0;
-			periodLow = 0xFF;
-			periodHighAndControl = 0xBF;
-		}
-	};
-
 	struct Channel3
 	{
 		uint8 dacEnable{0x7F};
@@ -126,7 +57,6 @@ private:
 		uint8 periodLow{0xFF};
 		uint8 periodHighAndControl{0xBF};
 	};
-	static constexpr int maxDisableTimerDuration{64};
 
 	struct Channel4
 	{

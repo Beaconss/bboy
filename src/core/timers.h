@@ -8,18 +8,17 @@ class Timers
 public:
 	Timers(Bus& bus);
 
-	enum Index
-	{
-		div,
-		tima,
-		tma,
-		tac,
-	};
-
 	void reset();
 	void mCycle();
-	uint8 read(const Index index) const;
-	void write(const Index index, const uint8 value);
+
+	uint8 getDiv() const;
+	uint8 getTima() const;
+	uint8 getTma() const;
+	uint8 getTac() const;
+	void setDiv();
+	void setTima(uint8 value);
+	void setTma(uint8 value);
+	void setTac(uint8 value);
 
 private:
 	static constexpr std::array<uint16, 4> timaBitPositions
@@ -41,6 +40,4 @@ private:
 	uint8 m_tima; //timer counter
 	uint8 m_tma; //timer modulo
 	uint8 m_tac; //timer control
-	uint8 m_oldTma;
 };
-
