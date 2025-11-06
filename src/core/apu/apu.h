@@ -98,7 +98,6 @@ private:
 	uint16 m_nextCycleToExecute;
 
 	std::atomic<float> m_lastFrametime;
-	uint16 m_thisFrameSamples;
 	uint16 m_nearestNeighbourCounter;
 	uint32 m_nearestNeighbourTarget;
 

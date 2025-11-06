@@ -34,7 +34,6 @@ protected:
 	uint8 m_envelopeTarget;
 private:
 	void setPushTimer();
-	void setPeriod(uint16 period);
 
 	static constexpr int maxDisableTimerDuration{63}; //this could be 64
 	static constexpr int maxDutyStep{7};

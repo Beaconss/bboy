@@ -24,7 +24,14 @@ void AudioThread::waitToFinish()
 	std::unique_lock<std::mutex> lock(m_mutex);
 	m_condition.wait(lock, [this]{return !m_executing;});
 	#ifdef _DEBUG
-	if(m_executing) throw std::exception();
+	try
+	{
+		if(m_executing) throw std::exception();
+	}
+	catch(const std::exception& e)
+	{
+		std::cerr << e.what() << '\n';
+	}
 	#endif
 }
 

@@ -92,13 +92,7 @@ void PulseChannel::envelopeCycle()
 
 void Channel1::sweepCycle()
 {
-	if(m_sweepTarget == 0) return;
-    if(++m_sweepCounter < m_sweepTarget) return;
 	
-	m_sweepCounter = 0;
-	sweepIteration();
-	m_sweepTarget = (m_sweep & sweepTargetBits) >> 4;
-	m_sweepStep = m_sweep & sweepStepBits;
 }
 
 bool PulseChannel::isEnabled() const
@@ -135,7 +129,6 @@ uint8 PulseChannel::getPeriodHighAndControl() const
 void Channel1::setSweep(uint8 value)
 {
 	m_sweep = value;
-	m_sweepEnabled = m_sweep & sweepTargetBits;
 }
 
 void PulseChannel::setTimerAndDuty(const uint8 value)
@@ -178,58 +171,17 @@ void PulseChannel::trigger()
 void Channel1::trigger()
 {
 	PulseChannel::trigger();
-	m_shadowPeriod = getPeriod();
-	m_sweepCounter = 0;
-	m_sweepTarget = (m_sweep & sweepTargetBits) >> 4;
-	m_sweepStep = m_sweep & sweepStepBits;
-	m_sweepEnabled = m_sweepTarget || m_sweepStep;
 	
-	sweepIteration();
 }
 
 void Channel1::sweepIteration()
 {
-	if(!m_sweepStep || !m_sweepEnabled) return;
-
-	auto newPeriod{calculatePeriod()};
-	if(!newPeriod) return;
-
-	m_shadowPeriod = newPeriod.value();	
-	setPeriodLow(m_shadowPeriod & 0xFF);
-	setPeriodHighAndControl(getPeriodHighAndControl() | ((m_shadowPeriod & 0x700) >> 8));
-	calculatePeriod(); //redo the calculation but without writing it
+	
 }
-
-/*std::optional<uint16> Channel1::calculatePeriod()
-{
-	uint16 newPeriod{static_cast<uint16>(m_shadowPeriod >> m_sweepStep)};
-	if(m_sweep & subtraction) (newPeriod - m_sweepStep) > maxPeriod ? 0 : (newPeriod -= m_sweepStep);
-	else 
-	{
-		newPeriod += m_sweepStep;
-		if(newPeriod > maxPeriod) 
-		{
-			m_enabled = false;
-			return std::nullopt;
-		}
-	}
-	return newPeriod;
-}*/
 
 std::optional<uint16> Channel1::calculatePeriod()
 {
-	uint16 newPeriod{static_cast<uint16>(m_shadowPeriod >> m_sweepStep)};
-	if(m_sweep & subtraction) (newPeriod - m_shadowPeriod) > maxPeriod ? 0 : (newPeriod -= m_shadowPeriod);
-	else 
-	{
-		newPeriod += m_shadowPeriod;
-		if(newPeriod > maxPeriod) 
-		{
-			m_enabled = false;
-			return std::nullopt;
-		}
-	}
-	return newPeriod;
+	return std::nullopt;	
 }
 
 uint16 PulseChannel::getPeriod() const
@@ -240,11 +192,4 @@ uint16 PulseChannel::getPeriod() const
 void PulseChannel::setPushTimer()
 {
 	m_pushTimer = ((maxPeriod + 1) - getPeriod());
-}
-
-void PulseChannel::setPeriod(uint16 period)
-{
-	m_periodLow = period | 0xFF;
-	constexpr uint8 control{0xF8};
-	m_periodHighAndControl = (m_periodHighAndControl & control) | ((period >> 8) & periodHigh); 
 }

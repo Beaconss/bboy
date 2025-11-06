@@ -12,7 +12,6 @@ APU::APU(Bus& bus)
 	, m_frameSequencerCounter{}
 	, m_nextCycleToExecute{}
 	, m_lastFrametime{}
-	, m_thisFrameSamples{}
 	, m_nearestNeighbourCounter{}
 	, m_nearestNeighbourTarget{}
 	, m_channel1{}
@@ -159,7 +158,7 @@ void APU::mCycle()
 		m_channel1.disableTimerCycle();
 		m_channel2.disableTimerCycle();
 	}
-	if(((m_frameSequencerCounter % (frameSequencerTimer * 4)) == 0)) m_channel1.sweepCycle();
+	//if(((m_frameSequencerCounter % (frameSequencerTimer * 4)) == 0)) m_channel1.sweepCycle();
 	if((m_frameSequencerCounter % (frameSequencerTimer * 8)) == 0)
 	{
 		m_channel1.envelopeCycle();
@@ -180,18 +179,16 @@ void APU::mCycle()
 			constexpr uint8 ch1Right{0b1};
 			constexpr uint8 ch2Left{0b10'0000};
 			constexpr uint8 ch2Right{0b10};
-
+	
 			float ch1Sample{digitalToAnalog[m_channel1.getSample()]};
-			//float ch2Sample{digitalToAnalog[m_channel2.getSample()]};
-
-			float leftSample{(m_audioPanning & ch1Left ? ch1Sample : 0) 
-							//(m_audioPanning & ch2Left ? ch2Sample : 0))
-							/// 2.f
-							  };
-			float rightSample{(m_audioPanning & ch1Right ? ch1Sample : 0)
-							 //(m_audioPanning & ch2Right ? ch2Sample : 0))
-							 /// 2.f
-							  };
+			float ch2Sample{digitalToAnalog[m_channel2.getSample()]};
+	
+			float leftSample{((m_audioPanning & ch1Left ? ch1Sample : 0) + 
+							  (m_audioPanning & ch2Left ? ch2Sample : 0))
+							  / 2.f};
+			float rightSample{((m_audioPanning & ch1Right ? ch1Sample : 0) +
+							  (m_audioPanning & ch2Right ? ch2Sample : 0))
+							  / 2.f};
 
 			m_samplesBuffer.push_back(leftSample);			
 			m_samplesBuffer.push_back(rightSample);
@@ -217,17 +214,14 @@ void APU::finishFrame()
 void APU::setNearestNeighbour()
 {
 	constexpr int tCyclesPerFrame{mCyclesPerFrame * 4};
-	m_thisFrameSamples = static_cast<uint16>((frequency / std::lroundf((1000.f / m_lastFrametime))));
-	m_nearestNeighbourTarget = std::lroundf(static_cast<float>(tCyclesPerFrame / std::lroundf((frequency / (1000.f / m_lastFrametime)))));
-	m_nearestNeighbourCounter = 0;
+	long thisFrameSamples{std::lroundf((frequency / (1000.f / m_lastFrametime)))};
+	m_nearestNeighbourTarget = std::lroundf(static_cast<float>(tCyclesPerFrame / thisFrameSamples));
+	m_nearestNeighbourCounter = 0; 
 }
 
 void APU::putAudio()
 {
-	if(SDL_GetAudioStreamQueued(m_audioStream) > 20000)
-	{
-		SDL_ClearAudioStream(m_audioStream);
-	}
-	SDL_PutAudioStreamData(m_audioStream, m_samplesBuffer.data(), int(m_samplesBuffer.size() * sizeof(float)));
+	if(SDL_GetAudioStreamQueued(m_audioStream) > 20000) SDL_ClearAudioStream(m_audioStream);
+	SDL_PutAudioStreamData(m_audioStream, m_samplesBuffer.data(), static_cast<int>(m_samplesBuffer.size() * sizeof(float)));
 	m_samplesBuffer.clear();
 }
