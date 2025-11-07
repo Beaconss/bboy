@@ -34,7 +34,7 @@ Bus::Bus(Gameboy& gb)
 	, m_dmaTransferEnableDelay{}
 {
 	reset();
-	m_cartridgeSlot.loadCartridge("..\\..\\roms\\Legend of Zelda, The - Link's Awakening (USA, Europe) (Rev 2).gb");
+	m_cartridgeSlot.loadCartridge("..\\..\\roms\\Super Mario Land 2 - 6 Golden Coins (USA, Europe) (Rev 2).gb");
 	//m_cartridgeSlot.loadCartridge("../../test/acceptance/ppu/stat_lyc_onoff.gb");
 }
 

@@ -101,8 +101,8 @@ private:
 	uint16 m_nearestNeighbourCounter;
 	uint32 m_nearestNeighbourTarget;
 
-	Channel1 m_channel1;
-	Channel2 m_channel2;
+	channels::Channel1 m_channel1;
+	channels::Channel2 m_channel2;
 	Channel3 m_channel3;
 	Channel4 m_channel4;
 

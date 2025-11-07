@@ -43,8 +43,8 @@ void APU::reset()
 	m_nextCycleToExecute = 1;
 	m_lastFrametime = 1000.f / 59.7f;
 	setNearestNeighbour();
-	m_channel1 = Channel1{};
-	m_channel2 = Channel2{};
+	m_channel1 = channels::Channel1{};
+	m_channel2 = channels::Channel2{};
 	m_channel3 = Channel3{};
 	m_channel4 = Channel4{};
 	m_audioVolume = 0x77;
@@ -158,7 +158,7 @@ void APU::mCycle()
 		m_channel1.disableTimerCycle();
 		m_channel2.disableTimerCycle();
 	}
-	//if(((m_frameSequencerCounter % (frameSequencerTimer * 4)) == 0)) m_channel1.sweepCycle();
+	if(((m_frameSequencerCounter % (frameSequencerTimer * 4)) == 0)) m_channel1.sweepCycle();
 	if((m_frameSequencerCounter % (frameSequencerTimer * 8)) == 0)
 	{
 		m_channel1.envelopeCycle();
@@ -189,7 +189,7 @@ void APU::mCycle()
 			float rightSample{((m_audioPanning & ch1Right ? ch1Sample : 0) +
 							  (m_audioPanning & ch2Right ? ch2Sample : 0))
 							  / 2.f};
-
+							  
 			m_samplesBuffer.push_back(leftSample);			
 			m_samplesBuffer.push_back(rightSample);
 		}
@@ -214,8 +214,8 @@ void APU::finishFrame()
 void APU::setNearestNeighbour()
 {
 	constexpr int tCyclesPerFrame{mCyclesPerFrame * 4};
-	long thisFrameSamples{std::lroundf((frequency / (1000.f / m_lastFrametime)))};
-	m_nearestNeighbourTarget = std::lroundf(static_cast<float>(tCyclesPerFrame / thisFrameSamples));
+	int thisFrameSamples{static_cast<int>(frequency / (1000.f / m_lastFrametime))};
+	m_nearestNeighbourTarget = static_cast<uint32>(tCyclesPerFrame / thisFrameSamples);
 	m_nearestNeighbourCounter = 0; 
 }
 
