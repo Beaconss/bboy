@@ -21,7 +21,6 @@ APU::APU(Bus& bus)
 	, m_audioVolume{}
 	, m_audioPanning{}
 	, m_audioControl{}
-	, m_waveRam{}
 {
 	SDL_AudioSpec spec{SDL_AudioFormat::SDL_AUDIO_F32, 2, frequency};
 	m_audioStream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, nullptr, nullptr);
@@ -43,14 +42,13 @@ void APU::reset()
 	m_nextCycleToExecute = 1;
 	m_lastFrametime = 1000.f / 59.7f;
 	setNearestNeighbour();
-	m_channel1 = channels::Channel1{};
-	m_channel2 = channels::Channel2{};
-	m_channel3 = Channel3{};
+	m_channel1 = channels::SweepPulseChannel{};
+	m_channel2 = channels::PulseChannel{};
+	m_channel3 = channels::WaveChannel{};
 	m_channel4 = Channel4{};
 	m_audioVolume = 0x77;
 	m_audioPanning = 0xF3;
 	m_audioControl = 0xF0;
-	std::fill(m_waveRam.begin(), m_waveRam.end(), 0);
 }
 
 void APU::unlockThread()
@@ -65,7 +63,7 @@ void APU::setFrametime(float frametime)
 
 uint8 APU::read(const Index index, uint8 waveRamIndex)
 {
-	if(index == ch1PeLow || index == ch2PeLow) return 0xFF;
+	if(index == ch1PeLow || index == ch2PeLow || index == ch3Tim || index == ch3PeLow) return 0xFF;
 	catchUp();
 	switch(index) 
 	{
@@ -77,11 +75,9 @@ uint8 APU::read(const Index index, uint8 waveRamIndex)
 	case ch2VolEnv: return m_channel2.getVolumeAndEnvelope();
 	case ch2PeHighCtrl: return m_channel2.getPeriodHighAndControl();
 
-	case ch3DacEn: return m_channel3.dacEnable;
-	case ch3Tim: return m_channel3.timer;
-	case ch3Vol: return m_channel3.volume;
-	case ch3PeLow: return m_channel3.periodLow;
-	case ch3PeHighCtrl: return m_channel3.periodHighAndControl;
+	case ch3DacEn: return m_channel3.getDacEnable();
+	case ch3Vol: return m_channel3.getOutLevel();
+	case ch3PeHighCtrl: return m_channel3.getPeriodHighAndControl();
 
 	case ch4Tim: return m_channel4.timer;
 	case ch4VolEnv: return m_channel4.volumeAndEnvelope;
@@ -90,9 +86,9 @@ uint8 APU::read(const Index index, uint8 waveRamIndex)
 
 	case audioVolume: return m_audioVolume;
 	case audioPanning: return m_audioPanning;
-	case audioCtrl: return m_audioControl | 0x70 | (0u << 3 | 0u << 2 | static_cast<uint8>(m_channel2.isEnabled()) << 1 | static_cast<uint8>(m_channel1.isEnabled()));
+	case audioCtrl: return m_audioControl | 0x70 | (0u << 3 | m_channel3.isEnabled() << 2 | static_cast<uint8>(m_channel2.isEnabled()) << 1 | static_cast<uint8>(m_channel1.isEnabled()));
 	
-	case waveRam: return m_waveRam[waveRamIndex];
+	case waveRam: return m_channel3.getWaveRam(waveRamIndex);
 	default: return 0xFF;
 	}
 }
@@ -114,11 +110,12 @@ void APU::write(const Index index, const uint8 value, uint8 waveRamIndex)
 	case ch2PeLow: m_channel2.setPeriodLow(value); break;
 	case ch2PeHighCtrl: m_channel2.setPeriodHighAndControl(value); break;
 
-	case ch3DacEn: m_channel3.dacEnable = value; break;
-	case ch3Tim: m_channel3.timer = value; break;
-	case ch3Vol: m_channel3.volume = value; break;
-	case ch3PeLow: m_channel3.periodLow = value; break;
-	case ch3PeHighCtrl: m_channel3.periodHighAndControl = value; break;
+	case ch3DacEn: m_channel3.setDacEnable(value); break;
+	case ch3Tim: m_channel3.setTimer(value); break;
+	case ch3Vol: m_channel3.setOutLevel(value); break;
+	case ch3PeLow: m_channel3.setPeriodLow(value); break;
+	case ch3PeHighCtrl: m_channel3.setPeriodHighAndControl(value); break;
+
 	case ch4Tim: m_channel4.timer = value; break;
 	case ch4VolEnv: m_channel4.volumeAndEnvelope = value; break;
 	case ch4FreRand: m_channel4.frequencyAndRandomness = value; break;
@@ -131,7 +128,7 @@ void APU::write(const Index index, const uint8 value, uint8 waveRamIndex)
 		if(!(m_audioControl & audioEnable)) clearRegisters();
 		break;
 
-	case waveRam: m_waveRam[waveRamIndex] = value; break;
+	case waveRam: m_channel3.setWaveRam(value, waveRamIndex); break;
 	}
 }
 
@@ -139,6 +136,7 @@ void APU::clearRegisters()
 {
 	m_channel1.clearRegisters();
 	m_channel2.clearRegisters();
+	m_channel3.clearRegisters();
 }
 
 bool APU::clearedWhenOff(Index reg) const
@@ -157,6 +155,7 @@ void APU::mCycle()
 	{
 		m_channel1.disableTimerCycle();
 		m_channel2.disableTimerCycle();
+		m_channel3.disableTimerCycle();
 	}
 	if(((m_frameSequencerCounter % (frameSequencerTimer * 4)) == 0)) m_channel1.sweepCycle();
 	if((m_frameSequencerCounter % (frameSequencerTimer * 8)) == 0)
@@ -167,11 +166,12 @@ void APU::mCycle()
 	}
 
 	if(!(m_audioControl & audioEnable)) return;
+	
 	m_channel1.pushCycle();
 	m_channel2.pushCycle();
-	
 	for(int i{}; i < 4; ++i)
 	{
+		if(i % 2 == 0) m_channel3.pushCycle();
 		if(++m_nearestNeighbourCounter == m_nearestNeighbourTarget)
 		{
 			m_nearestNeighbourCounter = 0;
@@ -189,7 +189,9 @@ void APU::mCycle()
 			float rightSample{((m_audioPanning & ch1Right ? ch1Sample : 0) +
 							  (m_audioPanning & ch2Right ? ch2Sample : 0))
 							  / 2.f};
-							  
+							 
+			leftSample *= 0.3;				  
+			rightSample *= 0.3;
 			m_samplesBuffer.push_back(leftSample);			
 			m_samplesBuffer.push_back(rightSample);
 		}

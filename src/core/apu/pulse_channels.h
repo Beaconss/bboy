@@ -5,7 +5,7 @@
 
 namespace channels
 {
-class PulseChannel
+class PulseChannelBase
 {
 public:
 	virtual void clearRegisters();
@@ -15,15 +15,17 @@ public:
 
 	bool isEnabled() const;
 	uint8 getSample() const;
+	
 	uint8 getTimerAndDuty() const;
 	uint8 getVolumeAndEnvelope() const;
 	uint8 getPeriodHighAndControl() const;
+
 	void setTimerAndDuty(const uint8 value);
 	void setVolumeAndEnvelope(const uint8 value);
 	void setPeriodLow(const uint8 value);
 	void setPeriodHighAndControl(const uint8 value);
 protected:
-	PulseChannel();
+	PulseChannelBase();
 	
 	virtual void trigger();
 	uint16 getPeriod() const;
@@ -31,7 +33,6 @@ protected:
 	
 	static constexpr uint16 maxPeriod{0x7FF};
 	
-	bool m_dac;
 	bool m_enabled;
 	uint8 m_volume;
 	uint8 m_envelopeTarget;
@@ -39,7 +40,7 @@ private:
 	void setPushTimer();
 	void setDisableTimer();
 
-	static constexpr int maxDisableTimerDuration{63}; //this could be 64
+	static constexpr int maxDisableTimerDuration{64};
 	static constexpr int maxDutyStep{7};
 	static constexpr int dutyPatternsStep{8};
 	static constexpr int dutyPatternsCount{4};
@@ -50,12 +51,13 @@ private:
 		{1,0,0,0,0,1,1,1},
 		{0,1,1,1,1,1,1,0},
 	}};
-	static constexpr uint8 disableTimer{0b0100'0000};
-	static constexpr uint8 timer{0b0011'1111};
+	static constexpr uint8 disableTimerBit{0b0100'0000};
+	static constexpr uint8 timerBits{0b0011'1111};
 	static constexpr uint8 volumeBits{0xF0};
-	static constexpr uint8 envelopeDir{0x8};
+	static constexpr uint8 envelopeDirBit{0x8};
+	static constexpr uint8 dacBits{volumeBits | envelopeDirBit};
 	static constexpr uint8 triggerBit{0x80}; 
-	static constexpr uint8 periodHigh{0b111};
+	static constexpr uint8 periodHighBits{0x7};
 
 	uint8 m_timerAndDuty;
 	uint8 m_volumeAndEnvelope;
@@ -63,17 +65,18 @@ private:
 	uint8 m_periodHighAndControl;
 
 	uint8 m_sample;
-	int m_disableTimer;
-	int m_pushTimer;
+	uint8 m_disableTimer;
+	uint16 m_pushTimer;
 	uint8 m_dutyStep;
 	uint8 m_envelopeCounter;
 	bool m_envelopeDir;
+	bool m_envelopeEnabled;
 };
 
-class Channel1 : public PulseChannel
+class SweepPulseChannel : public PulseChannelBase
 {
 public:
-	Channel1();
+	SweepPulseChannel();
 
 	void clearRegisters() override;
 	void sweepCycle();
@@ -82,10 +85,11 @@ public:
 	void setSweep(uint8 value);
 private:
 	void trigger() override;
+	void sweepIteration();
 
 	static constexpr uint8 sweepTargetBits{0b0111'0000};
-	static constexpr uint8 subtraction{0x8};
-	static constexpr uint8 sweepStep{0b111};
+	static constexpr uint8 subtractionBit{0x8};
+	static constexpr uint8 sweepStepBits{0b111};
 
 	uint8 m_sweep;
 		
@@ -94,9 +98,9 @@ private:
 	uint8 m_sweepCounter;
 };
 	
-class Channel2 : public PulseChannel
+class PulseChannel : public PulseChannelBase
 {
 public:
-	Channel2();
+	PulseChannel();
 };
 }

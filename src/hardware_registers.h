@@ -26,7 +26,7 @@ constexpr uint16 CH2_PE_LOW{0xFF18};
 constexpr uint16 CH2_PE_HI_CTRL{0xFF19};
 constexpr uint16 CH3_DAC_EN{0xFF1A};
 constexpr uint16 CH3_TIM{0xFF1B};
-constexpr uint16 CH3_VOL{0xFF1C};
+constexpr uint16 CH3_OUT_LEVEL{0xFF1C};
 constexpr uint16 CH3_PE_LOW{0xFF1D};
 constexpr uint16 CH3_PE_HI_CTRL{0xFF1E};
 constexpr uint16 CH4_TIM{0xFF20};

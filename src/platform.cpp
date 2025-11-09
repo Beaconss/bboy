@@ -12,7 +12,7 @@ Platform::Platform()
 {
     if(!SDL_InitSubSystem(SDL_INIT_VIDEO | SDL_INIT_AUDIO)) std::cerr << "SDL failed to initialize " << SDL_GetError() << '\n';
     
-    m_window = SDL_CreateWindow("std-boy", 160 * 5, 144 * 5, SDL_WINDOW_RESIZABLE);
+    m_window = SDL_CreateWindow("std-boy", 160 * 5, 144 * 5, SDL_WINDOW_RESIZABLE | SDL_WINDOW_OPENGL);
     if(!m_window) std::cerr << "SDL window failed to initialize " << SDL_GetError() << '\n';
     
     m_renderer = SDL_CreateRenderer(m_window, "opengl");
@@ -23,6 +23,8 @@ Platform::Platform()
     m_screenTexture = SDL_CreateTexture(m_renderer, SDL_PixelFormat::SDL_PIXELFORMAT_RGB565 , SDL_TextureAccess::SDL_TEXTUREACCESS_STREAMING, screenWidth, screenHeight);
     if(!m_screenTexture) std::cerr << "SDL texture failed to initialize " << SDL_GetError() << '\n';
     SDL_SetTextureScaleMode(m_screenTexture, SDL_SCALEMODE_NEAREST);
+
+    std::cout << "Using renderer: " << SDL_GetRendererName(m_renderer) << "\n\n";
 }
 
 void Platform::mainLoop(Gameboy& gameboy)

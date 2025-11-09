@@ -2,6 +2,7 @@
 #include "type_alias.h"
 #include "core/apu/audio_thread.h"
 #include "core/apu/pulse_channels.h"
+#include "core/apu/wave_channel.h"
 #include <array>
 #include <queue>
 #include <vector>
@@ -49,15 +50,6 @@ public:
 private:
 	friend class AudioThread;
 
-	struct Channel3
-	{
-		uint8 dacEnable{0x7F};
-		uint8 timer{0xFF};
-		uint8 volume{0x9F};
-		uint8 periodLow{0xFF};
-		uint8 periodHighAndControl{0xBF};
-	};
-
 	struct Channel4
 	{
 		uint8 timer{0xFF};
@@ -101,13 +93,12 @@ private:
 	uint16 m_nearestNeighbourCounter;
 	uint32 m_nearestNeighbourTarget;
 
-	channels::Channel1 m_channel1;
-	channels::Channel2 m_channel2;
-	Channel3 m_channel3;
+	channels::SweepPulseChannel m_channel1;
+	channels::PulseChannel m_channel2;
+	channels::WaveChannel m_channel3;
 	Channel4 m_channel4;
 
 	uint8 m_audioVolume;
 	uint8 m_audioPanning;
 	uint8 m_audioControl;
-	std::array<uint8, 16> m_waveRam;
 };

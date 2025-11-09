@@ -8,7 +8,7 @@ static std::vector<std::filesystem::path> fillCartridges()
 	std::vector<fs::path> cartridges{};
 	try
 	{
-		for(const auto& entry : fs::recursive_directory_iterator(fs::current_path() / "..\\..\\roms")) 
+		for(const auto& entry : fs::recursive_directory_iterator(fs::current_path() / "../test/apu")) 
 		{
 			if(entry.path().extension() == ".gb") cartridges.emplace_back(entry);
 		}
@@ -34,7 +34,8 @@ Bus::Bus(Gameboy& gb)
 	, m_dmaTransferEnableDelay{}
 {
 	reset();
-	m_cartridgeSlot.loadCartridge("..\\..\\roms\\Super Mario Land 2 - 6 Golden Coins (USA, Europe) (Rev 2).gb");
+	m_cartridgeSlot.loadCartridge("../roms/Legend of Zelda, The - Link's Awakening (USA, Europe) (Rev 2).gb");
+	//m_cartridgeSlot.loadCartridge("../test/apu/04-sweep.gb");
 	//m_cartridgeSlot.loadCartridge("../../test/acceptance/ppu/stat_lyc_onoff.gb");
 }
 
@@ -119,7 +120,7 @@ uint8 Bus::read(const uint16 addr, const Component component) const
 	case CH2_PE_HI_CTRL: return m_gameboy.m_apu.read(APU::ch2PeHighCtrl);
 	case CH3_DAC_EN: return m_gameboy.m_apu.read(APU::ch3DacEn);
 	case CH3_TIM: return m_gameboy.m_apu.read(APU::ch3Tim);
-	case CH3_VOL: return m_gameboy.m_apu.read(APU::ch3Vol);
+	case CH3_OUT_LEVEL: return m_gameboy.m_apu.read(APU::ch3Vol);
 	case CH3_PE_LOW: return m_gameboy.m_apu.read(APU::ch3PeLow);
 	case CH3_PE_HI_CTRL: return m_gameboy.m_apu.read(APU::ch3PeHighCtrl);
 	case CH4_TIM: return m_gameboy.m_apu.read(APU::ch4Tim);
@@ -188,7 +189,7 @@ void Bus::write(const uint16 addr, const uint8 value, const Component component)
 	case CH2_PE_HI_CTRL: m_gameboy.m_apu.write(APU::ch2PeHighCtrl, value); break;
 	case CH3_DAC_EN: m_gameboy.m_apu.write(APU::ch3DacEn, value); break;
 	case CH3_TIM: m_gameboy.m_apu.write(APU::ch3Tim, value); break;
-	case CH3_VOL: m_gameboy.m_apu.write(APU::ch3Vol, value); break;
+	case CH3_OUT_LEVEL: m_gameboy.m_apu.write(APU::ch3Vol, value); break;
 	case CH3_PE_LOW: m_gameboy.m_apu.write(APU::ch3PeLow, value); break;
 	case CH3_PE_HI_CTRL: m_gameboy.m_apu.write(APU::ch3PeHighCtrl, value); break;
 	case CH4_TIM: m_gameboy.m_apu.write(APU::ch4Tim, value); break;
