@@ -27,10 +27,9 @@ Gameboy::~Gameboy()
 	reset();
 }
 
-void Gameboy::frame(float frametime)
+void Gameboy::frame()
 {
 	static constexpr int mCyclePerFrame{17556};
-	m_apu.setFrametime(frametime);
 	for(;m_currentCycle <= mCyclePerFrame; ++m_currentCycle) mCycle();
 	m_currentCycle = 1;
 	m_apu.unlockThread();

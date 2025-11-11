@@ -1,6 +1,6 @@
 #pragma once
 #include "type_alias.h"
-#include "core/bus.h"
+#include "core/mmu.h"
 #include "core/cpu.h"
 #include "core/apu/apu.h"
 #include "core/timers.h"
@@ -15,7 +15,7 @@ public:
 	~Gameboy();
 
 	void reset();
-	void frame(float frameTime);
+	void frame();
 
 	void loadCartridge(const std::filesystem::path& filePath);
 	void hardReset();
@@ -25,10 +25,10 @@ public:
 
 	const PPU& getPPU() const;
 private:
-	friend class Bus;
+	friend class MMU;
 	void mCycle();
 
-	Bus m_bus;
+	MMU m_bus;
 	CPU m_cpu;
 	std::unique_ptr<PPU> m_ppu;
 	APU m_apu;

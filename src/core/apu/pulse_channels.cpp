@@ -1,4 +1,5 @@
 #include "core/apu/pulse_channels.h"
+#include <iostream>
 
 channels::PulseChannelBase::PulseChannelBase()
     : m_timerAndDuty{}
@@ -8,13 +9,11 @@ channels::PulseChannelBase::PulseChannelBase()
 	, m_enabled{}
 	, m_sample{}
 	, m_disableTimer{1}
-	, m_pushTimer{((maxPeriod + 1) - getPeriod())}
+	, m_pushTimer{static_cast<uint16>((maxPeriod + 1) - getPeriod())}
 	, m_dutyStep{}
 	, m_volume{}
-	, m_envelopeTarget{}
-	, m_envelopeCounter{}
+	, m_envelopeTimer{}
 	, m_envelopeDir{}
-	, m_envelopeEnabled{true}
 {
 	trigger();
 }
@@ -22,15 +21,14 @@ channels::PulseChannelBase::PulseChannelBase()
 channels::SweepPulseChannel::SweepPulseChannel()
     : m_sweep{}
     , m_shadowPeriod{}
-    , m_sweepTarget{}
-    , m_sweepCounter{}
+    , m_sweepTimer{}
 {
     setTimerAndDuty(0xBF);
     setVolumeAndEnvelope(0xF3);
     setPeriodHighAndControl(0xBF);
     m_shadowPeriod = getPeriod();
     m_volume = 0xF;
-    m_envelopeTarget = 0x3;
+    m_envelopeTimer = 0x3;
 }
 
 channels::PulseChannel::PulseChannel()
@@ -54,7 +52,7 @@ void channels::PulseChannelBase::pushCycle()
 
 	setPushTimer();
 	constexpr uint8 dutyPattern{0b1100'0000};
-	m_sample = dutyPatterns[m_timerAndDuty & (dutyPattern >> 6)][m_dutyStep] * m_volume;
+	m_sample = dutyPatterns[m_timerAndDuty & (dutyPattern >> 6)][m_dutyStep];
 	++m_dutyStep;
 	m_dutyStep &= maxDutyStep;
 }
@@ -68,11 +66,8 @@ void channels::PulseChannelBase::disableTimerCycle()
 
 void channels::PulseChannelBase::envelopeCycle()
 {
-	if(m_envelopeTarget == 0) return;
-	if(++m_envelopeCounter < m_envelopeTarget) return;
-	m_envelopeCounter = 0;
-
-	if(!m_envelopeEnabled) return;
+	if(m_envelopeTimer == 0  || (m_volumeAndEnvelope & envelopeTargetBits) == 0) return;
+	if(--m_envelopeTimer > 0) return;
 
 	uint8 newVolume{m_volume};
 	if(envelopeDirBit) ++newVolume;
@@ -80,7 +75,6 @@ void channels::PulseChannelBase::envelopeCycle()
 	
 	constexpr uint8 maxVolume{0xF};
 	if(newVolume <= maxVolume) m_volume = newVolume;
-	else m_envelopeEnabled = false;
 }
 
 bool channels::PulseChannelBase::isEnabled() const
@@ -90,7 +84,7 @@ bool channels::PulseChannelBase::isEnabled() const
 
 uint8 channels::PulseChannelBase::getSample() const
 {
-    if(m_volumeAndEnvelope & dacBits) return m_enabled ? m_sample : 0;
+    if(m_volumeAndEnvelope & dacBits) return m_enabled ? m_sample * m_volume : 0;
     else return 7;
 }
 
@@ -106,13 +100,13 @@ uint8 channels::PulseChannelBase::getVolumeAndEnvelope() const
 
 uint8 channels::PulseChannelBase::getPeriodHighAndControl() const
 {
-    return m_periodHighAndControl | triggerBit | 0b11'1000 | periodHighBits;
+    return m_periodHighAndControl | triggerBit | 0b11'1000 | 0b111;
 }
 
 void channels::PulseChannelBase::setTimerAndDuty(const uint8 value)
 {
 	m_timerAndDuty = value;
-	setDisableTimer();
+	m_disableTimer = maxDisableTimerDuration - (m_timerAndDuty & timerBits);
 }
 
 void channels::PulseChannelBase::setVolumeAndEnvelope(const uint8 value)
@@ -129,25 +123,23 @@ void channels::PulseChannelBase::setPeriodLow(const uint8 value)
 void channels::PulseChannelBase::setPeriodHighAndControl(const uint8 value)
 {
 	m_periodHighAndControl = value;
-	if(m_periodHighAndControl & triggerBit) trigger();
+	if(m_periodHighAndControl & triggerBit && (m_volumeAndEnvelope & dacBits)) trigger();
 }
 
 void channels::PulseChannelBase::trigger()
 {
-	m_enabled = m_volumeAndEnvelope & dacBits;
-	if(m_disableTimer == 0) setDisableTimer(); 
+	m_enabled = true;
+	if(m_disableTimer == 0) m_disableTimer = maxDisableTimerDuration; 
 	setPushTimer();
 	
 	m_volume = (m_volumeAndEnvelope & volumeBits) >> 4;
-	constexpr uint8 envelopeTargetBits{0x3};
-	m_envelopeTarget = m_volumeAndEnvelope & m_envelopeTarget;
-	m_envelopeCounter = 0;
+	m_envelopeTimer = m_volumeAndEnvelope & envelopeTargetBits;
 	m_envelopeDir = static_cast<bool>(m_volumeAndEnvelope & envelopeDirBit);
-	m_envelopeEnabled = true;
 }
 
 uint16 channels::PulseChannelBase::getPeriod() const
 {
+	constexpr uint8 periodHighBits{0x7};
 	return m_periodLow | ((m_periodHighAndControl & periodHighBits) << 8);
 }
 
@@ -162,11 +154,6 @@ void channels::PulseChannelBase::setPushTimer()
 	m_pushTimer = ((maxPeriod + 1) - getPeriod());
 }
 
-void channels::PulseChannelBase::setDisableTimer()
-{
-	m_disableTimer = maxDisableTimerDuration - (m_timerAndDuty & timerBits);
-}
-
 
 void channels::SweepPulseChannel::clearRegisters()
 {
@@ -176,12 +163,10 @@ void channels::SweepPulseChannel::clearRegisters()
 
 void channels::SweepPulseChannel::sweepCycle()
 {
-	if(m_sweepTarget == 0 || !(m_sweep & sweepTargetBits)) return;
-	if(++m_sweepCounter < m_sweepTarget) return;
+	if(m_sweepTimer == 0 || (m_sweep & sweepTargetBits) == 0) return;
+	if(--m_sweepTimer > 0) return;
 	
-	m_sweepCounter = 0;
-	m_sweepTarget = (m_sweep & sweepTargetBits) >> 4;
-
+	m_sweepTimer = (m_sweep & sweepTargetBits) >> 4;
 	sweepIteration();
 }
 
@@ -199,8 +184,7 @@ void channels::SweepPulseChannel::trigger()
 {
 	channels::PulseChannelBase::trigger();
 	m_shadowPeriod = getPeriod();
-	m_sweepCounter = 0;
-	m_sweepTarget = (m_sweep & sweepTargetBits) >> 4;
+	m_sweepTimer = (m_sweep & sweepTargetBits) >> 4;
 	if(!(m_sweep & sweepStepBits)) return;
 
 	sweepIteration();

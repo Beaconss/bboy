@@ -2,11 +2,11 @@
 #include "type_alias.h"
 #include <array>
 
-class Bus;
+class MMU;
 class CPU
 {
 public:
-	CPU(Bus& bus);
+	CPU(MMU& bus);
 	void reset();
 	void mCycle();
 
@@ -209,7 +209,7 @@ private:
 	void EI();
 	void NOP();
 
-	Bus& m_bus;
+	MMU& m_bus;
 	IState m_iState;
 	void (CPU::*m_currentInstr)(); //pointer to a CPU function that returns void and take no parameters called m_currentInstr
 	uint8 m_cycleCounter;

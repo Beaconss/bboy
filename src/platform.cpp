@@ -55,8 +55,8 @@ void Platform::mainLoop(Gameboy& gameboy)
         }
 
         start = SDL_GetPerformanceCounter();
-    
-        if(gameboy.hasCartridge()) gameboy.frame(frametime);
+   
+        if(gameboy.hasCartridge()) gameboy.frame();
         updateScreen(gameboy.getPPU().getLcdBuffer());
         render();
             

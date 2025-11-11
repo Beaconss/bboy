@@ -1,4 +1,4 @@
-#include "core/bus.h"
+#include "core/mmu.h"
 #include "core/gameboy.h"
 #include "hardware_registers.h"
 
@@ -8,7 +8,7 @@ static std::vector<std::filesystem::path> fillCartridges()
 	std::vector<fs::path> cartridges{};
 	try
 	{
-		for(const auto& entry : fs::recursive_directory_iterator(fs::current_path() / "../test/apu")) 
+		for(const auto& entry : fs::recursive_directory_iterator(fs::current_path() / "../roms")) 
 		{
 			if(entry.path().extension() == ".gb") cartridges.emplace_back(entry);
 		}
@@ -23,7 +23,7 @@ static std::vector<std::filesystem::path> fillCartridges()
 
 std::vector<std::filesystem::path> cartridges{fillCartridges()};
 
-Bus::Bus(Gameboy& gb)
+MMU::MMU(Gameboy& gb)
 	: m_gameboy{gb}
 	, m_memory{}
 	, m_cartridgeSlot{}
@@ -39,7 +39,7 @@ Bus::Bus(Gameboy& gb)
 	//m_cartridgeSlot.loadCartridge("../../test/acceptance/ppu/stat_lyc_onoff.gb");
 }
 
-void Bus::reset()
+void MMU::reset()
 {
 	constexpr unsigned int kb64{0x10000};
 	m_memory.resize(kb64); //32 kbs are not used but its ok to have less overhead
@@ -55,7 +55,7 @@ void Bus::reset()
 	m_memory[hardwareReg::DMA] = 0xFF;
 }
 
-void Bus::handleDmaTransfer()
+void MMU::handleDmaTransfer()
 {
 	if(m_dmaTransferEnableDelay > 0)
 	{
@@ -85,18 +85,18 @@ void Bus::handleDmaTransfer()
 	}
 }
 
-CartridgeSlot& Bus::getCartridgeSlot()
+CartridgeSlot& MMU::getCartridgeSlot()
 {
 	return m_cartridgeSlot;
 }
 
-void Bus::nextCartridge()
+void MMU::nextCartridge()
 {
 	static int next{};
 	m_cartridgeSlot.loadCartridge(cartridges[next++]);
 }
 
-uint8 Bus::read(const uint16 addr, const Component component) const
+uint8 MMU::read(const uint16 addr, const Component component) const
 {
 	using namespace MemoryRegions;
 	using namespace hardwareReg;
@@ -166,7 +166,7 @@ uint8 Bus::read(const uint16 addr, const Component component) const
 	}
 }
 
-void Bus::write(const uint16 addr, const uint8 value, const Component component)
+void MMU::write(const uint16 addr, const uint8 value, const Component component)
 {
 	using namespace MemoryRegions;
 	using namespace hardwareReg;
@@ -199,11 +199,12 @@ void Bus::write(const uint16 addr, const uint8 value, const Component component)
 	case AU_VOL: m_gameboy.m_apu.write(APU::audioVolume, value); break;
 	case AU_PAN: m_gameboy.m_apu.write(APU::audioPanning, value); break;
 	case AU_CTRL: m_gameboy.m_apu.write(APU::audioCtrl, value); break;
-	case WAVE_RAM[0]:case WAVE_RAM[1]:case WAVE_RAM[2]:case WAVE_RAM[3]: break;
-	case WAVE_RAM[4]:case WAVE_RAM[5]:case WAVE_RAM[6]:case WAVE_RAM[7]: break;
-	case WAVE_RAM[8]:case WAVE_RAM[9]:case WAVE_RAM[10]:case WAVE_RAM[11]: break;
-	case WAVE_RAM[12]:case WAVE_RAM[13]:case WAVE_RAM[14]:case WAVE_RAM[15]: break;
-		 m_gameboy.m_apu.write(APU::waveRam, value, addr & 0xF);
+	case WAVE_RAM[0]: case WAVE_RAM[1]: case WAVE_RAM[2]: case WAVE_RAM[3]:
+	case WAVE_RAM[4]: case WAVE_RAM[5]: case WAVE_RAM[6]: case WAVE_RAM[7]:
+	case WAVE_RAM[8]: case WAVE_RAM[9]: case WAVE_RAM[10]:case WAVE_RAM[11]:
+	case WAVE_RAM[12]:case WAVE_RAM[13]:case WAVE_RAM[14]:case WAVE_RAM[15]:
+		m_gameboy.m_apu.write(APU::waveRam, value, addr & 0xF);
+		break;
 	case LCDC: m_gameboy.m_ppu->write(PPU::lcdc, value); break;
 	case STAT: m_gameboy.m_ppu->write(PPU::stat, value); break;
 	case SCY: m_gameboy.m_ppu->write(PPU::scy, value); break;
@@ -254,12 +255,12 @@ void Bus::write(const uint16 addr, const uint8 value, const Component component)
 	}
 }
 
-uint16 Bus::currentCycle() const
+uint16 MMU::currentCycle() const
 {
 	return m_gameboy.m_currentCycle;
 }
 
-void Bus::fillSprite(uint16 oamAddr, PPU::Sprite& sprite) const
+void MMU::fillSprite(uint16 oamAddr, PPU::Sprite& sprite) const
 {
 	if(m_dmaTransferInProcess) return;
 	sprite.yPosition = m_memory[oamAddr];
@@ -268,7 +269,7 @@ void Bus::fillSprite(uint16 oamAddr, PPU::Sprite& sprite) const
 	sprite.flags = m_memory[oamAddr + 3];
 }
 
-bool Bus::isInExternalBus(const uint16 addr) const
+bool MMU::isInExternalBus(const uint16 addr) const
 {
 	constexpr uint16 externalBusFirstStart{0};
 	constexpr uint16 externalBusFirstEnd{0x7FFF};

@@ -7,10 +7,10 @@
 #include <filesystem>
 
 class Gameboy;
-class Bus
+class MMU 
 {
 	public:
-	Bus(Gameboy& gb);
+	MMU(Gameboy& gb);
 	
 	enum class Component
 	{

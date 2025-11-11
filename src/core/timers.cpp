@@ -1,10 +1,10 @@
 #include "core/timers.h"
 #include "hardware_registers.h"
-#include "core/bus.h"
+#include "core/mmu.h"
 #include "timers.h"
 
-Timers::Timers(Bus& bus)
-	: m_bus{bus}
+Timers::Timers(MMU& mmu)
+	: m_bus{mmu}
 	, m_timaResetCounter{}
 	, m_lastAndResult{}
 	, m_div{}
@@ -94,5 +94,5 @@ void Timers::setTac(uint8 value)
 
 void Timers::requestTimerInterrupt() const
 {
-	m_bus.write(hardwareReg::IF, m_bus.read(hardwareReg::IF, Bus::Component::timers) | 0b100, Bus::Component::timers); //bit 2 is timer interrupt
+	m_bus.write(hardwareReg::IF, m_bus.read(hardwareReg::IF, MMU::Component::timers) | 0b100, MMU::Component::timers); //bit 2 is timer interrupt
 }

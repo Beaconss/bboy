@@ -35,10 +35,9 @@ protected:
 	
 	bool m_enabled;
 	uint8 m_volume;
-	uint8 m_envelopeTarget;
+	uint8 m_envelopeTimer;
 private:
 	void setPushTimer();
-	void setDisableTimer();
 
 	static constexpr int maxDisableTimerDuration{64};
 	static constexpr int maxDutyStep{7};
@@ -54,10 +53,10 @@ private:
 	static constexpr uint8 disableTimerBit{0b0100'0000};
 	static constexpr uint8 timerBits{0b0011'1111};
 	static constexpr uint8 volumeBits{0xF0};
+	static constexpr uint8 envelopeTargetBits{0x3};
 	static constexpr uint8 envelopeDirBit{0x8};
 	static constexpr uint8 dacBits{volumeBits | envelopeDirBit};
 	static constexpr uint8 triggerBit{0x80}; 
-	static constexpr uint8 periodHighBits{0x7};
 
 	uint8 m_timerAndDuty;
 	uint8 m_volumeAndEnvelope;
@@ -68,9 +67,7 @@ private:
 	uint8 m_disableTimer;
 	uint16 m_pushTimer;
 	uint8 m_dutyStep;
-	uint8 m_envelopeCounter;
 	bool m_envelopeDir;
-	bool m_envelopeEnabled;
 };
 
 class SweepPulseChannel : public PulseChannelBase
@@ -94,8 +91,7 @@ private:
 	uint8 m_sweep;
 		
 	uint16 m_shadowPeriod;
-	uint8 m_sweepTarget;
-	uint8 m_sweepCounter;
+	uint8 m_sweepTimer;
 };
 	
 class PulseChannel : public PulseChannelBase

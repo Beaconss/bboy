@@ -2,11 +2,11 @@
 #include "type_alias.h"
 #include <array>
 
-class Bus;
+class MMU;
 class Timers
 {
 public:
-	Timers(Bus& bus);
+	Timers(MMU& bus);
 
 	void reset();
 	void mCycle();
@@ -31,7 +31,7 @@ private:
 
 	void requestTimerInterrupt() const;
 
-	Bus& m_bus;
+	MMU& m_bus;
 
 	uint8 m_timaResetCounter;
 	bool m_lastAndResult;

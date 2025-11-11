@@ -1,10 +1,10 @@
 #include "core/ppu/ppu.h"
 #include "hardware_registers.h"
-#include "core/bus.h"
+#include "core/mmu.h"
 #include <algorithm>
 
-PPU::PPU(Bus& bus)
-	: m_bus{bus}
+PPU::PPU(MMU& mmu)
+	: m_bus{mmu}
 	, m_fetcher{*this}
 	, m_statInterrupt{}
 	, m_mode{}
@@ -372,10 +372,10 @@ void PPU::vBlankCycle()
 
 void PPU::requestStatInterrupt() const
 {
-	m_bus.write(hardwareReg::IF, m_bus.read(hardwareReg::IF, Bus::Component::ppu) | 0b10, Bus::Component::ppu);
+	m_bus.write(hardwareReg::IF, m_bus.read(hardwareReg::IF, MMU::Component::ppu) | 0b10, MMU::Component::ppu);
 }
 
 void PPU::requestVBlankInterrupt() const
 {
-	m_bus.write(hardwareReg::IF, m_bus.read(hardwareReg::IF, Bus::Component::ppu) | 0b1, Bus::Component::ppu);
+	m_bus.write(hardwareReg::IF, m_bus.read(hardwareReg::IF, MMU::Component::ppu) | 0b1, MMU::Component::ppu);
 }

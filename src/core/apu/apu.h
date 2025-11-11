@@ -7,12 +7,12 @@
 #include <queue>
 #include <vector>
 
-class Bus;
+class MMU;
 struct SDL_AudioStream;
 class APU
 {
 public:
-	APU(Bus& bus);
+	APU(MMU& bus);
 	~APU();
 
 	enum Index
@@ -43,7 +43,6 @@ public:
 
 	void reset();
 	void unlockThread();
-	void setFrametime(float frametime);
 	uint8 read(const Index index, const uint8 waveRamIndex = 0);
 	void write(const Index index, const uint8 value, const uint8 waveRamIndex = 0);
 
@@ -63,7 +62,6 @@ private:
 	void mCycle();
 	void catchUp();
 	void finishFrame();
-	void setNearestNeighbour();
 	void putAudio();
 
 	static constexpr auto digitalToAnalog{[]
@@ -82,16 +80,13 @@ private:
 	static constexpr int frequency{44100};
 	static constexpr uint8 audioEnable{0x80};
 	
-	Bus& m_bus;
+	MMU& m_bus;
 	AudioThread m_audioThread;
 	SDL_AudioStream* m_audioStream;
-	std::vector<float> m_samplesBuffer; 
+	std::vector<float> m_samplesBuffer;
+	std::vector<float> m_outSamples;
 	uint16 m_frameSequencerCounter;
 	uint16 m_nextCycleToExecute;
-
-	std::atomic<float> m_lastFrametime;
-	uint16 m_nearestNeighbourCounter;
-	uint32 m_nearestNeighbourTarget;
 
 	channels::SweepPulseChannel m_channel1;
 	channels::PulseChannel m_channel2;

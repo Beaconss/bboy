@@ -8,11 +8,11 @@
 constexpr int screenWidth{160};
 constexpr int screenHeight{144};
 
-class Bus;
+class MMU;
 class PPU
 {
 public:
-	PPU(Bus& bus);
+	PPU(MMU& bus);
 
 	enum Index
 	{
@@ -112,7 +112,7 @@ private:
 	static constexpr uint16 oamMemoryStart{0xFE00};
 	static constexpr int scanlineEndCycle{114};
 
-	Bus& m_bus;
+	MMU& m_bus;
 	PixelFetcher m_fetcher;
 	StatInterrupt m_statInterrupt;
 	Mode m_mode;

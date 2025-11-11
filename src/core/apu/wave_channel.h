@@ -29,12 +29,13 @@ public:
     void setWaveRam(const uint8 value, uint8 index);
 private:
     void trigger();
+    void setPushTimer();
 
     static constexpr uint16 maxPeriod{0x7FF};
     static constexpr int maxDisableTimerDuration{256};
     static constexpr uint8 dacBit{0x80}; 
     static constexpr uint8 volumeBits{0b0110'0000};
-
+    
     uint8 m_dacEnable;
 	uint8 m_timer;
 	uint8 m_outLevel;
@@ -46,8 +47,6 @@ private:
     uint16 m_pushTimer;
     uint8 m_sample;
     uint8 m_waveIndex;
-    uint16 m_period;
     uint16 m_disableTimer;
-    uint8 m_volume;
 };
 }
