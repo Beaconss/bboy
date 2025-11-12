@@ -1,7 +1,6 @@
 #pragma once
 #include "type_alias.h"
 #include <array>
-#include <optional>
 
 namespace channels
 {
@@ -51,9 +50,8 @@ private:
 		{0,1,1,1,1,1,1,0},
 	}};
 	static constexpr uint8 disableTimerBit{0b0100'0000};
-	static constexpr uint8 timerBits{0b0011'1111};
 	static constexpr uint8 volumeBits{0xF0};
-	static constexpr uint8 envelopeTargetBits{0x3};
+	static constexpr uint8 envelopeTargetBits{0x7};
 	static constexpr uint8 envelopeDirBit{0x8};
 	static constexpr uint8 dacBits{volumeBits | envelopeDirBit};
 	static constexpr uint8 triggerBit{0x80}; 
@@ -64,8 +62,8 @@ private:
 	uint8 m_periodHighAndControl;
 
 	uint8 m_sample;
-	uint8 m_disableTimer;
 	uint16 m_pushTimer;
+	uint8 m_disableTimer;
 	uint8 m_dutyStep;
 	bool m_envelopeDir;
 };

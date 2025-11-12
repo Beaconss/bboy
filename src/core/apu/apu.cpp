@@ -10,6 +10,7 @@ APU::APU(MMU& mmu)
 	, m_samplesBuffer{}
 	, m_outSamples{}
 	, m_frameSequencerCounter{}
+	, m_frameSequencerStep{}
 	, m_nextCycleToExecute{}
 	, m_channel1{}
 	, m_channel2{}
@@ -41,7 +42,7 @@ void APU::reset()
 	m_channel1 = channels::SweepPulseChannel{};
 	m_channel2 = channels::PulseChannel{};
 	m_channel3 = channels::WaveChannel{};
-	m_channel4 = Channel4{};
+	m_channel4 = channels::NoiseChannel{};
 	m_audioVolume = 0x77;
 	m_audioPanning = 0xF3;
 	m_audioControl = 0xF0;
@@ -54,7 +55,7 @@ void APU::unlockThread()
 
 uint8 APU::read(const Index index, uint8 waveRamIndex)
 {
-	if(index == ch1PeLow || index == ch2PeLow || index == ch3Tim || index == ch3PeLow) return 0xFF;
+	if(index == ch1PeLow || index == ch2PeLow || index == ch3Tim || index == ch3PeLow || index == ch4Tim) return 0xFF;
 
 	catchUp();
 	switch(index) 
@@ -71,14 +72,13 @@ uint8 APU::read(const Index index, uint8 waveRamIndex)
 	case ch3Vol: return m_channel3.getOutLevel();
 	case ch3PeHighCtrl: return m_channel3.getPeriodHighAndControl();
 
-	case ch4Tim: return m_channel4.timer;
-	case ch4VolEnv: return m_channel4.volumeAndEnvelope;
-	case ch4FreRand: return m_channel4.frequencyAndRandomness;
-	case ch4Ctrl: return m_channel4.control;
+	case ch4VolEnv: return m_channel4.getVolumeAndEnvelope();
+	case ch4FreRand: return m_channel4.getFrequencyAndRandomness();
+	case ch4Ctrl: return m_channel4.getControl();
 
 	case audioVolume: return m_audioVolume;
 	case audioPanning: return m_audioPanning;
-	case audioCtrl: return m_audioControl | 0x70 | (0u << 3 | m_channel3.isEnabled() << 2 | static_cast<uint8>(m_channel2.isEnabled()) << 1 | static_cast<uint8>(m_channel1.isEnabled()));
+	case audioCtrl: return m_audioControl | 0x70 | (m_channel4.isEnabled() << 3 | m_channel3.isEnabled() << 2 | (m_channel2.isEnabled()) << 1 | (m_channel1.isEnabled()));
 	
 	case waveRam: return m_channel3.getWaveRam(waveRamIndex);
 	default: return 0xFF;
@@ -108,10 +108,10 @@ void APU::write(const Index index, const uint8 value, uint8 waveRamIndex)
 	case ch3PeLow: m_channel3.setPeriodLow(value); break;
 	case ch3PeHighCtrl: m_channel3.setPeriodHighAndControl(value); break;
 
-	case ch4Tim: m_channel4.timer = value; break;
-	case ch4VolEnv: m_channel4.volumeAndEnvelope = value; break;
-	case ch4FreRand: m_channel4.frequencyAndRandomness = value; break;
-	case ch4Ctrl: m_channel4.control = value; break;
+	case ch4Tim: m_channel4.setTimer(value); break;
+	case ch4VolEnv: m_channel4.setVolumeAndEnvelope(value); break;
+	case ch4FreRand: m_channel4.setFrequencyAndRandomness(value); break;
+	case ch4Ctrl: m_channel4.setControl(value); break;
 
 	case audioVolume: m_audioVolume = value; break;
 	case audioPanning: m_audioPanning = value; break;
@@ -129,33 +129,43 @@ void APU::clearRegisters()
 	m_channel1.clearRegisters();
 	m_channel2.clearRegisters();
 	m_channel3.clearRegisters();
+	m_channel4.clearRegisters();
 }
 
 bool APU::clearedWhenOff(Index reg) const
 {
 	return reg != ch1TimDuty
-			&& reg != ch2TimDuty 
+			&& reg != ch2TimDuty
+			&& reg != ch3Tim
+			&& reg != ch4Tim 
 			&& reg != audioCtrl 
 			&& reg != waveRam;
 }
 
 void APU::mCycle()
 {
-
-	constexpr int frameSequencerTimer{2048}; //in m-cycles
-	++m_frameSequencerCounter;
-	if(((m_frameSequencerCounter % (frameSequencerTimer * 2)) == 0))
+	constexpr int frameSequencerTarget{2048}; //in m-cycles
+	if(++m_frameSequencerCounter == frameSequencerTarget)
 	{
-		m_channel1.disableTimerCycle();
-		m_channel2.disableTimerCycle();
-		m_channel3.disableTimerCycle();
-	}
-	if(((m_frameSequencerCounter % (frameSequencerTimer * 4)) == 0)) m_channel1.sweepCycle();
-	if((m_frameSequencerCounter % (frameSequencerTimer * 8)) == 0)
-	{
-		m_channel1.envelopeCycle();
-		m_channel2.envelopeCycle();
 		m_frameSequencerCounter = 0;
+		if(!(m_frameSequencerStep & 1))
+		{
+			m_channel1.disableTimerCycle();
+			m_channel2.disableTimerCycle();
+			m_channel3.disableTimerCycle();
+			m_channel4.disableTimerCycle();
+		}
+		if(m_frameSequencerCounter == 2 || m_frameSequencerCounter == 6) m_channel1.sweepCycle();
+		if(m_frameSequencerStep == 7)
+		{
+			m_channel1.envelopeCycle();
+			m_channel2.envelopeCycle();
+			m_channel4.envelopeCycle();
+		}
+		
+		constexpr uint8 maxFrameSequencerStep{7};
+		++m_frameSequencerStep;
+		m_frameSequencerStep &= 7;	
 	}
 	
 	if(!(m_audioControl & audioEnable)) return;
@@ -164,30 +174,38 @@ void APU::mCycle()
 	m_channel2.pushCycle();
 	m_channel3.pushCycle();
 	m_channel3.pushCycle();
+	m_channel4.pushCycle();
 
-	constexpr uint8 ch1Left{0b1'0000};
 	constexpr uint8 ch1Right{0b1};
-	constexpr uint8 ch2Left{0b10'0000};
 	constexpr uint8 ch2Right{0b10};
-	constexpr uint8 ch3Left{0b100'0000};
 	constexpr uint8 ch3Right{0b100};
+	constexpr uint8 ch4Right{0b1000};
+	constexpr uint8 ch1Left{0b1'0000};
+	constexpr uint8 ch2Left{0b10'0000};
+	constexpr uint8 ch3Left{0b100'0000};
+	constexpr uint8 ch4Left{0b1000'0000};
 
 	float ch1Sample{digitalToAnalog[m_channel1.getSample()]};
 	float ch2Sample{digitalToAnalog[m_channel2.getSample()]};
 	float ch3Sample{digitalToAnalog[m_channel3.getSample()]};
+	float ch4Sample{digitalToAnalog[m_channel4.getSample()]};
 
-	float leftSample{((ch1Sample * ((m_audioPanning & ch1Left) >> 4)) +
-					  (ch2Sample * ((m_audioPanning & ch2Left) >> 5)) +
-					  (ch3Sample * ((m_audioPanning & ch3Left) >> 6)))  
-					  / 3.f};
-	
 	float rightSample{((ch1Sample * (m_audioPanning & ch1Right)) +
 					   (ch2Sample * ((m_audioPanning & ch2Right) >> 1)) +
-					   (ch3Sample * ((m_audioPanning & ch3Right) >> 2)))
-					   / 3.f};
+					   (ch3Sample * ((m_audioPanning & ch3Right) >> 2)) +
+					   (ch4Sample * ((m_audioPanning & ch4Right) >> 3)))
+					   / 4.f};
+	
+	float leftSample{((ch1Sample * ((m_audioPanning & ch1Left) >> 4)) +
+					  (ch2Sample * ((m_audioPanning & ch2Left) >> 5)) +
+					  (ch3Sample * ((m_audioPanning & ch3Left) >> 6)) +
+					  (ch4Sample * ((m_audioPanning & ch4Left) >> 7)))  
+					  / 4.f};
 
+	leftSample = ch4Sample;
+	rightSample = ch4Sample;
+	rightSample *= .5f;
 	leftSample *= .5f;
-    rightSample *= .5f;
     m_samplesBuffer.push_back(leftSample);
     m_samplesBuffer.push_back(rightSample);
 }

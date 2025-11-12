@@ -1,6 +1,4 @@
 #include "core/apu/wave_channel.h"
-#include "wave_channel.h"
-#include <iostream>
 
 channels::WaveChannel::WaveChannel()
     : m_dacEnable{}
@@ -44,7 +42,8 @@ uint8 channels::WaveChannel::getSample()
 
 void channels::WaveChannel::pushCycle()
 {
-    if(--m_pushTimer > 0) return;
+    if(m_pushTimer == 0) return;
+    else if(--m_pushTimer > 0) return;
 
     setPushTimer();
     if(m_waveIndex & 1) m_sample = m_waveRam[(m_waveIndex - 1) / 2] & 0xF;
@@ -109,20 +108,19 @@ void channels::WaveChannel::setPeriodLow(const uint8 value)
 void channels::WaveChannel::setPeriodHighAndControl(const uint8 value)
 {
     m_periodHighAndControl = value;
-    if(constexpr uint8 triggerBit{0x80}; m_periodHighAndControl & triggerBit) trigger();
+    if(constexpr uint8 triggerBit{0x80}; m_periodHighAndControl & triggerBit && (m_dacEnable & dacBit)) trigger();
 }
 
 void channels::WaveChannel::setWaveRam(const uint8 value, uint8 index)
 {
     //todo: write also if this index is being used this cycle
     if(m_enabled) return;
-    //std::cout << "wave ram written to, index: " << (int)index << "\nvalue: " << (int)value << "\n\n";
     m_waveRam[index] = value;
 }
 
 void channels::WaveChannel::trigger()
 {
-    m_enabled = m_dacEnable & dacBit;
+    m_enabled = true;
     if(m_disableTimer == 0) m_disableTimer = maxDisableTimerDuration;
     setPushTimer();
     m_waveIndex = 0;

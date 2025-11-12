@@ -3,6 +3,7 @@
 #include "core/apu/audio_thread.h"
 #include "core/apu/pulse_channels.h"
 #include "core/apu/wave_channel.h"
+#include "core/apu/noise_channel.h"
 #include <array>
 #include <queue>
 #include <vector>
@@ -49,14 +50,6 @@ public:
 private:
 	friend class AudioThread;
 
-	struct Channel4
-	{
-		uint8 timer{0xFF};
-		uint8 volumeAndEnvelope{0};
-		uint8 frequencyAndRandomness{0};
-		uint8 control{0xBF};
-	};
-
 	void clearRegisters();
 	bool clearedWhenOff(Index reg) const;
 	void mCycle();
@@ -86,12 +79,13 @@ private:
 	std::vector<float> m_samplesBuffer;
 	std::vector<float> m_outSamples;
 	uint16 m_frameSequencerCounter;
+	uint8 m_frameSequencerStep;
 	uint16 m_nextCycleToExecute;
 
 	channels::SweepPulseChannel m_channel1;
 	channels::PulseChannel m_channel2;
 	channels::WaveChannel m_channel3;
-	Channel4 m_channel4;
+	channels::NoiseChannel m_channel4;
 
 	uint8 m_audioVolume;
 	uint8 m_audioPanning;
