@@ -27,14 +27,11 @@ protected:
 	PulseChannelBase();
 	
 	virtual void trigger();
+	void disable();
 	uint16 getPeriod() const;
 	void setPeriod(const uint16 value);
 	
 	static constexpr uint16 maxPeriod{0x7FF};
-	
-	bool m_enabled;
-	uint8 m_volume;
-	uint8 m_envelopeTimer;
 private:
 	void setPushTimer();
 
@@ -61,10 +58,14 @@ private:
 	uint8 m_periodLow;
 	uint8 m_periodHighAndControl;
 
+	bool m_enabled;
 	uint8 m_sample;
 	uint16 m_pushTimer;
 	uint8 m_disableTimer;
 	uint8 m_dutyStep;
+	uint8 m_volume;
+	uint8 m_envelopeTarget;
+	uint8 m_envelopeTimer;
 	bool m_envelopeDir;
 };
 

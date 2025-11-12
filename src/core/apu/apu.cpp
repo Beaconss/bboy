@@ -148,14 +148,14 @@ void APU::mCycle()
 	if(++m_frameSequencerCounter == frameSequencerTarget)
 	{
 		m_frameSequencerCounter = 0;
-		if(!(m_frameSequencerStep & 1))
+		if((m_frameSequencerStep % 2) == 0)
 		{
 			m_channel1.disableTimerCycle();
 			m_channel2.disableTimerCycle();
 			m_channel3.disableTimerCycle();
 			m_channel4.disableTimerCycle();
 		}
-		if(m_frameSequencerCounter == 2 || m_frameSequencerCounter == 6) m_channel1.sweepCycle();
+		if(m_frameSequencerStep == 2 || m_frameSequencerStep == 6) m_channel1.sweepCycle();
 		if(m_frameSequencerStep == 7)
 		{
 			m_channel1.envelopeCycle();
@@ -202,10 +202,8 @@ void APU::mCycle()
 					  (ch4Sample * ((m_audioPanning & ch4Left) >> 7)))  
 					  / 4.f};
 
-	leftSample = ch4Sample;
-	rightSample = ch4Sample;
-	rightSample *= .5f;
-	leftSample *= .5f;
+	rightSample *= .8f;
+	leftSample *= .8f;
     m_samplesBuffer.push_back(leftSample);
     m_samplesBuffer.push_back(rightSample);
 }

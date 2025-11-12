@@ -44,6 +44,7 @@ private:
     uint32 m_pushTimer;
     uint8 m_disableTimer;
     uint8 m_volume;
+    uint8 m_envelopeTarget;
     uint8 m_envelopeTimer;
     bool m_envelopeDir;
 };

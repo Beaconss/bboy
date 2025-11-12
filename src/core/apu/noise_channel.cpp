@@ -13,6 +13,7 @@ channels::NoiseChannel::NoiseChannel()
     , m_pushTimer{1}
     , m_disableTimer{1}
     , m_volume{}
+    , m_envelopeTarget{}
     , m_envelopeTimer{}
 {}
 
@@ -37,7 +38,7 @@ void channels::NoiseChannel::pushCycle()
         m_lfsr = (m_lfsr & 0xFF7F) | (result << 7);
     }
     m_lfsr >>= 1;
-    m_sample = m_lfsr & 1;
+    m_sample = (m_lfsr & 1);
 }
 
 void channels::NoiseChannel::disableTimerCycle()
@@ -52,6 +53,7 @@ void channels::NoiseChannel::envelopeCycle()
     if(m_envelopeTimer == 0  || !(m_volumeAndEnvelope & envelopeTargetBits)) return;
 	if(--m_envelopeTimer > 0) return;
 
+    m_envelopeTimer = m_envelopeTarget;
 	uint8 newVolume{m_volume};
 	if(m_envelopeDir) ++newVolume;
 	else --newVolume;
@@ -136,13 +138,14 @@ void channels::NoiseChannel::trigger()
     if(m_disableTimer == 0) m_disableTimer = maxDisableTimerDuration;
     constexpr uint8 volumeBits{0xF0};
     m_volume = (m_volumeAndEnvelope & volumeBits) >> 4;
-	m_envelopeTimer = m_volumeAndEnvelope & envelopeTargetBits;
+    m_envelopeTarget = m_volumeAndEnvelope & envelopeTargetBits;
+	m_envelopeTimer = m_envelopeTarget;
 	m_envelopeDir = static_cast<bool>(m_volumeAndEnvelope & envelopeDirBit);
     
-    if(m_volumeAndEnvelope == 0xC6)
+    /*if(m_volumeAndEnvelope == 0xC6)
     {
         std::cout << "VOLUME: " << (int)m_volume 
                 << "\nENVELOPE TIMER: " << (int)m_envelopeTimer
                 << "\nENVELOPE DIR: " << (m_envelopeDir ? "POSITIVE" : "NEGATIVE") << '\n';
-    }
+    }*/
 } 
