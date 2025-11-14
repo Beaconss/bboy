@@ -35,7 +35,7 @@ MMU::MMU(Gameboy& gb)
 {
 	reset();
 	m_cartridgeSlot.loadCartridge("../roms/Legend of Zelda, The - Link's Awakening (USA, Europe) (Rev 2).gb");
-	//m_cartridgeSlot.loadCartridge("../test/apu/04-sweep.gb");
+	//m_cartridgeSlot.loadCartridge("../test/acceptance/bits/reg_f.gb");
 	//m_cartridgeSlot.loadCartridge("../../test/acceptance/ppu/stat_lyc_onoff.gb");
 }
 

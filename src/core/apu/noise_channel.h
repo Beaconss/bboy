@@ -1,5 +1,6 @@
 #pragma once
 #include "type_alias.h"
+#include "core/apu/envelope_component.h"
 
 namespace channels
 {
@@ -10,13 +11,13 @@ public:
 
     void clearRegisters();
     void pushCycle();
-    void disableTimerCycle();
     void envelopeCycle();
+    void disableTimerCycle();
 
     bool isEnabled() const;
     uint8 getSample() const;
+    const channels::EnvelopeComponent& getEnvelope() const;
 
-    uint8 getVolumeAndEnvelope() const;
     uint8 getFrequencyAndRandomness() const;
     uint8 getControl() const;
 
@@ -29,12 +30,8 @@ private:
     void trigger();
 
     static constexpr int maxDisableTimerDuration{64};
-	static constexpr uint8 envelopeTargetBits{0x7};
-	static constexpr uint8 envelopeDirBit{0x8};
-	static constexpr uint8 dacBits{0xF0 | envelopeDirBit};
 
     uint8 m_timer;
-	uint8 m_volumeAndEnvelope;
 	uint8 m_frequencyAndRandomness;
 	uint8 m_control;
 
@@ -43,9 +40,6 @@ private:
     uint8 m_sample;
     uint32 m_pushTimer;
     uint8 m_disableTimer;
-    uint8 m_volume;
-    uint8 m_envelopeTarget;
-    uint8 m_envelopeTimer;
-    bool m_envelopeDir;
+    channels::EnvelopeComponent m_envelope;
 };
 }

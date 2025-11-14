@@ -1,10 +1,9 @@
 #include "core/apu/noise_channel.h"
 #include <iostream>
-#include <cmath>
+#include <array>
 
 channels::NoiseChannel::NoiseChannel()
     : m_timer{0xFF}
-    , m_volumeAndEnvelope{}
     , m_frequencyAndRandomness{}
     , m_control{0xBF}
     , m_enabled{}
@@ -12,14 +11,12 @@ channels::NoiseChannel::NoiseChannel()
     , m_sample{}
     , m_pushTimer{1}
     , m_disableTimer{1}
-    , m_volume{}
-    , m_envelopeTarget{}
-    , m_envelopeTimer{}
+    , m_envelope{}
 {}
 
 void channels::NoiseChannel::clearRegisters()
 {
-    m_volumeAndEnvelope = 0;
+    m_envelope.setVolumeAndEnvelope(0);
     m_frequencyAndRandomness = 0;
     m_control = 0;
 }
@@ -41,25 +38,16 @@ void channels::NoiseChannel::pushCycle()
     m_sample = (m_lfsr & 1);
 }
 
+void channels::NoiseChannel::envelopeCycle()
+{
+    m_envelope.cycle();
+}
+
 void channels::NoiseChannel::disableTimerCycle()
 {
     if(constexpr uint8 disableTimerBit{0b0100'0000}; !(m_control & disableTimerBit) || m_disableTimer == 0) return; 
 	
 	if(--m_disableTimer == 0) m_enabled = false;
-}
-
-void channels::NoiseChannel::envelopeCycle()
-{
-    if(m_envelopeTimer == 0  || !(m_volumeAndEnvelope & envelopeTargetBits)) return;
-	if(--m_envelopeTimer > 0) return;
-
-    m_envelopeTimer = m_envelopeTarget;
-	uint8 newVolume{m_volume};
-	if(m_envelopeDir) ++newVolume;
-	else --newVolume;
-	
-	constexpr uint8 maxVolume{0xF};
-	if(newVolume <= maxVolume) m_volume = newVolume;
 }
 
 bool channels::NoiseChannel::isEnabled() const
@@ -69,13 +57,13 @@ bool channels::NoiseChannel::isEnabled() const
 
 uint8 channels::NoiseChannel::getSample() const
 {
-    if(m_volumeAndEnvelope & dacBits) return m_sample * m_enabled * m_volume;
+    if(m_envelope.dac()) return m_sample * m_enabled * m_envelope.getVolume();
     else return 7;
 }
 
-uint8 channels::NoiseChannel::getVolumeAndEnvelope() const
+const channels::EnvelopeComponent& channels::NoiseChannel::getEnvelope() const
 {
-    return m_volumeAndEnvelope;
+    return m_envelope;
 }
 
 uint8 channels::NoiseChannel::getFrequencyAndRandomness() const
@@ -97,8 +85,8 @@ void channels::NoiseChannel::setTimer(const uint8 value)
 
 void channels::NoiseChannel::setVolumeAndEnvelope(const uint8 value)
 {
-    m_volumeAndEnvelope = value;
-    if(!(m_volumeAndEnvelope & dacBits)) m_enabled = false;
+    m_envelope.setVolumeAndEnvelope(value);
+    if(!(m_envelope.dac())) m_enabled = false;
 }
 
 void channels::NoiseChannel::setFrequencyAndRandomness(const uint8 value)
@@ -110,7 +98,7 @@ void channels::NoiseChannel::setFrequencyAndRandomness(const uint8 value)
 void channels::NoiseChannel::setControl(const uint8 value)
 {
     m_control = value;
-    if(constexpr uint8 triggerBit{0x80}; m_control & triggerBit && (m_volumeAndEnvelope & dacBits)) trigger();
+    if(constexpr uint8 triggerBit{0x80}; m_control & triggerBit && m_envelope.dac()) trigger();
 }
 
 void channels::NoiseChannel::setPushTimer()
@@ -123,12 +111,11 @@ void channels::NoiseChannel::setPushTimer()
         return;
     }
 
-    constexpr uint8 dividerBits{3};
-    uint8 divider{static_cast<uint8>(m_frequencyAndRandomness & dividerBits)};
-
-    constexpr uint32 hz{0x40000};
-    if(divider > 0) m_pushTimer = hz / pow(divider * 2, shift); 
-    else m_pushTimer = hz;
+    constexpr std::array<uint8, 8> dividerValues{8, 16, 32, 48, 64, 80, 96, 112};
+    constexpr uint8 dividerBits{0x7};
+    uint8 divider{dividerValues[m_frequencyAndRandomness & dividerBits]};
+    
+    m_pushTimer = divider << shift;
 }
 
 void channels::NoiseChannel::trigger()
@@ -137,15 +124,5 @@ void channels::NoiseChannel::trigger()
     m_lfsr = 0;
     if(m_disableTimer == 0) m_disableTimer = maxDisableTimerDuration;
     constexpr uint8 volumeBits{0xF0};
-    m_volume = (m_volumeAndEnvelope & volumeBits) >> 4;
-    m_envelopeTarget = m_volumeAndEnvelope & envelopeTargetBits;
-	m_envelopeTimer = m_envelopeTarget;
-	m_envelopeDir = static_cast<bool>(m_volumeAndEnvelope & envelopeDirBit);
-    
-    /*if(m_volumeAndEnvelope == 0xC6)
-    {
-        std::cout << "VOLUME: " << (int)m_volume 
-                << "\nENVELOPE TIMER: " << (int)m_envelopeTimer
-                << "\nENVELOPE DIR: " << (m_envelopeDir ? "POSITIVE" : "NEGATIVE") << '\n';
-    }*/
+    m_envelope.trigger();
 } 

@@ -55,19 +55,7 @@ private:
 	void mCycle();
 	void catchUp();
 	void finishFrame();
-	void putAudio();
-
-	static constexpr auto digitalToAnalog{[]
-										{
-											constexpr size_t size{16};
-											std::array<float, size> out{};
-											constexpr float conversionStep{2.f / (size - 1)};
-											for(size_t i{}; i < size; ++i)
-											{
-												out[i] = 1.f - (conversionStep * i);
-											}
-											return out;
-										}()};
+	void pushAudio();
 
 	static constexpr int mCyclesPerFrame{17556};
 	static constexpr int frequency{44100};

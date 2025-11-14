@@ -3,7 +3,6 @@
 
 channels::PulseChannelBase::PulseChannelBase()
     : m_timerAndDuty{}
-	, m_volumeAndEnvelope{}
 	, m_periodLow{0xFF}
 	, m_periodHighAndControl{}
 	, m_enabled{}
@@ -11,10 +10,7 @@ channels::PulseChannelBase::PulseChannelBase()
 	, m_pushTimer{static_cast<uint16>((maxPeriod + 1) - getPeriod())}
 	, m_disableTimer{1}
 	, m_dutyStep{}
-	, m_volume{}
-	, m_envelopeTarget{}
-	, m_envelopeTimer{}
-	, m_envelopeDir{}
+	, m_envelope{}
 {
 	trigger();
 }
@@ -41,7 +37,7 @@ channels::PulseChannel::PulseChannel()
 
 void channels::PulseChannelBase::clearRegisters()
 {
-    m_volumeAndEnvelope = 0;
+    m_envelope.setVolumeAndEnvelope(0);
 	m_periodLow = 0;
 	m_periodHighAndControl = 0;
 	m_dutyStep = 0;
@@ -59,25 +55,16 @@ void channels::PulseChannelBase::pushCycle()
 	m_dutyStep &= maxDutyStep;
 }
 
+void channels::PulseChannelBase::envelopeCycle()
+{
+	m_envelope.cycle();
+}
+
 void channels::PulseChannelBase::disableTimerCycle()
 {
 	if(!(m_periodHighAndControl & disableTimerBit) || m_disableTimer == 0) return; 
 	
 	if(--m_disableTimer == 0) disable();
-}
-
-void channels::PulseChannelBase::envelopeCycle()
-{
-	if(m_envelopeTimer == 0  || !(m_volumeAndEnvelope & envelopeTargetBits)) return;
-	else if(--m_envelopeTimer > 0) return;
-
-	m_envelopeTimer = m_envelopeTarget;
-	uint8 newVolume{m_volume};
-	if(m_envelopeDir) ++newVolume;
-	else --newVolume;
-	
-	constexpr uint8 maxVolume{0xF};
-	if(newVolume <= maxVolume) m_volume = newVolume;
 }
 
 bool channels::PulseChannelBase::isEnabled() const
@@ -87,18 +74,18 @@ bool channels::PulseChannelBase::isEnabled() const
 
 uint8 channels::PulseChannelBase::getSample() const
 {
-    if(m_volumeAndEnvelope & dacBits) return m_sample * m_enabled * m_volume;
+    if(m_envelope.dac()) return m_sample * m_enabled * m_envelope.getVolume();
     else return 7;
+}
+
+const channels::EnvelopeComponent& channels::PulseChannelBase::getEnvelope() const
+{
+	return m_envelope;
 }
 
 uint8 channels::PulseChannelBase::getTimerAndDuty() const
 {
     return m_timerAndDuty | 0b0011'1111;
-}
-
-uint8 channels::PulseChannelBase::getVolumeAndEnvelope() const
-{
-    return m_volumeAndEnvelope;
 }
 
 uint8 channels::PulseChannelBase::getPeriodHighAndControl() const
@@ -115,8 +102,8 @@ void channels::PulseChannelBase::setTimerAndDuty(const uint8 value)
 
 void channels::PulseChannelBase::setVolumeAndEnvelope(const uint8 value)
 {
-	m_volumeAndEnvelope = value;
-	if(!(m_volumeAndEnvelope & dacBits)) disable();
+	m_envelope.setVolumeAndEnvelope(value);
+	if(!(m_envelope.dac())) disable();
 }
 
 void channels::PulseChannelBase::setPeriodLow(const uint8 value)
@@ -127,7 +114,7 @@ void channels::PulseChannelBase::setPeriodLow(const uint8 value)
 void channels::PulseChannelBase::setPeriodHighAndControl(const uint8 value)
 {
 	m_periodHighAndControl = value;
-	if(m_periodHighAndControl & triggerBit && (m_volumeAndEnvelope & dacBits)) trigger();
+	if(m_periodHighAndControl & triggerBit && m_envelope.dac()) trigger();
 }
 
 void channels::PulseChannelBase::trigger()
@@ -135,17 +122,7 @@ void channels::PulseChannelBase::trigger()
 	m_enabled = true;
 	setPushTimer();
 	if(m_disableTimer == 0) m_disableTimer = maxDisableTimerDuration; 
-	m_volume = (m_volumeAndEnvelope & volumeBits) >> 4;
-	m_envelopeTarget = m_volumeAndEnvelope & envelopeTargetBits;
-	m_envelopeTimer = m_envelopeTarget;
-	m_envelopeDir = static_cast<bool>(m_volumeAndEnvelope & envelopeDirBit);
-
-	/*if((m_volumeAndEnvelope & 0xF0) == 0xA0)
-    {
-        std::cout << "INITIAL VOLUME: " << (int)m_volume
-                << "\nENVELOPE TIMER: " << (int)m_envelopeTimer
-                << "\nENVELOPE DIR: " << (m_envelopeDir ? "POSITIVE" : "NEGATIVE") << "\n\n";
-    }*/
+	m_envelope.trigger();
 }
 
 void channels::PulseChannelBase::disable()

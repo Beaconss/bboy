@@ -62,17 +62,17 @@ uint8 APU::read(const Index index, uint8 waveRamIndex)
 	{
 	case ch1Sw: return m_channel1.getSweep();
 	case ch1TimDuty: return m_channel1.getTimerAndDuty();
-	case ch1VolEnv: return m_channel1.getVolumeAndEnvelope();
+	case ch1VolEnv: return m_channel1.getEnvelope().getVolumeAndEnvelope();
 	case ch1PeHighCtrl: return m_channel1.getPeriodHighAndControl();
 	case ch2TimDuty: return m_channel2.getTimerAndDuty();
-	case ch2VolEnv: return m_channel2.getVolumeAndEnvelope();
+	case ch2VolEnv: return m_channel2.getEnvelope().getVolumeAndEnvelope();
 	case ch2PeHighCtrl: return m_channel2.getPeriodHighAndControl();
 
 	case ch3DacEn: return m_channel3.getDacEnable();
 	case ch3Vol: return m_channel3.getOutLevel();
 	case ch3PeHighCtrl: return m_channel3.getPeriodHighAndControl();
 
-	case ch4VolEnv: return m_channel4.getVolumeAndEnvelope();
+	case ch4VolEnv: return m_channel4.getEnvelope().getVolumeAndEnvelope();
 	case ch4FreRand: return m_channel4.getFrequencyAndRandomness();
 	case ch4Ctrl: return m_channel4.getControl();
 
@@ -147,6 +147,7 @@ void APU::mCycle()
 	constexpr int frameSequencerTarget{2048}; //in m-cycles
 	if(++m_frameSequencerCounter == frameSequencerTarget)
 	{
+		//TODO: replace magic numbers
 		m_frameSequencerCounter = 0;
 		if((m_frameSequencerStep % 2) == 0)
 		{
@@ -176,6 +177,23 @@ void APU::mCycle()
 	m_channel3.pushCycle();
 	m_channel4.pushCycle();
 
+	static constexpr auto digitalToAnalog{[]
+									{
+										constexpr size_t size{16};
+										std::array<float, size> out{};
+										constexpr float conversionStep{2.f / (size - 1)};
+										for(size_t i{}; i < size; ++i)
+										{
+											out[i] = 1.f - (conversionStep * i);
+										}
+										return out;
+									}()};
+
+	float ch1Sample{digitalToAnalog[m_channel1.getSample()]};
+	float ch2Sample{digitalToAnalog[m_channel2.getSample()]};
+	float ch3Sample{digitalToAnalog[m_channel3.getSample()]};
+	float ch4Sample{digitalToAnalog[m_channel4.getSample()]};
+
 	constexpr uint8 ch1Right{0b1};
 	constexpr uint8 ch2Right{0b10};
 	constexpr uint8 ch3Right{0b100};
@@ -184,11 +202,6 @@ void APU::mCycle()
 	constexpr uint8 ch2Left{0b10'0000};
 	constexpr uint8 ch3Left{0b100'0000};
 	constexpr uint8 ch4Left{0b1000'0000};
-
-	float ch1Sample{digitalToAnalog[m_channel1.getSample()]};
-	float ch2Sample{digitalToAnalog[m_channel2.getSample()]};
-	float ch3Sample{digitalToAnalog[m_channel3.getSample()]};
-	float ch4Sample{digitalToAnalog[m_channel4.getSample()]};
 
 	float rightSample{((ch1Sample * (m_audioPanning & ch1Right)) +
 					   (ch2Sample * ((m_audioPanning & ch2Right) >> 1)) +
@@ -204,6 +217,23 @@ void APU::mCycle()
 
 	rightSample *= .8f;
 	leftSample *= .8f;
+
+	constexpr auto volumeAdjuster{[]
+							{
+								constexpr size_t size{8};
+								std::array<float, size> out;
+								constexpr float step{1.f / size};
+								for(size_t i{}; i < size; ++i)
+								{
+									out[i] = step * (i + 1);
+								}
+								return out;
+							}()};
+	
+	constexpr uint8 volumeLeftBits{0x70};
+	leftSample *= volumeAdjuster[(m_audioVolume & volumeLeftBits) >> 4];
+	constexpr uint8 volumeRightBits{0x7};
+	rightSample *= volumeAdjuster[m_audioVolume & volumeRightBits];
     m_samplesBuffer.push_back(leftSample);
     m_samplesBuffer.push_back(rightSample);
 }
@@ -219,16 +249,18 @@ void APU::finishFrame()
 {
 	for(int i{m_nextCycleToExecute}; i <= mCyclesPerFrame; ++i) mCycle();
 	m_nextCycleToExecute = 1;
-	putAudio();
+	pushAudio();
 }
 
-void APU::putAudio()
+void APU::pushAudio()
 {
 	constexpr int target{static_cast<int>(((mCyclesPerFrame * 59.7) / frequency) + 1)};
+	int samplesQueued{SDL_GetAudioStreamQueued(m_audioStream)};
+	int adjustedTarget{target + static_cast<int>(samplesQueued > 6000)}; //6k should be safe
 	int counter{};
 	for(size_t i{1}; i < mCyclesPerFrame; ++i)
 	{
-		if(i % target == 0)	
+		if(i % adjustedTarget == 0)	
 		{
 			m_outSamples.push_back(m_samplesBuffer[counter]);
 			m_outSamples.push_back(m_samplesBuffer[counter + 1]);
@@ -236,7 +268,8 @@ void APU::putAudio()
 		counter += 2;
 	}
 	
-	if(SDL_GetAudioStreamQueued(m_audioStream) > frequency) SDL_ClearAudioStream(m_audioStream);
+	std::cout << samplesQueued << '\n';
+	if(samplesQueued > (frequency / 2)) SDL_ClearAudioStream(m_audioStream);
 	SDL_PutAudioStreamData(m_audioStream, m_outSamples.data(), static_cast<int>(m_outSamples.size() * sizeof(float)));
 
 	m_samplesBuffer.clear();

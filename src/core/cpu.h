@@ -214,14 +214,12 @@ private:
 	void (CPU::*m_currentInstr)(); //pointer to a CPU function that returns void and take no parameters called m_currentInstr
 	uint8 m_cycleCounter;
 
-	//interrupt things
 	bool m_ime; //interrupt enabler
 	bool m_imeEnableNextCycle;
-	bool m_isHalted;
+	bool m_halted;
 	uint8 m_pendingInterrupts;
 	uint8 m_interruptIndex;
 
-	//register file:
 	uint16 m_pc;
 	uint16 m_sp;
 	std::array<uint8, 8> m_registers;

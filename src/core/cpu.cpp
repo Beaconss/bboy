@@ -10,7 +10,7 @@ CPU::CPU(MMU& mmu)
 	, m_cycleCounter{}
 	, m_ime{}
 	, m_imeEnableNextCycle{}
-	, m_isHalted{}
+	, m_halted{}
 	, m_pendingInterrupts{}
 	, m_interruptIndex{}
 	, m_pc{}
@@ -28,7 +28,7 @@ void CPU::reset()
 	endInstruction();
 	m_ime = false;
 	m_imeEnableNextCycle = false;
-	m_isHalted = false;
+	m_halted = false;
 	m_pendingInterrupts = 0;
 	m_interruptIndex = 0;
 	m_pc = 0x100;
@@ -48,7 +48,7 @@ void CPU::mCycle()
 {
 	++m_cycleCounter;//since instructions reset m_cycleCounter to 0 increment before the cpu cycle so its 1, then if the instruction is multi-cycle 2, 3...
 	if(!m_currentInstr) handleInterrupts();
-	if(m_isHalted) 
+	if(m_halted) 
 	{
 		endInstruction();
 		return;
@@ -71,24 +71,22 @@ void CPU::mCycle()
 void CPU::handleInterrupts()
 {
 	m_pendingInterrupts = (m_bus.read(hardwareReg::IF, MMU::Component::cpu) & m_bus.read(hardwareReg::IE, MMU::Component::cpu)) & 0b1'1111; //only bits 0-4 are used
-	if(m_pendingInterrupts)
+	if(!m_pendingInterrupts) return;
+	
+	m_halted = false; //even if m_ime is false exit halt
+	if(!m_ime) return;
+	
+	for(int i = 0; i <= 4; ++i)
 	{
-		m_isHalted = false; //even if m_ime is false exit halt
-		if(m_ime)
+		if(m_pendingInterrupts & (1 << i))
 		{
-			for(int i = 0; i <= 4; ++i)
-			{
-				if(m_pendingInterrupts & (1 << i))
-				{
-					m_interruptIndex = i;
-					m_ime = false;
-					m_imeEnableNextCycle = false;
-					m_currentInstr = &CPU::interruptRoutine;
-					break;
-				}
-			}
+			m_interruptIndex = i;
+			m_ime = false;
+			m_imeEnableNextCycle = false;
+			m_currentInstr = &CPU::interruptRoutine;
+			break;
 		}
-	}
+	}	
 }
 
 void CPU::interruptRoutine()
@@ -2416,7 +2414,7 @@ void CPU::RST_n()
 
 void CPU::HALT()
 {
-	m_isHalted = true;
+	m_halted = true;
 	//if(!m_ime && (m_bus.read(hardwareReg::IF) & m_bus.read(hardwareReg::IE)) != 0) ++m_pc; //HALT bug(its not correct)
 	m_cycleCounter = 0;
 }
@@ -2424,6 +2422,7 @@ void CPU::HALT()
 void CPU::STOP()
 {
 	//TODO
+	std::cout << "Stop instruction not implemented\n";
 	m_cycleCounter = 0;
 }
 

@@ -17,9 +17,9 @@ public:
 	void reset();
 	void frame();
 
-	void loadCartridge(const std::filesystem::path& filePath);
+	void openRom(const std::filesystem::path& filePath);
 	void hardReset();
-	void nextCartridge();
+	void nextRom();
 	bool hasCartridge();
 	uint16 currentCycle() const;
 

@@ -1,5 +1,6 @@
 #pragma once
 #include "type_alias.h"
+#include "core/apu/envelope_component.h"
 #include <array>
 
 namespace channels
@@ -9,14 +10,14 @@ class PulseChannelBase
 public:
 	virtual void clearRegisters();
 	void pushCycle();
-	void disableTimerCycle();
 	void envelopeCycle();
+	void disableTimerCycle();
 
 	bool isEnabled() const;
 	uint8 getSample() const;
 	
+	const channels::EnvelopeComponent& getEnvelope() const;
 	uint8 getTimerAndDuty() const;
-	uint8 getVolumeAndEnvelope() const;
 	uint8 getPeriodHighAndControl() const;
 
 	void setTimerAndDuty(const uint8 value);
@@ -47,14 +48,9 @@ private:
 		{0,1,1,1,1,1,1,0},
 	}};
 	static constexpr uint8 disableTimerBit{0b0100'0000};
-	static constexpr uint8 volumeBits{0xF0};
-	static constexpr uint8 envelopeTargetBits{0x7};
-	static constexpr uint8 envelopeDirBit{0x8};
-	static constexpr uint8 dacBits{volumeBits | envelopeDirBit};
 	static constexpr uint8 triggerBit{0x80}; 
 
 	uint8 m_timerAndDuty;
-	uint8 m_volumeAndEnvelope;
 	uint8 m_periodLow;
 	uint8 m_periodHighAndControl;
 
@@ -63,10 +59,7 @@ private:
 	uint16 m_pushTimer;
 	uint8 m_disableTimer;
 	uint8 m_dutyStep;
-	uint8 m_volume;
-	uint8 m_envelopeTarget;
-	uint8 m_envelopeTimer;
-	bool m_envelopeDir;
+	channels::EnvelopeComponent m_envelope;
 };
 
 class SweepPulseChannel : public PulseChannelBase

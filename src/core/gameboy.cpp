@@ -43,7 +43,7 @@ void Gameboy::mCycle()
 	m_ppu->mCycle();
 }
 
-void Gameboy::loadCartridge(const std::filesystem::path& filePath)
+void Gameboy::openRom(const std::filesystem::path& filePath)
 {
 	reset();
 	m_bus.getCartridgeSlot().loadCartridge(filePath);
@@ -55,7 +55,7 @@ void Gameboy::hardReset()
 	m_bus.getCartridgeSlot().reloadCartridge();
 }
 
-void Gameboy::nextCartridge()
+void Gameboy::nextRom()
 {
 	reset();
 	m_bus.nextCartridge();
