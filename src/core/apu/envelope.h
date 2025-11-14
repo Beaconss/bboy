@@ -3,10 +3,10 @@
 
 namespace channels
 {
-class EnvelopeComponent
+class Envelope
 {
 public:
-    EnvelopeComponent();
+    Envelope();
 
     void cycle();
 

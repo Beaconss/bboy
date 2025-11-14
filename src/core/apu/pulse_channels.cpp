@@ -78,7 +78,7 @@ uint8 channels::PulseChannelBase::getSample() const
     else return 7;
 }
 
-const channels::EnvelopeComponent& channels::PulseChannelBase::getEnvelope() const
+const channels::Envelope& channels::PulseChannelBase::getEnvelope() const
 {
 	return m_envelope;
 }

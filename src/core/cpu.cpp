@@ -11,6 +11,7 @@ CPU::CPU(MMU& mmu)
 	, m_ime{}
 	, m_imeEnableNextCycle{}
 	, m_halted{}
+	, m_haltBug{}
 	, m_pendingInterrupts{}
 	, m_interruptIndex{}
 	, m_pc{}
@@ -50,7 +51,7 @@ void CPU::mCycle()
 	if(!m_currentInstr) handleInterrupts();
 	if(m_halted) 
 	{
-		endInstruction();
+		m_cycleCounter = 0;
 		return;
 	}
 
@@ -136,6 +137,11 @@ void CPU::interruptRoutine()
 void CPU::fetch()
 {
 	m_ir = m_bus.read(m_pc++, MMU::Component::cpu);
+	if(m_haltBug)
+	{
+		--m_pc;
+		m_haltBug = false;
+	}
 }
 
 void CPU::execute()
@@ -2414,9 +2420,13 @@ void CPU::RST_n()
 
 void CPU::HALT()
 {
-	m_halted = true;
-	//if(!m_ime && (m_bus.read(hardwareReg::IF) & m_bus.read(hardwareReg::IE)) != 0) ++m_pc; //HALT bug(its not correct)
 	m_cycleCounter = 0;
+	if(!m_ime && ((m_bus.read(hardwareReg::IF, MMU::Component::cpu) & m_bus.read(hardwareReg::IE, MMU::Component::cpu)) & 0b1'1111))
+	{
+		m_haltBug = true;
+		return;
+	}
+	m_halted = true;
 }
 
 void CPU::STOP()

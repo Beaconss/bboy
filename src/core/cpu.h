@@ -217,6 +217,7 @@ private:
 	bool m_ime; //interrupt enabler
 	bool m_imeEnableNextCycle;
 	bool m_halted;
+	bool m_haltBug;
 	uint8 m_pendingInterrupts;
 	uint8 m_interruptIndex;
 

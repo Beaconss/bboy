@@ -1,6 +1,6 @@
-#include "core/apu/envelope_component.h"
+#include "core/apu/envelope.h"
 
-channels::EnvelopeComponent::EnvelopeComponent()
+channels::Envelope::Envelope()
     : m_volumeAndEnvelope{}
     , m_volume{}
     , m_target{}
@@ -8,7 +8,7 @@ channels::EnvelopeComponent::EnvelopeComponent()
     , m_dir{}
 {}
 
-void channels::EnvelopeComponent::cycle()
+void channels::Envelope::cycle()
 {
     if(m_timer == 0  || !(m_volumeAndEnvelope & targetBits)) return;
 	else if(--m_timer > 0) return;
@@ -22,28 +22,28 @@ void channels::EnvelopeComponent::cycle()
 	if(newVolume <= maxVolume) m_volume = newVolume;
 }
 
-uint8 channels::EnvelopeComponent::getVolumeAndEnvelope() const
+uint8 channels::Envelope::getVolumeAndEnvelope() const
 {
     return m_volumeAndEnvelope;
 }
 
-void channels::EnvelopeComponent::setVolumeAndEnvelope(const uint8 value)
+void channels::Envelope::setVolumeAndEnvelope(const uint8 value)
 {
     m_volumeAndEnvelope = value;
 }
 
-uint8 channels::EnvelopeComponent::getVolume() const
+uint8 channels::Envelope::getVolume() const
 {
     return m_volume;
 }
 
-bool channels::EnvelopeComponent::dac() const
+bool channels::Envelope::dac() const
 {
     constexpr uint8 dacBits{0xF8};
     return m_volumeAndEnvelope & dacBits;
 }
 
-void channels::EnvelopeComponent::trigger()
+void channels::Envelope::trigger()
 {
     constexpr uint8 volumeBits{0xF0};
     m_volume = (m_volumeAndEnvelope & volumeBits) >> 4;

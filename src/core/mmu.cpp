@@ -8,7 +8,7 @@ static std::vector<std::filesystem::path> fillCartridges()
 	std::vector<fs::path> cartridges{};
 	try
 	{
-		for(const auto& entry : fs::recursive_directory_iterator(fs::current_path() / "../roms")) 
+		for(const auto& entry : fs::recursive_directory_iterator(fs::current_path() / "../test")) 
 		{
 			if(entry.path().extension() == ".gb") cartridges.emplace_back(entry);
 		}
@@ -34,8 +34,9 @@ MMU::MMU(Gameboy& gb)
 	, m_dmaTransferEnableDelay{}
 {
 	reset();
-	m_cartridgeSlot.loadCartridge("../roms/Legend of Zelda, The - Link's Awakening (USA, Europe) (Rev 2).gb");
-	//m_cartridgeSlot.loadCartridge("../test/acceptance/bits/reg_f.gb");
+	m_cartridgeSlot.loadCartridge("../roms/Super Mario Land 2 - 6 Golden Coins (USA, Europe) (Rev 2).gb");
+	//m_cartridgeSlot.loadCartridge("../roms/Legend of Zelda, The - Link's Awakening (USA, Europe) (Rev 2).gb");
+	//m_cartridgeSlot.loadCartridge("../test/halt_bug.gb");
 	//m_cartridgeSlot.loadCartridge("../../test/acceptance/ppu/stat_lyc_onoff.gb");
 }
 
@@ -43,7 +44,7 @@ void MMU::reset()
 {
 	constexpr unsigned int kb64{0x10000};
 	m_memory.resize(kb64); //32 kbs are not used but its ok to have less overhead
-	std::fill(m_memory.begin(), m_memory.end(), 0);
+	std::fill(m_memory.begin(), m_memory.end(), 0xFF);
 	m_cartridgeSlot.reset();
 	m_externalBusBlocked = false;
 	m_vramBusBlocked = false;
@@ -108,7 +109,7 @@ uint8 MMU::read(const uint16 addr, const Component component) const
  	case TIMA: return m_gameboy.m_timers.getTima(); 
 	case TMA: return m_gameboy.m_timers.getTma();
 	case TAC: return m_gameboy.m_timers.getTac();
-	case IF: return m_memory[IF];
+	case IF: return m_memory[IF] | 0b1110'0000;
 	case CH1_SW: return m_gameboy.m_apu.read(APU::ch1Sw);
 	case CH1_TIM_DUTY: return m_gameboy.m_apu.read(APU::ch1TimDuty);
 	case CH1_VOL_ENV: return m_gameboy.m_apu.read(APU::ch1VolEnv);
@@ -147,7 +148,7 @@ uint8 MMU::read(const uint16 addr, const Component component) const
 	case OBP1: return m_gameboy.m_ppu->read(PPU::obp1);
 	case WY: return m_gameboy.m_ppu->read(PPU::wy);
 	case WX: return m_gameboy.m_ppu->read(PPU::wx);
-	case IE: return m_memory[IE];
+	case IE: return m_memory[IE] | 0b1110'0000;
 	default:
 	{
 		const bool addrInOam{addr >= oam.first && addr <= oam.second};
@@ -177,7 +178,7 @@ void MMU::write(const uint16 addr, const uint8 value, const Component component)
 	case TIMA: m_gameboy.m_timers.setTima(value); break;
 	case TMA: m_gameboy.m_timers.setTma(value); break;
 	case TAC: m_gameboy.m_timers.setTac(value); break;
-	case IF: m_memory[IF] = value | 0b1110'0000; break;
+	case IF: m_memory[IF] = value; break;
 	case CH1_SW: m_gameboy.m_apu.write(APU::ch1Sw, value); break;
 	case CH1_TIM_DUTY: m_gameboy.m_apu.write(APU::ch1TimDuty, value); break;
 	case CH1_VOL_ENV: m_gameboy.m_apu.write(APU::ch1VolEnv, value);	break;
@@ -223,7 +224,7 @@ void MMU::write(const uint16 addr, const uint8 value, const Component component)
 	case OBP1: m_gameboy.m_ppu->write(PPU::obp1, value); break;
 	case WY: m_gameboy.m_ppu->write(PPU::wy, value); break;
 	case WX: m_gameboy.m_ppu->write(PPU::wx, value); break;
-	case IE: m_memory[IE] = value | 0b1110'0000; break;
+	case IE: m_memory[IE] = value; break;
 	default: 
 	{
 		const bool addrInOam{addr >= oam.first && addr <= oam.second};

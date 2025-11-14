@@ -1,6 +1,6 @@
 #pragma once
 #include "type_alias.h"
-#include "core/apu/envelope_component.h"
+#include "core/apu/envelope.h"
 
 namespace channels
 {
@@ -16,7 +16,7 @@ public:
 
     bool isEnabled() const;
     uint8 getSample() const;
-    const channels::EnvelopeComponent& getEnvelope() const;
+    const channels::Envelope& getEnvelope() const;
 
     uint8 getFrequencyAndRandomness() const;
     uint8 getControl() const;
@@ -40,6 +40,6 @@ private:
     uint8 m_sample;
     uint32 m_pushTimer;
     uint8 m_disableTimer;
-    channels::EnvelopeComponent m_envelope;
+    channels::Envelope m_envelope;
 };
 }

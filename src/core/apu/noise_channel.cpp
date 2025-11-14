@@ -61,7 +61,7 @@ uint8 channels::NoiseChannel::getSample() const
     else return 7;
 }
 
-const channels::EnvelopeComponent& channels::NoiseChannel::getEnvelope() const
+const channels::Envelope& channels::NoiseChannel::getEnvelope() const
 {
     return m_envelope;
 }
