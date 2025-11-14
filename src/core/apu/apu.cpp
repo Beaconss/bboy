@@ -268,7 +268,6 @@ void APU::pushAudio()
 		counter += 2;
 	}
 	
-	std::cout << samplesQueued << '\n';
 	if(samplesQueued > (frequency / 2)) SDL_ClearAudioStream(m_audioStream);
 	SDL_PutAudioStreamData(m_audioStream, m_outSamples.data(), static_cast<int>(m_outSamples.size() * sizeof(float)));
 
