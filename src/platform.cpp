@@ -2,6 +2,7 @@
 #include "core/gameboy.h"
 #include <SDL3/SDL_opengl.h>
 #include <iostream>
+#include <future>
 
 Platform::Platform()
 	: m_running{true}
@@ -47,6 +48,9 @@ void Platform::mainLoop(Gameboy& gameboy)
             case SDL_EVENT_QUIT:
                 m_running = false;
                 break;
+            case SDL_EVENT_DROP_FILE:
+                gameboy.openRom(m_event.drop.data);
+                break;
             case SDL_EVENT_KEY_DOWN:
                 if(m_event.key.scancode == SDL_SCANCODE_SPACE) fpsLimit = !fpsLimit;
                 else if(m_event.key.scancode == SDL_SCANCODE_N) gameboy.nextRom();
@@ -55,9 +59,10 @@ void Platform::mainLoop(Gameboy& gameboy)
         }
 
         start = SDL_GetPerformanceCounter();
-   
+  
         if(gameboy.hasCartridge()) gameboy.frame();
         updateScreen(gameboy.getPPU().getLcdBuffer());
+        
         render();
             
         end = SDL_GetPerformanceCounter();

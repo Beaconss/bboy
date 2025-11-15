@@ -35,7 +35,7 @@ bool channels::WaveChannel::isEnabled()
 
 uint8 channels::WaveChannel::getSample()
 {
-    uint8 volume = (m_outLevel & volumeBits) >> 5; 
+    const uint8 volume = (m_outLevel & volumeBits) >> 5; 
     if(m_dacEnable & dacBit) return (m_enabled && (volume > 0)) ? (m_sample >> (volume - 1)) : 0;
     else return 7;
 }

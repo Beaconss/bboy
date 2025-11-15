@@ -42,6 +42,11 @@ void CartridgeSlot::reset()
 
 void CartridgeSlot::loadCartridge(const std::filesystem::path& filePath)
 {
+	if(filePath.extension() != ".gb")
+	{
+		std::cerr << "Invalid file extension " << filePath.extension() << '\n';
+		return;
+	}
 	m_cartridgeInfo.path = std::filesystem::absolute(filePath);
 	if(!loadRom())
 	{

@@ -8,7 +8,7 @@ static std::vector<std::filesystem::path> fillCartridges()
 	std::vector<fs::path> cartridges{};
 	try
 	{
-		for(const auto& entry : fs::recursive_directory_iterator(fs::current_path() / "../test")) 
+		for(const auto& entry : fs::recursive_directory_iterator(fs::current_path() / "../test/acceptance/ppu")) 
 		{
 			if(entry.path().extension() == ".gb") cartridges.emplace_back(entry);
 		}
@@ -21,7 +21,7 @@ static std::vector<std::filesystem::path> fillCartridges()
 	return cartridges;
 }
 
-std::vector<std::filesystem::path> cartridges{fillCartridges()};
+//std::vector<std::filesystem::path> cartridges{fillCartridges()};
 
 MMU::MMU(Gameboy& gb)
 	: m_gameboy{gb}
@@ -34,10 +34,10 @@ MMU::MMU(Gameboy& gb)
 	, m_dmaTransferEnableDelay{}
 {
 	reset();
-	m_cartridgeSlot.loadCartridge("../roms/Super Mario Land 2 - 6 Golden Coins (USA, Europe) (Rev 2).gb");
+	//m_cartridgeSlot.loadCartridge("../roms/Super Mario Land 2 - 6 Golden Coins (USA, Europe) (Rev 2).gb");
+	//m_cartridgeSlot.loadCartridge("../test/acceptance/ppu/intr_2_mode0_timing_sprites.gb");
 	//m_cartridgeSlot.loadCartridge("../roms/Legend of Zelda, The - Link's Awakening (USA, Europe) (Rev 2).gb");
 	//m_cartridgeSlot.loadCartridge("../test/halt_bug.gb");
-	//m_cartridgeSlot.loadCartridge("../../test/acceptance/ppu/stat_lyc_onoff.gb");
 }
 
 void MMU::reset()
@@ -94,7 +94,7 @@ CartridgeSlot& MMU::getCartridgeSlot()
 void MMU::nextCartridge()
 {
 	static int next{};
-	m_cartridgeSlot.loadCartridge(cartridges[next++]);
+	//m_cartridgeSlot.loadCartridge(cartridges[next++]);
 }
 
 uint8 MMU::read(const uint16 addr, const Component component) const

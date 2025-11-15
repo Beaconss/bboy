@@ -1,5 +1,5 @@
-#include "core/ppu/pixel_fetcher.h"
-#include "core/ppu/ppu.h"
+#include "pixel_fetcher.h"
+#include "ppu.h"
 #include "core/mmu.h"
 #include <iostream>
 
@@ -99,7 +99,6 @@ void PixelFetcher::pushToSpriteFifo(const PPU::Sprite sprite) //this has to be h
 
 void PixelFetcher::cycle()
 {
-	//drawingLog << "fetcher state:\n";
 	checkForWindow();
 	checkForSprite();
 
@@ -147,14 +146,13 @@ void PixelFetcher::cycle()
 							& tilemapSize))};
 
 			m_tileNumber = m_ppu.m_bus.read(m_tilemap + offset, MMU::Component::ppu);
-			//drawingLog << "	fetched tile number\n";
 		}
 		break;
 		case fetchTileDataLow:
 		{
-			if(m_ppu.m_lcdc & 0b10000) //bit 4 sets the fetching method for tile data
+			constexpr uint8 fetchMetod{0b1'0000};
+			if(m_ppu.m_lcdc & fetchMetod)
 			{
-				//8000 method
 				m_tileAddress = m_isFetchingWindow ?
 					0x8000 + (m_tileNumber * 16)
 					+ (2 * (m_windowLineCounter & 7))
@@ -165,7 +163,6 @@ void PixelFetcher::cycle()
 			}
 			else
 			{
-				//8800 method
 				m_tileAddress = m_isFetchingWindow ?
 					0x9000 + (static_cast<int8>(m_tileNumber) * 16)
 					+ (2 * (m_windowLineCounter & 7))
@@ -174,7 +171,6 @@ void PixelFetcher::cycle()
 					+ (2 * ((m_ppu.m_ly + m_ppu.m_scy) & 7));
 				m_tileDataLow = m_ppu.m_bus.read(m_tileAddress, MMU::Component::ppu);
 			}
-			//drawingLog << "	fetched tile data low\n";
 		}
 		break;
 		case fetchTileDataHigh:
@@ -184,32 +180,26 @@ void PixelFetcher::cycle()
 				m_backgroundCycleCounter = 0;
 				m_firstFetchCompleted = true;
 			}
-			//drawingLog << "	fetched tile data high\n";
 			break;
 		case pushToFifo:
 		{
-			if(!m_ppu.m_pixelFifoBackground.empty()) //if its not empty repeat this step until it is
-			{
-				//drawingLog << "	waiting for fifo to be empty\n";
-				break;
-			}
+			if(!m_ppu.m_pixelFifoBackground.empty()) break;
+			
 			pushToBackgroundFifo();
 			m_backgroundCycleCounter = 0;
-			//drawingLog << "	pixels pushed to background fifo\n";
 			break;
 		}
-		default: 
-			//drawingLog << "	sleeping\n";
-			break;
+		default: break;
 		}
 	}
 }
 
 void PixelFetcher::updateTilemap()
 {
-	//which background tilemap is used is determined at bit 6 for window and bit 3 for background
-	if(m_isFetchingWindow) m_tilemap = m_ppu.m_lcdc & 0b100'0000 ? 0x9C00 : 0x9800; 
-	else m_tilemap = m_ppu.m_lcdc & 0b1000 ? 0x9C00 : 0x9800;
+	constexpr uint8 windowTilemap{0b100'0000};
+	constexpr uint8 backgroundTilemap{0b1000};
+	if(m_isFetchingWindow) m_tilemap = m_ppu.m_lcdc & windowTilemap ? 0x9C00 : 0x9800; 
+	else m_tilemap = m_ppu.m_lcdc & backgroundTilemap ? 0x9C00 : 0x9800;
 }
 
 void PixelFetcher::pushToBackgroundFifo()
@@ -223,9 +213,13 @@ void PixelFetcher::pushToBackgroundFifo()
 	++m_tileX;
 }
 
-void PixelFetcher::checkForWindow()
+void PixelFetcher::checkWyLyCondition()
 {
 	if(m_ppu.m_wy == m_ppu.m_ly) m_wyLyCondition = true;
+}
+
+void PixelFetcher::checkForWindow()
+{
 	if((m_ppu.m_xPosition >= (m_ppu.m_wx - 7))
 		&& m_wyLyCondition
 		&& m_ppu.m_lcdc & 0b100000

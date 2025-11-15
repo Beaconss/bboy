@@ -1,4 +1,4 @@
-#include "core/ppu/ppu.h"
+#include "ppu.h"
 #include "hardware_registers.h"
 #include "core/mmu.h"
 #include <algorithm>
@@ -171,7 +171,10 @@ void PPU::write(const Index index, const uint8 value)
 		break;
 	case obp0: m_obp0 = value; break;
 	case obp1: m_obp1 = value; break;
-	case wy: m_wy = value; break;
+	case wy: 
+		m_wy = value; 
+		m_fetcher.checkWyLyCondition();
+		break;
 	case wx: m_wx = value; break;
 	}
 }
@@ -258,12 +261,8 @@ void PPU::drawingCycle()
 {
 	for(int i{0}; i < 4; ++i)
 	{
-		//++tCycle;
-		//drawingLog << "t-cycle: " << std::dec << tCycle << '\n';
-
 		m_fetcher.cycle();
 		tryToPushPixel();
-		//drawingLog << "\n\n";
 		m_oldBgp = 0;
 		if(m_xPosition == screenWidth)
 		{
@@ -272,8 +271,6 @@ void PPU::drawingCycle()
 			clearFifos();
 			m_spriteBuffer.clear();
 			updateMode(hBlank);
-			//tCycle = 80;
-			//drawingLog << '\n';
 			break;
 		}
 	}
@@ -281,7 +278,6 @@ void PPU::drawingCycle()
 
 void PPU::tryToPushPixel()
 {
-	//drawingLog << "pushing state:\n";
 	if(!m_pixelFifoBackground.empty() && m_fetcher.m_spriteFetchDelay == 0)
 	{
 		if(m_pixelsToDiscard == 0)
@@ -293,7 +289,7 @@ void PPU::tryToPushPixel()
 				pixel = m_pixelFifoSprite.front();
 				pixel.paletteValue = pixel.spritePalette ? m_obp1 : m_obp0;
 			}
-			else //background/window
+			else
 			{
 				pixel = m_pixelFifoBackground.front();
 				constexpr uint8 backgroundEnable{0b1};
@@ -302,20 +298,13 @@ void PPU::tryToPushPixel()
 			}
 
 			m_lcdBuffer[m_xPosition + screenWidth * m_ly] = colors[(pixel.paletteValue >> (pixel.colorIndex << 1)) & 0b11];
-			//drawingLog << "	pushed pixel at x:" << std::dec << m_xPosition << ", y: " << static_cast<int>(m_ly)<< "\n	pixel color: " << std::hex << color
-				//<< "\n	bgp value: " << static_cast<int>(m_bgp);
 			++m_xPosition;
 		}
-		else 
-		{
-			--m_pixelsToDiscard;
-			//drawingLog << "discarded a pixel";
-		}
-
+		else --m_pixelsToDiscard;
+		
 		m_pixelFifoBackground.pop_front();
 		if(!m_pixelFifoSprite.empty()) m_pixelFifoSprite.pop_front();
 	}
-	//else //drawingLog << "	sleeping";
 }
 
 bool PPU::shouldPushSpritePixel() const
@@ -339,6 +328,7 @@ void PPU::hBlankCycle()
 	if(m_cycleCounter == scanlineEndCycle)
 	{
 		++m_ly;
+		m_fetcher.checkWyLyCondition();
 		updateCoincidenceFlag(false);
 		updateMode(oamScan);
 		m_cycleCounter = 0;

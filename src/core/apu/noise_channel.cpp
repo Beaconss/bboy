@@ -28,7 +28,7 @@ void channels::NoiseChannel::pushCycle()
     
     setPushTimer();
     
-    uint8 result{static_cast<uint8>((m_lfsr & 1) == ((m_lfsr >> 1) & 1))};
+    const uint8 result{static_cast<uint8>((m_lfsr & 1) == ((m_lfsr >> 1) & 1))};
     m_lfsr = (m_lfsr & 0x7FFF) | (result << 15);
     if(constexpr uint8 shortModeBit{0x8}; m_frequencyAndRandomness & shortModeBit)
     {
@@ -104,7 +104,7 @@ void channels::NoiseChannel::setControl(const uint8 value)
 void channels::NoiseChannel::setPushTimer()
 {
     constexpr uint8 shiftBits{0xF0};
-    uint8 shift{static_cast<uint8>((m_frequencyAndRandomness & shiftBits) >> 4)};
+    const uint8 shift{static_cast<uint8>((m_frequencyAndRandomness & shiftBits) >> 4)};
     if(shift > 13)
     {
         m_pushTimer = 0;
@@ -113,7 +113,7 @@ void channels::NoiseChannel::setPushTimer()
 
     constexpr std::array<uint8, 8> dividerValues{8, 16, 32, 48, 64, 80, 96, 112};
     constexpr uint8 dividerBits{0x7};
-    uint8 divider{dividerValues[m_frequencyAndRandomness & dividerBits]};
+    const uint8 divider{dividerValues[m_frequencyAndRandomness & dividerBits]};
     
     m_pushTimer = divider << shift;
 }
