@@ -56,6 +56,7 @@ void PPU::reset()
 	m_scy = 0;
 	m_scx = 0;
 	m_ly = 0;
+	m_fetcher.checkWyLyCondition();
 	m_lyc = 0;
 	m_bgp = 0xFC;
 	m_obp0 = 0;

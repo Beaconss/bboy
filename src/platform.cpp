@@ -60,7 +60,7 @@ void Platform::mainLoop(Gameboy& gameboy)
 
         start = SDL_GetPerformanceCounter();
   
-        if(gameboy.hasCartridge()) gameboy.frame();
+        if(gameboy.hasRom()) gameboy.frame();
         updateScreen(gameboy.getPPU().getLcdBuffer());
         
         render();
@@ -78,7 +78,7 @@ void Platform::mainLoop(Gameboy& gameboy)
         if(std::chrono::duration<double, std::milli>(fpsEnd - fpsStart) > std::chrono::duration<double, std::milli>(700))
         {
             fpsStart = std::chrono::steady_clock::now();
-            SDL_SetWindowTitle(m_window, std::to_string(1000.f / frametime).c_str());
+            SDL_SetWindowTitle(m_window, std::string(gameboy.getRomName() + ' ' + std::to_string(1000.f / frametime)).c_str());
         }
     }
     

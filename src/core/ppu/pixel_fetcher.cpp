@@ -220,6 +220,7 @@ void PixelFetcher::checkWyLyCondition()
 
 void PixelFetcher::checkForWindow()
 {
+	if(m_ppu.m_wy == m_ppu.m_ly) m_wyLyCondition = true;
 	if((m_ppu.m_xPosition >= (m_ppu.m_wx - 7))
 		&& m_wyLyCondition
 		&& m_ppu.m_lcdc & 0b100000

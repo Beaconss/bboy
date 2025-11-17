@@ -20,7 +20,8 @@ public:
 	void openRom(const std::filesystem::path& filePath);
 	void hardReset();
 	void nextRom();
-	bool hasCartridge();
+	std::string getRomName();
+	bool hasRom();
 	uint16 currentCycle() const;
 
 	const PPU& getPPU() const;

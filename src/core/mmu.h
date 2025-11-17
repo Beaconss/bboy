@@ -1,7 +1,7 @@
 #pragma once
 #include "type_alias.h"
 #include "memory_regions.h"
-#include "core/cartridge_slot.h"
+#include "core/cartridge/cartridge_slot.h"
 #include "core/ppu/ppu.h"
 #include <vector>
 #include <filesystem>

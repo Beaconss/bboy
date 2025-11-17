@@ -61,7 +61,12 @@ void Gameboy::nextRom()
 	m_bus.nextCartridge();
 }
 
-bool Gameboy::hasCartridge()
+std::string Gameboy::getRomName()
+{
+	return m_bus.getCartridgeSlot().getCartridgeName();
+}
+
+bool Gameboy::hasRom()
 {
 	return m_bus.getCartridgeSlot().hasCartridge();
 }
