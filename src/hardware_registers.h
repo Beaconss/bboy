@@ -4,7 +4,10 @@
 
 namespace hardwareReg
 {
-constexpr uint16 P1 = 0xFF00; //joypad
+constexpr uint16 P1{0xFF00}; //joypad
+
+constexpr uint16 SB{0xFF01}; //serial transfer data
+constexpr uint16 SC{0xFF02}; //serial transfer control
 
 //timers registers
 constexpr uint16 DIV{0xFF04}; //divider register
@@ -56,7 +59,7 @@ constexpr std::array<uint16, 16> WAVE_RAM
 	0xFF3F,
 };
 
-//PPU registers
+//ppu registers
 constexpr uint16 LCDC{0xFF40}; //LCD control
 constexpr uint16 STAT{0xFF41}; //LDC status
 constexpr uint16 SCY{0xFF42}; //viewport y position
@@ -70,5 +73,26 @@ constexpr uint16 OBP1{0xFF49}; //OBJ palette 1 data
 constexpr uint16 WY{0xFF4A}; //window y position
 constexpr uint16 WX{0xFF4B}; //window x position plus 7
 
+constexpr uint16 BANK{0xFF50};
+
 constexpr uint16 IE{0xFFFF}; //interrupt enable
+
+//unimplemented
+constexpr uint16 KEY0{0xFF4C};
+constexpr uint16 KEY1{0xFF4D};
+constexpr uint16 VBK{0xFF4F};
+constexpr uint16 HDMA1{0xFF51};
+constexpr uint16 HDMA2{0xFF52};
+constexpr uint16 HDMA3{0xFF53};
+constexpr uint16 HDMA4{0xFF54};
+constexpr uint16 HDMA5{0xFF55};
+constexpr uint16 RP{0xFF56};
+constexpr uint16 BCPS{0xFF68};
+constexpr uint16 BCPD{0xFF69};
+constexpr uint16 OCPS{0xFF6A};
+constexpr uint16 OCPD{0xFF6B};
+constexpr uint16 OPRI{0xFF6C};
+constexpr uint16 SVBK{0xFF70};
+constexpr uint16 PCM12{0xFF76};
+constexpr uint16 PCM34{0xFF77}; 
 }

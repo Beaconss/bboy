@@ -4,7 +4,10 @@
 #include <fstream>
 
 CartridgeSlot::CartridgeSlot()
-	: m_cartridge{nullptr}
+	: m_cartridge{}
+	, m_cartridgePath{}
+	, m_cartridgeHasClock{}
+	, m_frameCounter{}
 {
 	reset();
 }
@@ -16,9 +19,10 @@ CartridgeSlot::~CartridgeSlot()
 
 void CartridgeSlot::reset()
 {
-	if(m_cartridge) m_cartridge->save();
+	if(m_cartridge) m_cartridge->save(m_cartridgePath);
 	delete m_cartridge;
 	m_cartridge = nullptr;
+	m_cartridgeHasClock = false;
 }
 
 void CartridgeSlot::loadCartridge(const std::filesystem::path& path)
@@ -43,7 +47,6 @@ void CartridgeSlot::loadCartridge(const std::filesystem::path& path)
 	rom.read(reinterpret_cast<char*>(&mbcValue), 1);
 	rom.close();
 		
-	std::cout << (int)mbcValue << '\n';
 	switch(mbcValue)
 	{
 	case 0x00:case 0x08:case 0x09: m_cartridge = new Cartridge(path); break;
@@ -57,29 +60,12 @@ void CartridgeSlot::loadCartridge(const std::filesystem::path& path)
 		//m_cartridgeInfo.mbc = MbcType::mbc2;
 		//m_cartridgeInfo.hasRam = true;
 		//m_cartridgeInfo.hasBattery = true;
-		break;
-	case 0x0f:
-		//m_cartridgeInfo.mbc = MbcType::mbc3;
-		//m_cartridgeInfo.hasClock = true;
-		break;
-	case 0x10:
-		//m_cartridgeInfo.mbc = MbcType::mbc3;
-		//m_cartridgeInfo.hasClock = true;
-		//m_cartridgeInfo.hasRam = true;
-		//m_cartridgeInfo.hasBattery = true;
-		break;
-	case 0x11:
-		//m_cartridgeInfo.mbc = MbcType::mbc3;
-		break;
-	case 0x12:
-		//m_cartridgeInfo.mbc = MbcType::mbc3;
-		//m_cartridgeInfo.hasRam = true;
-		break;
-	case 0x13:
-		//m_cartridgeInfo.mbc = MbcType::mbc3;
-		//m_cartridgeInfo.hasRam = true;
-		//m_cartridgeInfo.hasBattery = true;
 		break;*/
+	case 0x0f: m_cartridge = new CartridgeMbc3(path, false, false, true); m_cartridgeHasClock = true; break;
+	case 0x10: m_cartridge = new CartridgeMbc3(path, true, true, true); m_cartridgeHasClock = true; break;
+	case 0x11: m_cartridge = new CartridgeMbc3(path); break;
+	case 0x12: m_cartridge = new CartridgeMbc3(path, true); break;
+	case 0x13: m_cartridge = new CartridgeMbc3(path, true, true); break;
 	case 0x19: m_cartridge = new CartridgeMbc5(path); break;
 	case 0x1A: m_cartridge = new CartridgeMbc5(path, true); break;
 	case 0x1B: m_cartridge = new CartridgeMbc5(path, true, true); break;
@@ -87,21 +73,37 @@ void CartridgeSlot::loadCartridge(const std::filesystem::path& path)
 	case 0x1D: m_cartridge = new CartridgeMbc5(path, true, false, true); break;
 	case 0x1E: m_cartridge = new CartridgeMbc5(path, true, true, true); break;
 	}
+
+	m_cartridgePath = path;
+	m_cartridgeName = path.filename().stem();
 }
 
 void CartridgeSlot::reloadCartridge()
 {
-	loadCartridge(m_cartridge->getPath());
+	loadCartridge(m_cartridgePath);
 }
 
-std::string CartridgeSlot::getCartridgeName() const
+const std::string& CartridgeSlot::getCartridgeName() const
 {
-	return "";
+	return m_cartridgeName;
 }
 
 bool CartridgeSlot::hasCartridge() const
 {
 	return static_cast<bool>(m_cartridge);
+}
+
+void CartridgeSlot::clockFrame()
+{
+	if(m_cartridgeHasClock)
+	{
+		constexpr int oneSecondFrames{60}; //circa
+		if(++m_frameCounter == oneSecondFrames) 
+		{
+			m_frameCounter = 0;
+			dynamic_cast<CartridgeMbc3*>(m_cartridge)->rtcCycle();  
+		}
+	}
 }
 
 uint8 CartridgeSlot::readRom(const uint16 addr) const

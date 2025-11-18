@@ -54,6 +54,7 @@ void MMU::reset()
 	m_memory[hardwareReg::IF] = 0xE1;
 	m_memory[hardwareReg::IE] = 0xE0;
 	m_memory[hardwareReg::DMA] = 0xFF;
+	m_memory[hardwareReg::BANK] = 1;
 }
 
 void MMU::handleDmaTransfer()
@@ -149,6 +150,9 @@ uint8 MMU::read(const uint16 addr, const Component component) const
 	case WY: return m_gameboy.m_ppu->read(PPU::wy);
 	case WX: return m_gameboy.m_ppu->read(PPU::wx);
 	case IE: return m_memory[IE] | 0b1110'0000;
+	case BANK:case KEY0:case KEY1:case VBK:case HDMA1:case HDMA2:case HDMA3:case HDMA4: case HDMA5:
+	case RP:case BCPS:case BCPD:case OCPS:case OCPD:case OPRI: case SVBK: case PCM12:case PCM34:
+		return 0xFF;
 	default:
 	{
 		const bool addrInOam{addr >= oam.first && addr <= oam.second};
@@ -225,6 +229,9 @@ void MMU::write(const uint16 addr, const uint8 value, const Component component)
 	case WY: m_gameboy.m_ppu->write(PPU::wy, value); break;
 	case WX: m_gameboy.m_ppu->write(PPU::wx, value); break;
 	case IE: m_memory[IE] = value; break;
+	case BANK:case KEY0:case KEY1:case VBK:case HDMA1:case HDMA2:case HDMA3:case HDMA4: case HDMA5:
+	case RP:case BCPS:case BCPD:case OCPS:case OCPD:case OPRI: case SVBK: case PCM12:case PCM34:
+		return;
 	default: 
 	{
 		const bool addrInOam{addr >= oam.first && addr <= oam.second};

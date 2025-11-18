@@ -5,18 +5,17 @@
 #include <fstream>
 
 Cartridge::Cartridge(const std::filesystem::path& path, bool hasRam, bool hasBattery)
-	: m_path{std::filesystem::absolute(path)} 
-	, m_rom{}
+	: m_rom{}
     , m_ram{}
     , m_hasRam{hasRam}
     , m_hasBattery{hasBattery}
     , m_romBanks{}
     , m_ramBanks{}
     , m_externalRamEnabled{}
-    , m_romBankIndex{}
+    , m_romBankIndex{1}
     , m_ramBankIndex{}
 {
-    if(!loadRom()) return;
+    if(!loadRom(path)) return;
 
     int romBanks{2};
 	constexpr uint16 romSizeAddress{0x148};
@@ -49,14 +48,14 @@ Cartridge::Cartridge(const std::filesystem::path& path, bool hasRam, bool hasBat
 
 	if(ramSize != kb2) ramSize = kb8 * m_ramBanks;
 	m_ram.resize(ramSize);
-	loadSave();
+	loadSave(path);
 }
 
-void Cartridge::save()
+void Cartridge::save(const std::filesystem::path& path)
 {
 	if(!m_hasRam || !m_hasBattery) return;
 
-	std::filesystem::path save{m_path};
+	std::filesystem::path save{path};
 	std::ofstream saveFile(save.replace_extension(".sav"), std::ios::binary);
 	if(saveFile.fail()) 
 	{
@@ -66,11 +65,11 @@ void Cartridge::save()
 	saveFile.write(reinterpret_cast<const char*>(m_ram.data()), m_ram.size());
 }
 
-void Cartridge::loadSave()
+void Cartridge::loadSave(const std::filesystem::path& path)
 {
 	if(!m_hasRam || !m_hasBattery) return;
 
-	std::filesystem::path save{m_path};
+	std::filesystem::path save{path};
 	std::ifstream saveFile(save.replace_extension(".sav"), std::ios::binary);
 	if(saveFile.fail())	
 	{
@@ -78,11 +77,6 @@ void Cartridge::loadSave()
 		return;
 	}
 	saveFile.read(reinterpret_cast<char*>(m_ram.data()), m_ram.size());
-}
-
-const std::filesystem::path& Cartridge::getPath() const
-{
-	return m_path;
 }
 
 uint8 Cartridge::readRom(const uint16 addr)
@@ -105,9 +99,9 @@ void Cartridge::writeRam(const uint16 addr, const uint8 value)
     return;
 }
 
-bool Cartridge::loadRom()
+bool Cartridge::loadRom(const std::filesystem::path& path)
 {
-	std::ifstream rom(m_path, std::ios::binary | std::ios::ate);
+	std::ifstream rom(path, std::ios::binary | std::ios::ate);
 
 	if(rom.fail())
 	{
@@ -137,17 +131,8 @@ CartridgeMbc1::CartridgeMbc1(const std::filesystem::path& path, bool hasRam, boo
     constexpr uint16 kb32{0x8000};
 	m_romBankIndexMask = std::min(romSize / kb32, 0b1'0000u);
 	m_romBankIndexMask |= m_romBankIndexMask - 1; //fill every less significant bit
-	std::cout << (int)m_romBankIndexMask << '\n';
 
     if(m_ramSize != kb2) m_ramSize = m_ramBanks * kb8;
-
-	std::cout << "File name: " << path.filename() << '\n'
-		<< "Rom banks: " << m_romBanks << '\n'
-		<< "Rom size: " << romSize << '\n'
-		<< "Ram banks: " << m_ramBanks << '\n'
-		<< "Ram size: " << m_ramSize << '\n'
-		<< "Has ram: " << (m_hasRam ? "Yes\n" : "No\n")
-		<< "Has battery: " << (m_hasBattery ? "Yes\n\n" : "No\n\n");
 }
 
 uint8 CartridgeMbc1::readRom(const uint16 addr)
@@ -168,13 +153,12 @@ uint8 CartridgeMbc1::readRom(const uint16 addr)
 		if(m_romBanks <= 32) highBankIndex = m_romBankIndex & m_romBankIndexMask;
 		else if(m_romBanks == 64) highBankIndex = ((m_romBankIndex & m_romBankIndexMask) & ~0b10'0000) | ((m_ramBankIndex & 1) << 5);
 		else highBankIndex = ((m_romBankIndex & m_romBankIndexMask) & ~0b110'0000) | (m_ramBankIndex << 5);
-		return m_rom[kb16 * highBankIndex + (addr - 0x4000)];
+		return m_rom[kb16 * highBankIndex + (addr - MemoryRegions::romBank1.first)];
 	}
 }
 
 void CartridgeMbc1::writeRom(const uint16 addr, const uint8 value)
 {
-    constexpr uint16 enableRamEnd{0x1FFF};
     constexpr uint16 ramBankEnd{0x5FFF};
     if(addr <= enableRamEnd)
 	{
@@ -194,7 +178,6 @@ uint8 CartridgeMbc1::readRam(const uint16 addr)
 {
     if(!m_externalRamEnabled) return 0xFF;
 
-	throw std::exception();
     using namespace MemoryRegions;
     if(m_ramBanks == 1) return m_ram[(addr - externalRam.first) % m_ramSize];
 	else return m_ram[m_modeFlag ? kb8 * m_ramBankIndex + (addr - externalRam.first) : addr - externalRam.first];
@@ -204,30 +187,128 @@ void CartridgeMbc1::writeRam(const uint16 addr, const uint8 value)
 {
     if(!m_externalRamEnabled) return;
 
-	throw std::exception();
-   	constexpr unsigned int externalRamStart{0xA000};
-    if(m_ramBanks == 1) m_ram[(addr - externalRamStart) % m_ramSize] = value;
-	else m_ram[m_modeFlag ? kb8 * m_ramBankIndex + (addr - externalRamStart) : addr - externalRamStart] = value;
+	using namespace MemoryRegions;
+    if(m_ramBanks == 1) m_ram[(addr - externalRam.first) % m_ramSize] = value;
+	else m_ram[m_modeFlag ? kb8 * m_ramBankIndex + (addr - externalRam.first) : addr - externalRam.first] = value;
 }
 
 
+CartridgeMbc3::CartridgeMbc3(const std::filesystem::path& path, bool hasRam, bool hasBattery, bool hasRtc)
+	: Cartridge(path, hasRam, hasBattery)
+	, m_hasRtc{hasRtc}
+	, m_mappedRtcRegister{maxRtcRegister}
+	, m_rtcRegisters{}
+	, m_rtcRegistersCopy{0xFF, 0xFF, 0xFF, 0xFF, 0xFF}
+	, m_lastWriteZero{}
+{
+}
+
+void CartridgeMbc3::rtcCycle()
+{
+	if(constexpr uint8 timerHaltBit{0b0100'0000}; m_rtcRegisters[daysHigh] & timerHaltBit) return;
+
+	if(++m_rtcRegisters[seconds] == 60)
+	{
+		m_rtcRegisters[seconds] = 0;
+		if(++m_rtcRegisters[minutes] == 60)
+		{
+			m_rtcRegisters[minutes] = 0;
+			if(++m_rtcRegisters[hours] == 24)
+			{
+				m_rtcRegisters[hours] = 0;
+				if(++m_rtcRegisters[daysLow] == 0)
+				{
+					if(m_rtcRegisters[daysHigh] & 1) //so if there is an overflow exceeding 9 bits
+					{
+						m_rtcRegisters[daysHigh] &= ~1;
+						constexpr uint8 daysCarryBit{0x80};
+						m_rtcRegisters[daysHigh] |= daysCarryBit;
+					}
+					else m_rtcRegisters[daysHigh] |= 1;
+				}
+			}
+		}
+	}
+}
+
+uint8 CartridgeMbc3::readRom(const uint16 addr)
+{
+	using namespace MemoryRegions;
+	if(addr <= romBank0.second) return m_rom[addr];
+	else return m_rom[kb16 * m_romBankIndex + (addr - kb16)];
+}
+
+void CartridgeMbc3::writeRom(const uint16 addr, const uint8 value)
+{
+	constexpr uint16 ramBankRtcSelectEnd{0x5FFF};
+	constexpr uint16 rtcDataLatchEnd{0x7FFF};
+	if(addr <= enableRamEnd)
+	{
+		if(value & 0xF == 0xA && m_hasRam) m_externalRamEnabled = true;
+		else m_externalRamEnabled = false;
+	}
+	else if(addr <= MemoryRegions::romBank0.second)
+	{
+		if(value & 0x7F == 0) m_romBankIndex = 1; //rom bank index is 7 bits here
+		else m_romBankIndex = value & 0x7F;
+	}
+	else if(addr <= ramBankRtcSelectEnd)
+	{
+		if(value < 4)
+		{
+			m_ramBankIndex = value;
+			m_mappedRtcRegister = maxRtcRegister;
+		}
+		else if(m_hasRtc && value < maxRtcRegister) m_mappedRtcRegister = static_cast<RtcRegister>(value - rtcRegisterOffset);	
+	}
+	else //so rtc copy end
+	{
+		if(value == 0) m_lastWriteZero = true;
+		else
+		{
+			if(m_lastWriteZero && value == 1) m_rtcRegistersCopy = m_rtcRegisters;
+			m_lastWriteZero = false;
+		}		
+	}
+}
+
+uint8 CartridgeMbc3::readRam(const uint16 addr)
+{
+	if(m_mappedRtcRegister < maxRtcRegister) return m_rtcRegistersCopy[m_mappedRtcRegister] | ~rtcRegistersBitmasks[m_mappedRtcRegister];
+
+	if(!m_externalRamEnabled) return 0xFF;
+	return m_ram[kb8 * m_ramBankIndex + (addr - MemoryRegions::externalRam.first)];
+}
+ 
+void CartridgeMbc3::writeRam(const uint16 addr, const uint8 value)
+{
+	if(m_mappedRtcRegister < maxRtcRegister)
+	{
+		uint8 maskedValue{static_cast<uint8>(value & rtcRegistersBitmasks[m_mappedRtcRegister])};
+		m_rtcRegistersCopy[m_mappedRtcRegister] = maskedValue;
+		m_rtcRegisters[m_mappedRtcRegister] = maskedValue;
+		return;
+	}
+
+	if(!m_externalRamEnabled) return; 
+	m_ram[kb8 * m_ramBankIndex + (addr - MemoryRegions::externalRam.first)] = value;
+}
+
 CartridgeMbc5::CartridgeMbc5(const std::filesystem::path& path, bool hasRam, bool hasBattery, bool hasRumble)
-    : Cartridge(path)
+    : Cartridge(path, hasRam, hasBattery)
     , m_hasRumble{hasRumble}
 {
-    m_hasRam = hasRam;
-    m_hasBattery = hasBattery;
 }
 
 uint8 CartridgeMbc5::readRom(const uint16 addr)
 {
+	using namespace MemoryRegions;
     if(addr <= MemoryRegions::romBank0.second) return m_rom[addr];
-	else return m_rom[kb16 * m_romBankIndex + (addr - kb16)];
+	else return m_rom[romBank1.first * m_romBankIndex + (addr - romBank1.first)];
 }
 
 void CartridgeMbc5::writeRom(const uint16 addr, const uint8 value)
 {
-    constexpr uint16 enableRamEnd{0x1FFF};
     constexpr uint16 romBankLowEnd{0x2FFF};
     constexpr uint16 ramBankEnd{0x5FFF};
 	if(addr <= enableRamEnd)

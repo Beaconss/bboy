@@ -32,6 +32,7 @@ void Gameboy::frame()
 	static constexpr int mCyclePerFrame{17556};
 	for(;m_currentCycle <= mCyclePerFrame; ++m_currentCycle) mCycle();
 	m_currentCycle = 1;
+	m_bus.getCartridgeSlot().clockFrame();
 	m_apu.unlockThread();
 }
 
