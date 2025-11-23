@@ -2,27 +2,6 @@
 #include "core/gameboy.h"
 #include "hardware_registers.h"
 
-static std::vector<std::filesystem::path> fillCartridges()
-{
-	namespace fs = std::filesystem;
-	std::vector<fs::path> cartridges{};
-	try
-	{
-		for(const auto& entry : fs::recursive_directory_iterator(fs::current_path() / "../test/acceptance/ppu")) 
-		{
-			if(entry.path().extension() == ".gb") cartridges.emplace_back(entry);
-		}
-	}
-	catch(const fs::filesystem_error& ex)
-	{
-		std::cout << ex.what() << '\n'
-			<< ex.path1() << '\n';
-	}
-	return cartridges;
-}
-
-//std::vector<std::filesystem::path> cartridges{fillCartridges()};
-
 MMU::MMU(Gameboy& gb)
 	: m_gameboy{gb}
 	, m_memory{}
@@ -34,17 +13,13 @@ MMU::MMU(Gameboy& gb)
 	, m_dmaTransferEnableDelay{}
 {
 	reset();
-	//m_cartridgeSlot.loadCartridge("../roms/Super Mario Land 2 - 6 Golden Coins (USA, Europe) (Rev 2).gb");
-	//m_cartridgeSlot.loadCartridge("../test/acceptance/ppu/intr_2_mode0_timing_sprites.gb");
-	//m_cartridgeSlot.loadCartridge("../roms/Legend of Zelda, The - Link's Awakening (USA, Europe) (Rev 2).gb");
-	//m_cartridgeSlot.loadCartridge("../test/halt_bug.gb");
 }
 
 void MMU::reset()
 {
 	constexpr unsigned int kb64{0x10000};
-	m_memory.resize(kb64); //32 kbs are not used but its ok to have less overhead
-	std::fill(m_memory.begin(), m_memory.end(), 0xFF);
+	m_memory.resize(kb64);
+	std::fill(m_memory.begin(), m_memory.end(), 0);
 	m_cartridgeSlot.reset();
 	m_externalBusBlocked = false;
 	m_vramBusBlocked = false;
@@ -155,13 +130,13 @@ uint8 MMU::read(const uint16 addr, const Component component) const
 		return 0xFF;
 	default:
 	{
-		const bool addrInOam{addr >= oam.first && addr <= oam.second};
-		const bool addrInVram{addr >= vram.first && addr <= vram.second};
-		if(m_dmaTransferInProcess && component != Component::bus && (addrInOam || (m_vramBusBlocked && addrInVram) || (m_externalBusBlocked && isInExternalBus(addr))))	return 0xFF;
-
 		if(addr <= romBank1.second) return m_cartridgeSlot.readRom(addr);
 		else if(addr >= externalRam.first && addr <= externalRam.second) return m_cartridgeSlot.readRam(addr);
 		else if(addr >= echoRam.first && addr <= echoRam.second) return m_memory[addr - echoRamOffset];
+
+		const bool addrInOam{addr >= oam.first && addr <= oam.second};
+		const bool addrInVram{addr >= vram.first && addr <= vram.second};
+		if(m_dmaTransferInProcess && component != Component::bus && (addrInOam || (m_vramBusBlocked && addrInVram) || (m_externalBusBlocked && isInExternalBus(addr))))	return 0xFF;
 		
 		const PPU::Mode ppuMode{m_gameboy.m_ppu->getMode()};
 		if(component == Component::cpu && ((addrInOam && (ppuMode == PPU::oamScan || ppuMode == PPU::drawing)) || (addrInVram && ppuMode == PPU::drawing))) return 0xFF;
@@ -234,10 +209,6 @@ void MMU::write(const uint16 addr, const uint8 value, const Component component)
 		return;
 	default: 
 	{
-		const bool addrInOam{addr >= oam.first && addr <= oam.second};
-		const bool addrInVram{addr >= vram.first && addr <= vram.second};
-		if(m_dmaTransferInProcess && component != Component::bus && (addrInOam || (m_vramBusBlocked && addrInVram) || (m_externalBusBlocked && isInExternalBus(addr)))) return;
-
 		if(addr <= romBank1.second)
 		{
 			m_cartridgeSlot.writeRom(addr, value);
@@ -253,6 +224,10 @@ void MMU::write(const uint16 addr, const uint8 value, const Component component)
 			m_memory[addr - echoRamOffset] = value;
 			return;
 		}
+
+		const bool addrInOam{addr >= oam.first && addr <= oam.second};
+		const bool addrInVram{addr >= vram.first && addr <= vram.second};
+		if(m_dmaTransferInProcess && component != Component::bus && (addrInOam || (m_vramBusBlocked && addrInVram) || (m_externalBusBlocked && isInExternalBus(addr)))) return;
 
 		const PPU::Mode ppuMode{m_gameboy.m_ppu->getMode()};
 		if(component == Component::cpu && ((addrInOam && (ppuMode == PPU::oamScan || ppuMode == PPU::drawing)) || (addrInVram && ppuMode == PPU::drawing))) return;

@@ -213,11 +213,6 @@ void PixelFetcher::pushToBackgroundFifo()
 	++m_tileX;
 }
 
-void PixelFetcher::checkWyLyCondition()
-{
-	if(m_ppu.m_wy == m_ppu.m_ly) m_wyLyCondition = true;
-}
-
 void PixelFetcher::checkForWindow()
 {
 	if(m_ppu.m_wy == m_ppu.m_ly) m_wyLyCondition = true;

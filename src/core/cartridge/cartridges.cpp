@@ -69,14 +69,19 @@ void Cartridge::loadSave(const std::filesystem::path& path)
 {
 	if(!m_hasRam || !m_hasBattery) return;
 
-	std::filesystem::path save{path};
-	std::ifstream saveFile(save.replace_extension(".sav"), std::ios::binary);
-	if(saveFile.fail())	
+	std::filesystem::path savePath{path};
+	std::ifstream save(savePath.replace_extension(".sav"), std::ios::binary | std::ios::ate);
+	if(save.fail())	
 	{
 		std::cout << "No save file found or couldn't open it\n";
 		return;
 	}
-	saveFile.read(reinterpret_cast<char*>(m_ram.data()), m_ram.size());
+	
+	auto size{save.tellg()};
+	save.seekg(0);
+	m_ram.resize(size);
+	save.read(reinterpret_cast<char*>(m_ram.data()), size);
+	save.close();
 }
 
 uint8 Cartridge::readRom(const uint16 addr)
@@ -102,21 +107,17 @@ void Cartridge::writeRam(const uint16 addr, const uint8 value)
 bool Cartridge::loadRom(const std::filesystem::path& path)
 {
 	std::ifstream rom(path, std::ios::binary | std::ios::ate);
-
 	if(rom.fail())
 	{
 		std::cerr << "Failed to open file\n";
 		return false;
 	}
 
-	std::streamsize size{rom.tellg()};
-	std::unique_ptr<char[]> buffer{std::make_unique<char[]>(size)};
+	auto size{rom.tellg()};
 	rom.seekg(0);
-	rom.read(buffer.get(), size);
-	rom.close();
-
 	m_rom.resize(size);
-	memcpy(m_rom.data(), buffer.get(), size);
+	rom.read(reinterpret_cast<char*>(m_rom.data()), size);
+	rom.close();
 	return true;
 }
 
@@ -251,15 +252,17 @@ void CartridgeMbc3::writeRom(const uint16 addr, const uint8 value)
 	{
 		if(value & 0x7F == 0) m_romBankIndex = 1; //rom bank index is 7 bits here
 		else m_romBankIndex = value & 0x7F;
+		if(m_romBankIndex > m_romBanks) m_romBankIndex = m_romBanks;
 	}
 	else if(addr <= ramBankRtcSelectEnd)
 	{
-		if(value < 4)
+		if(value < 4) //because ram index is 2 bits
 		{
 			m_ramBankIndex = value;
 			m_mappedRtcRegister = maxRtcRegister;
 		}
-		else if(m_hasRtc && value < maxRtcRegister) m_mappedRtcRegister = static_cast<RtcRegister>(value - rtcRegisterOffset);	
+		else if(m_hasRtc && value > (rtcRegisterOffset - 1) 
+				&& value < (maxRtcRegister + rtcRegisterOffset)) m_mappedRtcRegister = static_cast<RtcRegister>(value - rtcRegisterOffset);	
 	}
 	else //so rtc copy end
 	{

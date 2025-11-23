@@ -4,15 +4,21 @@
 #include <vector>
 #include <array>
 #include <queue>
-
-constexpr int screenWidth{160};
-constexpr int screenHeight{144};
+#include <string_view>
 
 class MMU;
 class PPU
 {
 public:
-	PPU(MMU& bus);
+	enum class PaletteIndex
+	{
+		grey,
+		green,
+		blue,
+		max
+	};
+
+	PPU(MMU& bus, PaletteIndex palette = PaletteIndex::grey);
 
 	enum Index
 	{
@@ -50,6 +56,8 @@ public:
 		//other bits are cgb only
 	};
 
+	static PaletteIndex stringToPaletteIndex(std::string_view paletteString);
+
 	void reset();
 	void mCycle();
 
@@ -58,6 +66,9 @@ public:
 	
 	uint8 read(const Index index) const;
 	void write(const Index index, const uint8 value);
+
+	static constexpr int lcdWidth{160};
+	static constexpr int lcdHeight{144};
 private:
 	friend class PixelFetcher;
 
@@ -101,14 +112,15 @@ private:
 	void requestStatInterrupt() const;
 	void requestVBlankInterrupt() const;
 
-	static constexpr std::array<uint16, 4> colors //in rgb565
+	static constexpr std::array<std::array<uint16, 4>, static_cast<int>(PaletteIndex::max)> palettes //in rgb565
 	{
-		0xFFFF,
-		0xC618,
-		0x4208,
-		0x0,
+		{{0xFFFF, 0xC618, 0x4208, 0x0,},
+		 {0xdfb9, 0x8dee, 0x334a, 0x08c4},
+		 {0xFFFF, 0x8c5f, 0x0011, 0x0}}
 	};
 
+	static constexpr uint8 enableBit{0x80};
+	static constexpr int oamScanEndCycle{20};
 	static constexpr uint16 oamMemoryStart{0xFE00};
 	static constexpr int scanlineEndCycle{114};
 
@@ -116,13 +128,14 @@ private:
 	PixelFetcher m_fetcher;
 	StatInterrupt m_statInterrupt;
 	Mode m_mode;
-	
+	std::array<uint16, 4> m_palette;
+
 	uint8 m_cycleCounter;
 	bool m_vblankInterruptNextCycle;
 	bool m_reEnabling;
 	uint8 m_reEnableDelay;
 
-	std::array<uint16, screenWidth* screenHeight> m_lcdBuffer;
+	std::array<uint16, lcdWidth * lcdHeight> m_lcdBuffer;
 	uint8 m_xPosition; //x position of the pixel to output
 	uint8 m_pixelsToDiscard;
 

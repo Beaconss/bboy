@@ -20,7 +20,6 @@ private:
 	void resetEndScanline();
 	void cycle();
 	void updateTilemap();
-	void checkWyLyCondition();
 	void checkForWindow();
 	void checkForSprite();
 	void pushToBackgroundFifo();

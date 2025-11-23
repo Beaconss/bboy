@@ -1,13 +1,14 @@
-#include "ppu.h"
 #include "hardware_registers.h"
 #include "core/mmu.h"
 #include <algorithm>
+#include <iostream>
 
-PPU::PPU(MMU& mmu)
+PPU::PPU(MMU& mmu, PaletteIndex palette)
 	: m_bus{mmu}
 	, m_fetcher{*this}
 	, m_statInterrupt{}
 	, m_mode{}
+	, m_palette{palettes[static_cast<int>(palette)]}
 	, m_cycleCounter{}
 	, m_vblankInterruptNextCycle{}
 	, m_reEnabling{}
@@ -36,6 +37,18 @@ PPU::PPU(MMU& mmu)
 	reset();
 }
 
+PPU::PaletteIndex PPU::stringToPaletteIndex(std::string_view paletteString)
+{
+	constexpr std::array<std::string_view, static_cast<int>(PaletteIndex::max)> strings{"grey", "green", "blue"};
+	for(int i{}; i < strings.size(); ++i)
+	{
+		if(strings[i] == paletteString) return static_cast<PaletteIndex>(i);
+	}
+
+	std::cout << "Palette value not valid, fallback to default\n";
+	return PaletteIndex::grey;
+}
+
 void PPU::reset()
 {
 	m_fetcher.reset();
@@ -56,7 +69,6 @@ void PPU::reset()
 	m_scy = 0;
 	m_scx = 0;
 	m_ly = 0;
-	m_fetcher.checkWyLyCondition();
 	m_lyc = 0;
 	m_bgp = 0xFC;
 	m_obp0 = 0;
@@ -65,16 +77,12 @@ void PPU::reset()
 	m_wx = 0;
 }
 
-//static std::ofstream //drawingLog{"drawing_log.txt"};
-//static uint64_t tCycle{80};
-
 void PPU::mCycle()
 {
-	if(!(m_lcdc & 0x80)) return;
+	if(!(m_lcdc & enableBit)) return;
 
-	if(constexpr int lastVBlankScanline{153}; m_ly == lastVBlankScanline) m_ly = 0;
 	updateCoincidenceFlag();
-	m_stat = (m_stat & 0b11111100) | m_mode; //bits 1-0 of stat store the current mode
+	m_stat = (m_stat & 0b11111100) | m_mode; //bits 1-0 of stat store the current mode	
 	handleStatInterrupt();
 	if(m_vblankInterruptNextCycle)
 	{
@@ -143,13 +151,13 @@ void PPU::write(const Index index, const uint8 value)
 	switch(index)
 	{
 	case lcdc: 
-		if(constexpr int maxReEnableDelay{19}; !(m_lcdc & 0x80) && value & 0x80) 
+		if(constexpr int maxReEnableDelay{19}; !(m_lcdc & enableBit) && value & enableBit) 
 		{
 			m_reEnabling = true;
 			m_reEnableDelay = maxReEnableDelay;
 		}
 		m_lcdc = value; 
-		if(!(m_lcdc & 0x80))
+		if(!(m_lcdc & enableBit))
 		{
 			updateMode(hBlank);
 			m_stat = (m_stat & 0b1111'1100) | m_mode; //manually update stat mode bits because if the ppu is disabled they wont update
@@ -172,10 +180,7 @@ void PPU::write(const Index index, const uint8 value)
 		break;
 	case obp0: m_obp0 = value; break;
 	case obp1: m_obp1 = value; break;
-	case wy: 
-		m_wy = value; 
-		m_fetcher.checkWyLyCondition();
-		break;
+	case wy: m_wy = value; break;
 	case wx: m_wx = value; break;
 	}
 }
@@ -205,7 +210,6 @@ void PPU::updateMode(const Mode mode)
 	if(m_mode == drawing) 
 	{
 		m_pixelsToDiscard = m_scx & 7;
-		//drawingLog << "pixels to discard this scanline: " << m_pixelsToDiscard << '\n';
 		m_oldBgp = 0;
 	}
 	setStatModeSources();
@@ -265,7 +269,7 @@ void PPU::drawingCycle()
 		m_fetcher.cycle();
 		tryToPushPixel();
 		m_oldBgp = 0;
-		if(m_xPosition == screenWidth)
+		if(m_xPosition == lcdWidth)
 		{
 			m_xPosition = 0;
 			m_fetcher.resetEndScanline();
@@ -298,7 +302,7 @@ void PPU::tryToPushPixel()
 				pixel.paletteValue |= m_oldBgp;
 			}
 
-			m_lcdBuffer[m_xPosition + screenWidth * m_ly] = colors[(pixel.paletteValue >> (pixel.colorIndex << 1)) & 0b11];
+			m_lcdBuffer[m_xPosition + lcdWidth * m_ly] = m_palette[(pixel.paletteValue >> (pixel.colorIndex << 1)) & 0b11];
 			++m_xPosition;
 		}
 		else --m_pixelsToDiscard;
@@ -329,7 +333,6 @@ void PPU::hBlankCycle()
 	if(m_cycleCounter == scanlineEndCycle)
 	{
 		++m_ly;
-		m_fetcher.checkWyLyCondition();
 		updateCoincidenceFlag(false);
 		updateMode(oamScan);
 		m_cycleCounter = 0;
@@ -346,13 +349,15 @@ void PPU::hBlankCycle()
 
 void PPU::vBlankCycle()
 {
+	//at line 153 cycle 2 it goes to 0
+	if(m_ly == 153 && m_cycleCounter == 2) m_ly = 0;
 	if(m_cycleCounter == scanlineEndCycle)
 	{
 		++m_ly;
 		updateCoincidenceFlag(false);
 		m_cycleCounter = 0;
 	}
-	constexpr uint16 lastVBlankScanline{1}; //because at line 153 it goes back to 0 after 4 t-cycles
+	constexpr uint16 lastVBlankScanline{1}; //so it finish when going from 0 to 1
 	if(m_ly == lastVBlankScanline)
 	{
 		m_ly = 0;

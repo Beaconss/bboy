@@ -76,7 +76,7 @@ private:
     };
 
     static constexpr int rtcRegisterOffset{8};
-    static constexpr std::array<uint8, 5> rtcRegistersBitmasks //and bitmasks
+    static constexpr std::array<uint8, 5> rtcRegistersBitmasks //& bitmasks
     {
         0b0011'1111,
         0b0011'1111,

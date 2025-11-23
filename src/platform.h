@@ -16,7 +16,6 @@ public:
 
 private:
 	Platform();
-
 	Platform(const Platform&) = delete;
 	Platform& operator=(const Platform&) = delete;
 

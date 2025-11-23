@@ -3,7 +3,7 @@
 #include <SDL3/SDL_audio.h>
 #include <iostream>
 
-APU::APU(MMU& mmu)
+APU::APU(MMU& mmu, float volume)
 	: m_bus(mmu)
 	, m_audioThread{*this}
 	, m_audioStream{}
@@ -12,6 +12,7 @@ APU::APU(MMU& mmu)
 	, m_frameSequencerCounter{}
 	, m_frameSequencerStep{}
 	, m_nextCycleToExecute{}
+	, m_volume{volume}
 	, m_channel1{}
 	, m_channel2{}
 	, m_channel3{}
@@ -215,8 +216,11 @@ void APU::mCycle()
 					  (ch4Sample * ((m_audioPanning & ch4Left) >> 7)))  
 					  / 4.f};
 
-	rightSample *= .8f;
+	rightSample *= .8f; //multiply first by .8 to not break the audio(at least on my pc)
 	leftSample *= .8f;
+
+	rightSample *= m_volume;
+	leftSample *= m_volume;
 
 	constexpr auto volumeAdjuster{[]
 							{
@@ -256,7 +260,7 @@ void APU::pushAudio()
 {
 	constexpr int target{static_cast<int>(((mCyclesPerFrame * 59.7) / frequency) + 1)};
 	int samplesQueued{SDL_GetAudioStreamQueued(m_audioStream)};
-	int adjustedTarget{target + static_cast<int>(samplesQueued > 6000)}; //6k should be safe
+	int adjustedTarget{target + static_cast<int>(samplesQueued > 10000) };
 	int counter{};
 	for(size_t i{1}; i < mCyclesPerFrame; ++i)
 	{

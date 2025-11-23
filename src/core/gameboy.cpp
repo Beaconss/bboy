@@ -1,11 +1,12 @@
 #include "core/gameboy.h"
+#include "config.h"
 #include "hardware_registers.h"
 
 Gameboy::Gameboy()
 	: m_bus{*this}
 	, m_cpu{m_bus}
-	, m_ppu{std::make_unique<PPU>(m_bus)}
-	, m_apu{m_bus}
+	, m_ppu{std::make_unique<PPU>(m_bus, PPU::stringToPaletteIndex(Config::getInstance().getPalette()))}
+	, m_apu{m_bus, Config::getInstance().getVolume()}
 	, m_timers{m_bus}
 	, m_input{}
 	, m_currentCycle{}

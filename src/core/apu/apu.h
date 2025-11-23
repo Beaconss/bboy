@@ -13,7 +13,7 @@ struct SDL_AudioStream;
 class APU
 {
 public:
-	APU(MMU& bus);
+	APU(MMU& bus, float volume = 1.f);
 	~APU();
 
 	enum Index
@@ -69,6 +69,7 @@ private:
 	uint16 m_frameSequencerCounter;
 	uint8 m_frameSequencerStep;
 	uint16 m_nextCycleToExecute;
+	float m_volume;
 
 	channels::SweepPulseChannel m_channel1;
 	channels::PulseChannel m_channel2;

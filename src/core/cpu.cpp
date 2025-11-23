@@ -137,6 +137,7 @@ void CPU::interruptRoutine()
 void CPU::fetch()
 {
 	m_ir = m_bus.read(m_pc++, MMU::Component::cpu);
+	//std::cout << std::hex << (int)m_ir << '\n';
 	if(m_haltBug)
 	{
 		--m_pc;
@@ -1355,7 +1356,9 @@ void CPU::OR_r()
 
 	m_registers[a] |= m_registers[m_iState.x];
 
+	//std::cout << (int)m_registers[a] << '\n';
 	setFz(m_registers[a] == 0);
+	//std::cout << std::boolalpha << getFz() << '\n';
 	setFn(false);
 	setFh(false);
 	setFc(false);
