@@ -57,12 +57,6 @@ void Gameboy::hardReset()
 	m_bus.getCartridgeSlot().reloadCartridge();
 }
 
-void Gameboy::nextRom()
-{
-	reset();
-	m_bus.nextCartridge();
-}
-
 std::string Gameboy::getRomName()
 {
 	return m_bus.getCartridgeSlot().getCartridgeName();

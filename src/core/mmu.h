@@ -24,7 +24,6 @@ class MMU
 	void handleDmaTransfer();
 
 	CartridgeSlot& getCartridgeSlot(); 
-	void nextCartridge();
 	uint8 read(const uint16 addr, const Component component) const;
 	void write(const uint16 addr, const uint8 value, const Component component);
 	uint16 currentCycle() const;

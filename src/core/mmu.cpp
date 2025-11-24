@@ -67,12 +67,6 @@ CartridgeSlot& MMU::getCartridgeSlot()
 	return m_cartridgeSlot;
 }
 
-void MMU::nextCartridge()
-{
-	static int next{};
-	//m_cartridgeSlot.loadCartridge(cartridges[next++]);
-}
-
 uint8 MMU::read(const uint16 addr, const Component component) const
 {
 	using namespace MemoryRegions;

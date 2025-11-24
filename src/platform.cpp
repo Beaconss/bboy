@@ -53,7 +53,6 @@ void Platform::mainLoop(Gameboy& gameboy)
                 break;
             case SDL_EVENT_KEY_DOWN:
                 if(m_event.key.scancode == SDL_SCANCODE_SPACE) fpsLimit = !fpsLimit;
-                else if(m_event.key.scancode == SDL_SCANCODE_N) gameboy.nextRom();
                 else if(m_event.key.scancode == SDL_SCANCODE_BACKSPACE) gameboy.hardReset();
             }
         }
