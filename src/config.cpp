@@ -54,7 +54,16 @@ Config::Config()
         else if(c == '=') tokenFound = true;
     }
 
-    m_volume = std::stof(volume);
+    try
+    {
+        m_volume = std::stof(volume);
+    }
+    catch(const std::invalid_argument& e)
+    {
+        std::cerr << "volume not valid, fallback to default" << '\n';
+        m_volume = 0.8f;
+    }
+    
     if(m_volume > 1.f) m_volume = 1.f;
 }
 
