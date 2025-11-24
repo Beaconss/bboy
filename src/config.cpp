@@ -55,6 +55,7 @@ Config::Config()
     }
 
     m_volume = std::stof(volume);
+    if(m_volume > 1.f) m_volume = 1.f;
 }
 
 float Config::getVolume() const
