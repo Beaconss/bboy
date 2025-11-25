@@ -13,7 +13,7 @@ Platform::Platform()
 {
     if(!SDL_InitSubSystem(SDL_INIT_VIDEO | SDL_INIT_AUDIO)) std::cerr << "SDL failed to initialize " << SDL_GetError() << '\n';
     
-    m_window = SDL_CreateWindow("std-boy", PPU::lcdWidth * 5, PPU::lcdHeight * 5, SDL_WINDOW_RESIZABLE | SDL_WINDOW_OPENGL);
+    m_window = SDL_CreateWindow("", PPU::lcdWidth * 5, PPU::lcdHeight * 5, SDL_WINDOW_RESIZABLE | SDL_WINDOW_OPENGL);
     if(!m_window) std::cerr << "SDL window failed to initialize " << SDL_GetError() << '\n';
     
     m_renderer = SDL_CreateRenderer(m_window, "opengl");
