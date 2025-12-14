@@ -1,11 +1,11 @@
 #include "core/gameboy.h"
 #include "config.h"
-#include "hardware_registers.h"
+#include "platform.h"
 
 Gameboy::Gameboy()
 	: m_bus{*this}
 	, m_cpu{m_bus}
-	, m_ppu{std::make_unique<PPU>(m_bus, PPU::stringToPaletteIndex(Config::getInstance().getPalette()))}
+	, m_ppu{m_bus, Platform::getInstance().getLcdTexturePtr(), PPU::stringToPaletteIndex(Config::getInstance().getPalette())}
 	, m_apu{m_bus, Config::getInstance().getVolume()}
 	, m_timers{m_bus}
 	, m_input{}
@@ -17,7 +17,7 @@ void Gameboy::reset()
 {
 	m_bus.reset();
 	m_cpu.reset();
-	m_ppu->reset();
+	m_ppu.reset();
 	m_apu.reset();
 	m_timers.reset();
 	m_currentCycle = 1;
@@ -42,7 +42,7 @@ void Gameboy::mCycle()
 	m_cpu.mCycle(); 
 	m_bus.handleDmaTransfer();
 	m_timers.mCycle();
-	m_ppu->mCycle();
+	m_ppu.mCycle();
 }
 
 void Gameboy::openRom(const std::filesystem::path& filePath)
@@ -70,9 +70,4 @@ bool Gameboy::hasRom()
 uint16 Gameboy::currentCycle() const
 {
 	return m_currentCycle;
-}
-
-const PPU& Gameboy::getPPU() const
-{
-	return *m_ppu;
 }

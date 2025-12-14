@@ -106,18 +106,18 @@ uint8 MMU::read(const uint16 addr, const Component component) const
 	case WAVE_RAM[8]:case WAVE_RAM[9]:case WAVE_RAM[10]:case WAVE_RAM[11]:
 	case WAVE_RAM[12]:case WAVE_RAM[13]:case WAVE_RAM[14]:case WAVE_RAM[15]:
 		return m_gameboy.m_apu.read(APU::waveRam, addr & 0xF);
-	case LCDC: return m_gameboy.m_ppu->read(PPU::lcdc);
-	case STAT: return m_gameboy.m_ppu->read(PPU::stat);
-	case SCY: return m_gameboy.m_ppu->read(PPU::scy);
-	case SCX: return m_gameboy.m_ppu->read(PPU::scx);
-	case LY: return m_gameboy.m_ppu->read(PPU::ly);
-	case LYC: return m_gameboy.m_ppu->read(PPU::lyc);
+	case LCDC: return m_gameboy.m_ppu.read(PPU::lcdc);
+	case STAT: return m_gameboy.m_ppu.read(PPU::stat);
+	case SCY: return m_gameboy.m_ppu.read(PPU::scy);
+	case SCX: return m_gameboy.m_ppu.read(PPU::scx);
+	case LY: return m_gameboy.m_ppu.read(PPU::ly);
+	case LYC: return m_gameboy.m_ppu.read(PPU::lyc);
 	case DMA: return m_memory[DMA];
-	case BGP: return m_gameboy.m_ppu->read(PPU::bgp);
-	case OBP0: return m_gameboy.m_ppu->read(PPU::obp0);
-	case OBP1: return m_gameboy.m_ppu->read(PPU::obp1);
-	case WY: return m_gameboy.m_ppu->read(PPU::wy);
-	case WX: return m_gameboy.m_ppu->read(PPU::wx);
+	case BGP: return m_gameboy.m_ppu.read(PPU::bgp);
+	case OBP0: return m_gameboy.m_ppu.read(PPU::obp0);
+	case OBP1: return m_gameboy.m_ppu.read(PPU::obp1);
+	case WY: return m_gameboy.m_ppu.read(PPU::wy);
+	case WX: return m_gameboy.m_ppu.read(PPU::wx);
 	case IE: return m_memory[IE] | 0b1110'0000;
 	case BANK:case KEY0:case KEY1:case VBK:case HDMA1:case HDMA2:case HDMA3:case HDMA4: case HDMA5:
 	case RP:case BCPS:case BCPD:case OCPS:case OCPD:case OPRI: case SVBK: case PCM12:case PCM34:
@@ -132,7 +132,7 @@ uint8 MMU::read(const uint16 addr, const Component component) const
 		const bool addrInVram{addr >= vram.first && addr <= vram.second};
 		if(m_dmaTransferInProcess && component != Component::bus && (addrInOam || (m_vramBusBlocked && addrInVram) || (m_externalBusBlocked && isInExternalBus(addr))))	return 0xFF;
 		
-		const PPU::Mode ppuMode{m_gameboy.m_ppu->getMode()};
+		const PPU::Mode ppuMode{m_gameboy.m_ppu.getMode()};
 		if(component == Component::cpu && ((addrInOam && (ppuMode == PPU::oamScan || ppuMode == PPU::drawing)) || (addrInVram && ppuMode == PPU::drawing))) return 0xFF;
 
 		return m_memory[addr];
@@ -179,12 +179,12 @@ void MMU::write(const uint16 addr, const uint8 value, const Component component)
 	case WAVE_RAM[12]:case WAVE_RAM[13]:case WAVE_RAM[14]:case WAVE_RAM[15]:
 		m_gameboy.m_apu.write(APU::waveRam, value, addr & 0xF);
 		break;
-	case LCDC: m_gameboy.m_ppu->write(PPU::lcdc, value); break;
-	case STAT: m_gameboy.m_ppu->write(PPU::stat, value); break;
-	case SCY: m_gameboy.m_ppu->write(PPU::scy, value); break;
-	case SCX: m_gameboy.m_ppu->write(PPU::scx, value); break;
-	case LY: m_gameboy.m_ppu->write(PPU::ly, value); break;
-	case LYC: m_gameboy.m_ppu->write(PPU::lyc, value); break;
+	case LCDC: m_gameboy.m_ppu.write(PPU::lcdc, value); break;
+	case STAT: m_gameboy.m_ppu.write(PPU::stat, value); break;
+	case SCY: m_gameboy.m_ppu.write(PPU::scy, value); break;
+	case SCX: m_gameboy.m_ppu.write(PPU::scx, value); break;
+	case LY: m_gameboy.m_ppu.write(PPU::ly, value); break;
+	case LYC: m_gameboy.m_ppu.write(PPU::lyc, value); break;
 	case DMA:
 	{
 		m_memory[DMA] = value;
@@ -192,11 +192,11 @@ void MMU::write(const uint16 addr, const uint8 value, const Component component)
 		m_dmaTransferEnableDelay = dmaTransferEnableDelay;
 	}
 	break;
-	case BGP: m_gameboy.m_ppu->write(PPU::bgp, value); break;
-	case OBP0: m_gameboy.m_ppu->write(PPU::obp0, value); break;
-	case OBP1: m_gameboy.m_ppu->write(PPU::obp1, value); break;
-	case WY: m_gameboy.m_ppu->write(PPU::wy, value); break;
-	case WX: m_gameboy.m_ppu->write(PPU::wx, value); break;
+	case BGP: m_gameboy.m_ppu.write(PPU::bgp, value); break;
+	case OBP0: m_gameboy.m_ppu.write(PPU::obp0, value); break;
+	case OBP1: m_gameboy.m_ppu.write(PPU::obp1, value); break;
+	case WY: m_gameboy.m_ppu.write(PPU::wy, value); break;
+	case WX: m_gameboy.m_ppu.write(PPU::wx, value); break;
 	case IE: m_memory[IE] = value; break;
 	case BANK:case KEY0:case KEY1:case VBK:case HDMA1:case HDMA2:case HDMA3:case HDMA4: case HDMA5:
 	case RP:case BCPS:case BCPD:case OCPS:case OCPD:case OPRI: case SVBK: case PCM12:case PCM34:
@@ -223,7 +223,7 @@ void MMU::write(const uint16 addr, const uint8 value, const Component component)
 		const bool addrInVram{addr >= vram.first && addr <= vram.second};
 		if(m_dmaTransferInProcess && component != Component::bus && (addrInOam || (m_vramBusBlocked && addrInVram) || (m_externalBusBlocked && isInExternalBus(addr)))) return;
 
-		const PPU::Mode ppuMode{m_gameboy.m_ppu->getMode()};
+		const PPU::Mode ppuMode{m_gameboy.m_ppu.getMode()};
 		if(component == Component::cpu && ((addrInOam && (ppuMode == PPU::oamScan || ppuMode == PPU::drawing)) || (addrInVram && ppuMode == PPU::drawing))) return;
 
 		m_memory[addr] = value;

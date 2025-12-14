@@ -18,7 +18,7 @@ public:
 		max
 	};
 
-	PPU(MMU& bus, PaletteIndex palette = PaletteIndex::grey);
+	PPU(MMU& bus,  uint16* lcdTexturePtr, PaletteIndex palette = PaletteIndex::grey);
 
 	enum Index
 	{
@@ -62,7 +62,6 @@ public:
 	void mCycle();
 
 	PPU::Mode getMode() const;
-	const uint16* getLcdBuffer() const;
 	
 	uint8 read(const Index index) const;
 	void write(const Index index, const uint8 value);
@@ -135,7 +134,7 @@ private:
 	bool m_reEnabling;
 	uint8 m_reEnableDelay;
 
-	std::array<uint16, lcdWidth * lcdHeight> m_lcdBuffer;
+	uint16* m_lcdBuffer;
 	uint8 m_xPosition; //x position of the pixel to output
 	uint8 m_pixelsToDiscard;
 

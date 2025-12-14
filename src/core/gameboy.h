@@ -23,14 +23,13 @@ public:
 	bool hasRom();
 	uint16 currentCycle() const;
 
-	const PPU& getPPU() const;
 private:
 	friend class MMU;
 	void mCycle();
 
 	MMU m_bus;
 	CPU m_cpu;
-	std::unique_ptr<PPU> m_ppu;
+	PPU m_ppu;
 	APU m_apu;
 
 	Timers m_timers;

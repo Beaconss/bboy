@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <iostream>
 
-PPU::PPU(MMU& mmu, PaletteIndex palette)
+PPU::PPU(MMU& mmu, uint16* lcdTexturePtr, PaletteIndex palette)
 	: m_bus{mmu}
 	, m_fetcher{*this}
 	, m_statInterrupt{}
@@ -13,7 +13,7 @@ PPU::PPU(MMU& mmu, PaletteIndex palette)
 	, m_vblankInterruptNextCycle{}
 	, m_reEnabling{}
 	, m_reEnableDelay{}
-	, m_lcdBuffer{}
+	, m_lcdBuffer{lcdTexturePtr}
 	, m_xPosition{}
 	, m_pixelsToDiscard{}
 	, m_spriteBuffer{}
@@ -58,7 +58,7 @@ void PPU::reset()
 	m_vblankInterruptNextCycle = false;
 	m_reEnabling = false;
 	m_reEnableDelay = 0;
-	std::fill(m_lcdBuffer.begin(), m_lcdBuffer.end(), 0);
+	for(int i{}; i < lcdWidth * lcdHeight; ++i) m_lcdBuffer[i] = 0;
 	m_xPosition = 0;
 	m_pixelsToDiscard = 0;
 	m_spriteBuffer.clear();
@@ -120,11 +120,6 @@ PPU::Mode PPU::getMode() const
 {
 	if((m_mode == drawing || m_mode == oamScan) && !m_reEnabling) return m_mode;
 	else return static_cast<Mode>(m_stat & 0b11);
-}
-
-const uint16* PPU::getLcdBuffer() const
-{
-	return m_lcdBuffer.data();
 }
 
 uint8 PPU::read(const Index index) const
