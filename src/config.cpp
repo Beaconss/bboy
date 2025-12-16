@@ -1,78 +1,73 @@
 #include "config.h"
-#include <iostream>
-#include <fstream>
 #include <filesystem>
-#include <memory>
+#include <fstream>
+#include <iostream>
 
-static const std::string defaultConfig
-{
-    "volume=" + std::to_string(0.8f) +
-    "\npalette=green" 
-};
+static const std::string defaultConfig{"volume=" + std::to_string(0.8f) + "\npalette=green"};
 
 Config::Config()
-    : m_volume{}
-    , m_palette{}
+  : m_volume{}
+  , m_palette{}
 {
-    namespace fs = std::filesystem;
-    if(!fs::exists(fileName))
-    {
-        std::ofstream configOut(fileName);
-        configOut << defaultConfig;
-    }
+  namespace fs = std::filesystem;
+  if(!fs::exists(fileName))
+  {
+    std::ofstream configOut(fileName);
+    configOut << defaultConfig;
+  }
 
-    std::ifstream configFile(fileName, std::ios::ate);
-    if(configFile.fail())
-    {
-        std::cerr << "couldn't open config file\n";
-        return;
-    }
+  std::ifstream configFile(fileName, std::ios::ate);
+  if(configFile.fail())
+  {
+    std::cerr << "couldn't open config file\n";
+    return;
+  }
 
-    auto size{configFile.tellg()};
-    configFile.seekg(0);    
-    std::string config;
-    config.resize(size);
-    configFile.read(config.data(), size);
-    configFile.close();
+  auto size{configFile.tellg()};
+  configFile.seekg(0);
+  std::string config;
+  config.resize(size);
+  configFile.read(config.data(), size);
+  configFile.close();
 
-    std::string volume{};
-    int tokenParsed{};
-    bool tokenFound{};
-    for(auto c : config)
+  std::string volume{};
+  int tokenParsed{};
+  bool tokenFound{};
+  for(auto c : config)
+  {
+    if(tokenFound)
     {
-        if(tokenFound)
-        {
-            if(c == '\n' || c == ' ')
-            {
-                ++tokenParsed;
-                tokenFound = false;
-                continue;
-            }
-            if(tokenParsed == 0) volume.push_back(c);
-            else if(tokenParsed == 1) m_palette.push_back(c);
-        }
-        else if(c == '=') tokenFound = true;
+      if(c == '\n' || c == ' ')
+      {
+        ++tokenParsed;
+        tokenFound = false;
+        continue;
+      }
+      if(tokenParsed == 0) volume.push_back(c);
+      else if(tokenParsed == 1) m_palette.push_back(c);
     }
+    else if(c == '=') tokenFound = true;
+  }
 
-    try
-    {
-        m_volume = std::stof(volume);
-    }
-    catch(const std::invalid_argument& e)
-    {
-        std::cerr << "volume not valid, fallback to default" << '\n';
-        m_volume = 0.8f;
-    }
-    
-    if(m_volume > 1.f) m_volume = 1.f;
+  try
+  {
+    m_volume = std::stof(volume);
+  }
+  catch(const std::invalid_argument& e)
+  {
+    std::cerr << "volume not valid, fallback to default" << '\n';
+    m_volume = 0.8f;
+  }
+
+  if(m_volume > 1.f) m_volume = 1.f;
 }
 
 float Config::getVolume() const
 {
-    return m_volume;
+  return m_volume;
 }
 
 std::string_view Config::getPalette() const
 {
-    return m_palette;
+  return m_palette;
 }

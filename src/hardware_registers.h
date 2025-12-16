@@ -10,10 +10,10 @@ constexpr uint16 SB{0xFF01}; //serial transfer data
 constexpr uint16 SC{0xFF02}; //serial transfer control
 
 //timers registers
-constexpr uint16 DIV{0xFF04}; //divider register
+constexpr uint16 DIV{0xFF04};  //divider register
 constexpr uint16 TIMA{0xFF05}; //timer counter
-constexpr uint16 TMA{0xFF06}; //timer modulo
-constexpr uint16 TAC{0xFF07}; //timer control
+constexpr uint16 TMA{0xFF06};  //timer modulo
+constexpr uint16 TAC{0xFF07};  //timer control
 
 constexpr uint16 IF{0xFF0F}; //interrupt flag
 
@@ -39,39 +39,24 @@ constexpr uint16 CH4_CTRL{0xFF23};
 constexpr uint16 AU_VOL{0xFF24};
 constexpr uint16 AU_PAN{0xFF25};
 constexpr uint16 AU_CTRL{0xFF26};
-constexpr std::array<uint16, 16> WAVE_RAM
-{
-	0xFF30,
-	0xFF31,
-	0xFF32,
-	0xFF33,
-	0xFF34,
-	0xFF35,
-	0xFF36,
-	0xFF37,
-	0xFF38,
-	0xFF39,
-	0xFF3A,
-	0xFF3B,
-	0xFF3C,
-	0xFF3D,
-	0xFF3E,
-	0xFF3F,
+constexpr std::array<uint16, 16> WAVE_RAM{
+  0xFF30, 0xFF31, 0xFF32, 0xFF33, 0xFF34, 0xFF35, 0xFF36, 0xFF37,
+  0xFF38, 0xFF39, 0xFF3A, 0xFF3B, 0xFF3C, 0xFF3D, 0xFF3E, 0xFF3F,
 };
 
 //ppu registers
 constexpr uint16 LCDC{0xFF40}; //LCD control
 constexpr uint16 STAT{0xFF41}; //LDC status
-constexpr uint16 SCY{0xFF42}; //viewport y position
-constexpr uint16 SCX{0xFF43}; //viewport x position
-constexpr uint16 LY{0xFF44}; //LCD y coordinate (current scanline number)
-constexpr uint16 LYC{0xFF45}; //LY compare
-constexpr uint16 DMA{0xFF46}; //OAM DMA source address and start
-constexpr uint16 BGP{0xFF47}; //BG palette data
+constexpr uint16 SCY{0xFF42};  //viewport y position
+constexpr uint16 SCX{0xFF43};  //viewport x position
+constexpr uint16 LY{0xFF44};   //LCD y coordinate (current scanline number)
+constexpr uint16 LYC{0xFF45};  //LY compare
+constexpr uint16 DMA{0xFF46};  //OAM DMA source address and start
+constexpr uint16 BGP{0xFF47};  //BG palette data
 constexpr uint16 OBP0{0xFF48}; //OBJ palette 0 data
 constexpr uint16 OBP1{0xFF49}; //OBJ palette 1 data
-constexpr uint16 WY{0xFF4A}; //window y position
-constexpr uint16 WX{0xFF4B}; //window x position plus 7
+constexpr uint16 WY{0xFF4A};   //window y position
+constexpr uint16 WX{0xFF4B};   //window x position plus 7
 
 constexpr uint16 BANK{0xFF50};
 
@@ -94,5 +79,5 @@ constexpr uint16 OCPD{0xFF6B};
 constexpr uint16 OPRI{0xFF6C};
 constexpr uint16 SVBK{0xFF70};
 constexpr uint16 PCM12{0xFF76};
-constexpr uint16 PCM34{0xFF77}; 
-}
+constexpr uint16 PCM34{0xFF77};
+} //namespace hardwareReg

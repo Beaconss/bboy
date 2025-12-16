@@ -1,12 +1,11 @@
 #include "core/gameboy.h"
 #include "platform.h"
-#include "config.h"
 
 int main(int argc, char** argv)
 {
-	Platform& platform = Platform::getInstance();
-	Gameboy gameboy;
-	if(argc == 2) gameboy.openRom(argv[1]);
-	platform.mainLoop(gameboy);
-	return 0;
+  Platform& platform = Platform::getInstance();
+  Gameboy gameboy;
+  if(argc == 2) gameboy.openRom(argv[1]);
+  platform.mainLoop(gameboy);
+  return 0;
 }

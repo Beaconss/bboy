@@ -15,4 +15,4 @@ constexpr std::pair<uint16, uint16> oam{0xFE00, 0xFE9F};
 constexpr std::pair<uint16, uint16> notUsable{0xFEA0, 0xFEFF};
 constexpr std::pair<uint16, uint16> hardwareRegisters{0xFF00, 0xFF7F}; //single registers are in hardware_registers.h
 constexpr std::pair<uint16, uint16> highRam{0xFF80, 0xFFFE};
-}
+} //namespace MemoryRegions
