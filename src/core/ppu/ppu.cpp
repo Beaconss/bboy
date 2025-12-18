@@ -291,20 +291,19 @@ void PPU::tryToPushPixel()
 
       m_lcdBuffer[m_xPosition + lcdWidth * m_ly] = m_palette[(pixel.paletteValue >> (pixel.colorIndex << 1)) & 0b11];
       ++m_xPosition;
+      if(!m_pixelFifoSprite.empty()) m_pixelFifoSprite.pop_front();
     }
     else --m_pixelsToDiscard;
 
     m_pixelFifoBackground.pop_front();
-    if(!m_pixelFifoSprite.empty()) m_pixelFifoSprite.pop_front();
   }
 }
 
 bool PPU::shouldPushSpritePixel() const
 {
   constexpr uint8 spriteEnable{0b10};
-  return !m_pixelFifoSprite.empty() &&
-         (m_lcdc & spriteEnable && m_pixelFifoSprite.front().colorIndex != 0 &&
-         (!m_pixelFifoSprite.front().backgroundPriority || m_pixelFifoBackground.front().colorIndex == 0));
+  return !m_pixelFifoSprite.empty() && (m_lcdc & spriteEnable) && (m_pixelFifoSprite.front().colorIndex != 0) &&
+         (!m_pixelFifoSprite.front().backgroundPriority || m_pixelFifoBackground.front().colorIndex == 0);
 }
 
 void PPU::clearFifos()

@@ -6,7 +6,7 @@
 #include <string_view>
 #include <vector>
 
-//this is here because it needs to be forward declared(to avoid template magic)
+//this is here because it needs to be forward declared(to avoid template)
 struct Sprite
 {
   uint8 yPosition{0xFF}; //byte 0(0xFF is offscreen)

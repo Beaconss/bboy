@@ -3,12 +3,11 @@
 #include <fstream>
 #include <iostream>
 
-static const std::string defaultConfig{"volume=" + std::to_string(0.8f) + "\npalette=green"};
-
 Config::Config()
   : m_volume{}
   , m_palette{}
 {
+  const std::string defaultConfig{"volume=" + std::to_string(0.8f) + "\npalette=green"};
   namespace fs = std::filesystem;
   if(!fs::exists(fileName))
   {
