@@ -28,6 +28,7 @@ APU::APU(MMU& mmu, float volume)
 
 APU::~APU()
 {
+  m_audioThread.shutdown();
   SDL_DestroyAudioStream(m_audioStream);
 }
 

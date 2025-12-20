@@ -4,8 +4,11 @@
 int main(int argc, char** argv)
 {
   Platform& platform = Platform::getInstance();
-  Gameboy gameboy;
-  if(argc == 2) gameboy.openRom(argv[1]);
-  platform.mainLoop(gameboy);
+  {
+    Gameboy gameboy;
+    if(argc == 2) gameboy.openRom(argv[1]);
+    platform.mainLoop(gameboy);
+  }
+  SDL_Quit();
   return 0;
 }

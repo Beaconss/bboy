@@ -11,13 +11,15 @@ public:
 
   void unlock();
   void waitToFinish();
+  void shutdown();
 
 private:
   void threadLoop();
 
   APU& m_apu;
-  std::jthread m_thread;
+  std::thread m_thread;
   std::mutex m_mutex;
   std::condition_variable m_condition;
-  bool m_executing;
+  std::atomic<bool> m_executing;
+  bool m_shutdown;
 };

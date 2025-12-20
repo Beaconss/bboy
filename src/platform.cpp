@@ -58,6 +58,7 @@ void Platform::mainLoop(Gameboy& gameboy)
       case SDL_EVENT_KEY_DOWN:
         if(m_event.key.scancode == SDL_SCANCODE_SPACE) fpsLimit = !fpsLimit;
         else if(m_event.key.scancode == SDL_SCANCODE_BACKSPACE) gameboy.hardReset();
+        break;
       }
     }
 
@@ -88,7 +89,6 @@ void Platform::mainLoop(Gameboy& gameboy)
   SDL_DestroyTexture(m_lcdTexture);
   SDL_DestroyRenderer(m_renderer);
   SDL_DestroyWindow(m_window);
-  SDL_Quit();
 }
 
 void Platform::render() const
