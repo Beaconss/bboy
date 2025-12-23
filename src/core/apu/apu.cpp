@@ -1,6 +1,7 @@
 #include "core/apu/apu.h"
 #include "core/mmu.h"
 #include <SDL3/SDL_audio.h>
+#include <iostream>
 
 APU::APU(MMU& mmu, float volume)
   : m_bus(mmu)
@@ -252,9 +253,9 @@ void APU::finishFrame()
 
 void APU::pushAudio()
 {
-  constexpr int target{static_cast<int>(((mCyclesPerFrame * 59.7) / frequency) + 1)};
+  constexpr int target{static_cast<int>(((mCyclesPerFrame * 59.7) / frequency))};
   int samplesQueued{SDL_GetAudioStreamQueued(m_audioStream)};
-  int adjustedTarget{target + static_cast<int>(samplesQueued > 10000)};
+  int adjustedTarget{target + static_cast<int>(samplesQueued > frequency / 4)};
   int counter{};
   for(size_t i{1}; i < mCyclesPerFrame; ++i)
   {
@@ -266,6 +267,7 @@ void APU::pushAudio()
     counter += 2;
   }
 
+  std::cout << samplesQueued << '\n';
   if(samplesQueued > (frequency / 2)) SDL_ClearAudioStream(m_audioStream);
   SDL_PutAudioStreamData(m_audioStream, m_outSamples.data(), static_cast<int>(m_outSamples.size() * sizeof(float)));
 

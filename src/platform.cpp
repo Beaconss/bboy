@@ -39,13 +39,13 @@ uint16* Platform::getLcdTexturePtr() const
 
 void Platform::mainLoop(Gameboy& gameboy)
 {
-  constexpr float TARGET_FPS{59.7f};
-  constexpr float CAPPED_FRAME_TIME{1000.f / TARGET_FPS};
+  constexpr float targetFps{59.7f};
+  constexpr float targetFrametime{1000000000.f / targetFps};
 
   bool fpsLimit{true};
   uint64_t start{};
   uint64_t end{};
-  float frametime{CAPPED_FRAME_TIME};
+  float frametime{targetFrametime};
 
   auto fpsStart{std::chrono::steady_clock::now()};
   while(m_running)
@@ -71,17 +71,17 @@ void Platform::mainLoop(Gameboy& gameboy)
 
     if(fpsLimit)
     {
-      frametime = (end - start) / static_cast<float>(SDL_GetPerformanceFrequency()) * 1000.f;
-      if(frametime < CAPPED_FRAME_TIME) SDL_Delay(static_cast<uint32>(CAPPED_FRAME_TIME - frametime));
+      frametime = (end - start) / static_cast<float>(SDL_GetPerformanceFrequency()) * 1000000000.f;
+      if(frametime < targetFrametime) SDL_DelayPrecise(static_cast<uint64_t>(targetFrametime - frametime));
     }
     end = SDL_GetPerformanceCounter();
-    frametime = (end - start) / static_cast<float>(SDL_GetPerformanceFrequency()) * 1000.f;
+    frametime = (end - start) / static_cast<float>(SDL_GetPerformanceFrequency()) * 1000000000.f;
 
     auto fpsEnd{std::chrono::steady_clock::now()};
     if(std::chrono::duration<double, std::milli>(fpsEnd - fpsStart) > std::chrono::duration<double, std::milli>(700))
     {
       fpsStart = std::chrono::steady_clock::now();
-      SDL_SetWindowTitle(m_window, std::string(gameboy.getRomName() + ' ' + std::to_string(1000.f / frametime)).c_str());
+      SDL_SetWindowTitle(m_window, std::string(gameboy.getRomName() + ' ' + std::to_string(1000000000.f / frametime)).c_str());
     }
   }
 
