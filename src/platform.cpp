@@ -1,6 +1,7 @@
 #include "platform.h"
 #include "core/gameboy.h"
 #include <SDL3/SDL_opengl.h>
+#include <SDL3/SDL_timer.h>
 #include <iostream>
 
 Platform::Platform()
@@ -63,20 +64,18 @@ void Platform::mainLoop(Gameboy& gameboy)
     }
 
     start = SDL_GetPerformanceCounter();
-
-    //SDL_LockTexture(m_lcdTexture, nullptr, &m_lcdTexturePtr, &m_lcdTexturePitch);
     if(gameboy.hasRom()) gameboy.frame();
     SDL_UnlockTexture(m_lcdTexture);
     render();
-
     end = SDL_GetPerformanceCounter();
 
     if(fpsLimit)
     {
-      frametime = (SDL_GetPerformanceCounter() - start) / static_cast<float>(SDL_GetPerformanceFrequency()) * 1000.f;
+      frametime = (end - start) / static_cast<float>(SDL_GetPerformanceFrequency()) * 1000.f;
       if(frametime < CAPPED_FRAME_TIME) SDL_Delay(static_cast<uint32>(CAPPED_FRAME_TIME - frametime));
     }
-    frametime = (SDL_GetPerformanceCounter() - start) / static_cast<float>(SDL_GetPerformanceFrequency()) * 1000.f;
+    end = SDL_GetPerformanceCounter();
+    frametime = (end - start) / static_cast<float>(SDL_GetPerformanceFrequency()) * 1000.f;
 
     auto fpsEnd{std::chrono::steady_clock::now()};
     if(std::chrono::duration<double, std::milli>(fpsEnd - fpsStart) > std::chrono::duration<double, std::milli>(700))
