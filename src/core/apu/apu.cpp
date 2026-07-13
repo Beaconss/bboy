@@ -1,7 +1,7 @@
 #include "core/apu/apu.h"
 #include "core/mmu.h"
 #include <SDL3/SDL_audio.h>
-#include <iostream>
+//#include <iostream>
 
 APU::APU(MMU& mmu, float volume)
   : m_bus(mmu)
@@ -267,7 +267,7 @@ void APU::pushAudio()
     counter += 2;
   }
 
-  std::cout << samplesQueued << '\n';
+  //std::cout << samplesQueued << '\n';
   if(samplesQueued > (frequency / 2)) SDL_ClearAudioStream(m_audioStream);
   SDL_PutAudioStreamData(m_audioStream, m_outSamples.data(), static_cast<int>(m_outSamples.size() * sizeof(float)));
 

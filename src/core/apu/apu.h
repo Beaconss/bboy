@@ -11,7 +11,7 @@ struct SDL_AudioStream;
 class APU
 {
 public:
-  APU(MMU& bus, float volume = 1.f);
+  APU(MMU& bus, float volume = 0.3f);
   ~APU();
 
   enum Index
